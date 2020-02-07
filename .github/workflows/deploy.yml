@@ -6,43 +6,22 @@ on:
       - master
 
 jobs:
-  check-changes-in-app:
-    name: Check changes in app
+  check-changes:
+    name: Check changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
-      - name: Check changes in app
+      - name: Check changes
         uses: netlify/actions/diff-includes@master
         with:
-          args: packages/app
+          args: packages
 
-  check-changes-in-functions:
-    name: Check changes in functions
+  deploy:
+    name: Deploy
     runs-on: ubuntu-latest
+    needs: check-changes
     steps:
-      - uses: actions/checkout@master
-      - name: Check changes in functions
-        uses: netlify/actions/diff-includes@master
-        with:
-          args: packages/functions
-
-  deploy-app:
-    name: Deploy app
-    runs-on: ubuntu-latest
-    needs: check-changes-in-app
-    steps:
-      - name: Deploy app
-        uses: netlify/actions/build@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-
-  deploy-functions:
-    name: Deploy functions
-    runs-on: ubuntu-latest
-    needs: check-changes-in-functions
-    steps:
-      - name: Deploy functions
+      - name: Deploy
         uses: netlify/actions/build@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
