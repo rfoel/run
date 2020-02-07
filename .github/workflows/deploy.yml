@@ -24,5 +24,28 @@ jobs:
       - name: Deploy
         uses: netlify/actions/build@master
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: check-changes
+    steps:
+      - uses: actions/checkout@master
+      - name: Configure CI Git User
+        run: |
+          git remote set-url origin https://${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+          git checkout master
+          git config --global user.email rafaelfr@outlook.com
+          git config --global user.name Rafael Franco
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      - name: Install dependencies
+        run: yarn
+      - name: Release
+        run: |
+          GH_TOKEN=${GH_TOKEN}
+          yarn lerna version --yes
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}

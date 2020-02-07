@@ -2,6 +2,7 @@
   "name": "functions",
   "version": "0.0.0",
   "main": "index.js",
+  "private": true,
   "scripts": {
     "start": "netlify-lambda serve src",
     "build": "netlify-lambda build src",
@@ -23,8 +24,5 @@
     "rules": {
       "import/prefer-default-export": 0
     }
-  },
-  "dependencies": {
-    "eslint-config-1e3": "^0.1.5"
   }
 }
