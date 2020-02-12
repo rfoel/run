@@ -24,7 +24,5 @@ export default async () => {
       throw error
     })
 
-  console.log(JSON.stringify(runs))
-
   return runs.length
 }

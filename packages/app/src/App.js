@@ -13,4 +13,5 @@ const App = () => {
 
   return <div>I ran {count} days in a row</div>
 }
+
 export default App

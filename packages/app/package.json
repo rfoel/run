@@ -5,7 +5,8 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "postinstall": "yarn build"
+    "postinstall": "yarn build",
+    "lint": "eslint . --fix --ignore-path ../../.gitignore"
   },
   "dependencies": {
     "axios": "^0.19.2",
@@ -19,8 +20,8 @@
     "@testing-library/user-event": "^7.1.2",
     "babel-eslint": "^10.0.3",
     "eslint": "^6.8.0",
-    "eslint-config-1e3": "^0.1.8",
-    "eslint-config-1e3-react": "^0.1.8",
+    "eslint-config-1e3": "^0.1.22",
+    "eslint-config-1e3-react": "^0.1.22",
     "eslint-config-airbnb": "^18.0.1",
     "eslint-config-airbnb-base": "^14.0.0",
     "eslint-config-prettier": "^6.10.0",
@@ -30,9 +31,6 @@
     "eslint-plugin-react": "^7.18.3",
     "eslint-plugin-react-hooks": "^2.3.0",
     "prettier": "^1.19.1"
-  },
-  "eslintConfig": {
-    "extends": "1e3-react"
   },
   "browserslist": {
     "production": [

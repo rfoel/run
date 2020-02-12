@@ -6,7 +6,8 @@
   "scripts": {
     "start": "netlify-lambda serve src",
     "build": "netlify-lambda build src",
-    "postinstall": "yarn build"
+    "postinstall": "yarn build",
+    "lint": "eslint . --fix --ignore-path ../../.gitignore"
   },
   "dependencies": {
     "axios": "^0.19.2",
@@ -15,18 +16,13 @@
   "devDependencies": {
     "babel-eslint": "^10.0.3",
     "eslint": "^6.8.0",
-    "eslint-config-1e3": "^0.1.8",
+    "eslint-config-1e3": "^0.1.22",
     "eslint-config-airbnb-base": "^14.0.0",
     "eslint-config-prettier": "^6.10.0",
+    "eslint-config-quintoandar-base": "^1.0.1",
     "eslint-plugin-import": "^2.20.1",
     "eslint-plugin-prettier": "^3.1.2",
     "netlify-lambda": "^1.6.3",
     "prettier": "^1.19.1"
-  },
-  "eslintConfig": {
-    "extends": "1e3",
-    "rules": {
-      "import/prefer-default-export": 0
-    }
   }
 }
