@@ -69,3 +69,5 @@ yarn-error.log
 
 # production
 build
+# Local Netlify folder
+.netlify
