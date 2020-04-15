@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# 0.2.0 (2020-04-15)
+
+
+### Features
+
+* display runs insights ([8cc427f](https://github.com/rfoel/run/commit/8cc427f10c7e7ec78fe7b1b652ea2d60413d1794))
+
+
+
+
+
 # 0.1.0 (2020-02-27)
 
 
