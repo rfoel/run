@@ -1,1 +1,1 @@
-export const RUN_COUNT_PATH = '/.netlify/functions/runs'
+export const RUNS_PATH = '/.netlify/functions/runs'

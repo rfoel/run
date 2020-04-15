@@ -1,12 +1,26 @@
 {
   "private": true,
   "scripts": {
-    "lint": "eslint . --fix --ignore-path .gitignore"
+    "build": "lerna run build --parallel --stream",
+    "lint": "eslint . --fix --ignore-path .gitignore",
+    "start": "lerna run start --parallel --stream"
   },
   "devDependencies": {
+    "eslint": "^6.8.0",
+    "eslint-config-1e3": "^0.1.24",
+    "eslint-config-1e3-react": "^0.1.24",
+    "eslint-config-airbnb": "^18.1.0",
+    "eslint-config-airbnb-base": "^14.1.0",
+    "eslint-config-prettier": "^6.10.1",
+    "eslint-plugin-import": "^2.20.2",
+    "eslint-plugin-jsx-a11y": "^6.2.3",
+    "eslint-plugin-prettier": "^3.1.2",
+    "eslint-plugin-react": "^7.19.0",
+    "eslint-plugin-react-hooks": "^2.5.1",
+    "husky": "^4.2.1",
     "lerna": "^3.20.2",
     "lint-staged": "^10.0.7",
-    "husky": "^4.2.1"
+    "prettier": "^1.19.1"
   },
   "workspaces": [
     "packages/*"

@@ -1,44 +1,19 @@
-import React, { useEffect, useState } from 'react'
-import styled from '@xstyled/styled-components'
-import { Box, Heading, ThemeProvider } from '@1e3/ui'
+import React from 'react'
+import { ThemeProvider } from '@1e3/ui'
 
-import { getRunCount } from './utils'
-import { ReactComponent as Logo } from './logo.svg'
+import GlobalStyle from './components/GlobalStyle'
+import Layout from './components/Layout'
+import Home from './pages/Home'
 
-const LogoWrapper = styled.div`
-  color: white;
-  width: 200px;
-
-  svg {
-    width: 100%;
-    fill: currentColor;
-  }
-`
 const App = () => {
-  const [count, setCount] = useState(null)
-
-  useEffect(() => {
-    getRunCount().then(setCount)
-  }, [count])
+  const theme = { colors: { primary: '#000' } }
 
   return (
-    <ThemeProvider>
-      <Box
-        alignItems="center"
-        backgroundColor="primary.base"
-        display="flex"
-        justifyContent="center"
-        height="100vh"
-        width="100vw"
-      >
-        {count ? (
-          <Heading color="white">I ran {count} days in a row</Heading>
-        ) : (
-          <LogoWrapper>
-            <Logo />
-          </LogoWrapper>
-        )}
-      </Box>
+    <ThemeProvider theme={theme}>
+      <GlobalStyle />
+      <Layout>
+        <Home />
+      </Layout>
     </ThemeProvider>
   )
 }

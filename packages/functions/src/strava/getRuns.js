@@ -24,5 +24,5 @@ export default async () => {
       throw error
     })
 
-  return runs.length
+  return runs
 }
