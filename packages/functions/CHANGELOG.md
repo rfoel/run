@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 0.2.1 (2020-04-21)
+
+
+### Bug Fixes
+
+* use opacity on logo ([5eaf275](https://github.com/rfoel/run/commit/5eaf27574e5d37e1e50f62dc280755b03f883db4))
+
+
+
+
+
 # 0.2.0 (2020-04-15)
 
 
