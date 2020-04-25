@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 
-import axios from 'axios'
-import qs from 'qs'
+import fetch from 'node-fetch'
+import qs from 'querystring'
 
 const { STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, STRAVA_REFRESH_TOKEN } = process.env
 
@@ -17,9 +17,8 @@ export default async () => {
 
   const url = `${STRAVA_URL}?${params}`
 
-  const { access_token } = await axios
-    .post(url)
-    .then(response => response.data)
+  const { access_token } = await fetch(url, { method: 'post' })
+    .then(response => response.json())
     .catch(error => {
       throw error
     })

@@ -3,7 +3,7 @@ import styled from 'styled-components'
 
 import { ReactComponent as ExclamationTriangle } from '../images/exclamation-triangle.svg'
 
-const Loader = styled.div`
+const Error = styled.div`
   color: white;
   width: 200px;
 
@@ -13,7 +13,7 @@ const Loader = styled.div`
 `
 
 export default () => (
-  <Loader>
+  <Error>
     <ExclamationTriangle />
-  </Loader>
+  </Error>
 )
