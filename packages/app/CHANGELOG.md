@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 0.3.1 (2020-04-25)
+
+
+### Bug Fixes
+
+* add webhook validation ([2a70a39](https://github.com/rfoel/run/commit/2a70a398a77f3d018aa9a88d323d80b11bd388a4))
+
+
+
+
+
 # 0.3.0 (2020-04-25)
 
 
