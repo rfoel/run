@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# 0.3.0 (2020-04-25)
+
+
+### Features
+
+* add database, functions, and webhook ([44ee25a](https://github.com/rfoel/run/commit/44ee25ae7c1f4d2667cba74dbd9763630d373ec9))
+
+
+
+
+
 ## 0.2.2 (2020-04-21)
 
 
