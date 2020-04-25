@@ -13,15 +13,18 @@ export const handler = async event => {
         body: JSON.stringify({ 'hub.challenge': queryStringParameters['hub.challenge'] }),
       }
 
-    const { aspect_type, object_id } = JSON.parse(body)
+    const { aspect_type, object_id, object_type } = JSON.parse(body)
 
-    if (aspect_type === 'create') {
+    if (aspect_type === 'create' && object_type === 'activity') {
       const activity = await getActivityById(object_id)
+
+      if (activity.errors) throw activity
+
       const run = await addRun(activity)
 
       return {
         statusCode: 200,
-        body: JSON.stringify(run),
+        body: JSON.stringify({ message: `run ${run.id} successfully added` }),
       }
     }
 
