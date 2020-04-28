@@ -4,11 +4,18 @@ import { collection } from './models/run'
 export const handler = async () => {
   try {
     await connectDb()
-    const count = await collection.countDocuments()
+    const [{ distance }] = await collection.aggregate([
+      {
+        $group: {
+          _id: null,
+          distance: { $avg: '$distance' },
+        },
+      },
+    ])
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ count }),
+      body: JSON.stringify({ distance }),
     }
   } catch (err) {
     return {
