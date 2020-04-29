@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# 0.4.0 (2020-04-29)
+
+
+### Features
+
+* add average distance endpoint ([2429370](https://github.com/rfoel/run/commit/2429370e2d192180b09e156e64e4da84f231ecc6))
+
+
+
+
+
 ## 0.3.1 (2020-04-25)
 
 
