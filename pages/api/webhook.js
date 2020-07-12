@@ -2,6 +2,7 @@ import getActivityById from '../../utils/strava/getActivityById'
 import addRun from '../../utils/addRun'
 
 export default async function webhook(req, res) {
+  console.log(JSON.stringify(req))
   try {
     const { body, query } = req
 
