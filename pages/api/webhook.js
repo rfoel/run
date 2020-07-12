@@ -3,12 +3,12 @@ import addRun from '../../utils/addRun'
 
 export default async function webhook(req, res) {
   try {
-    const { body, queryStringParameters } = req
+    const { body, query } = req
 
-    if (queryStringParameters['hub.mode'] === 'subscribe') {
+    if (query['hub.mode'] === 'subscribe') {
       res.statusCode = 200
       res.json({
-        'hub.challenge': queryStringParameters['hub.challenge'],
+        'hub.challenge': query['hub.challenge'],
       })
     }
 
