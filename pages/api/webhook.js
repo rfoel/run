@@ -12,7 +12,7 @@ export default async function webhook(req, res) {
       })
     }
 
-    const { aspect_type, object_id, object_type } = JSON.parse(body)
+    const { aspect_type, object_id, object_type } = body
 
     if (aspect_type === 'create' && object_type === 'activity') {
       const activity = await getActivityById(object_id)

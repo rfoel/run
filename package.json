@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "NODE_OPTIONS='--inspect' next dev",
     "build": "next build",
+    "dev": "NODE_OPTIONS='--inspect' next dev",
+    "lint": "eslint .",
     "start": "next start"
   },
   "dependencies": {
@@ -12,6 +13,7 @@
     "dayjs": "^1.8.29",
     "mongoose": "^5.9.23",
     "next": "9.4.4",
+    "prop-types": "^15.7.2",
     "querystring": "^0.2.0",
     "react": "16.13.1",
     "react-dom": "16.13.1",
@@ -19,6 +21,13 @@
     "swr": "^0.2.3"
   },
   "devDependencies": {
-    "babel-plugin-styled-components": "^1.10.7"
+    "babel-plugin-styled-components": "^1.10.7",
+    "eslint": "^7.4.0",
+    "eslint-config-standard": "^14.1.1",
+    "eslint-plugin-import": "^2.22.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-react": "^7.20.3",
+    "eslint-plugin-standard": "^4.0.1"
   }
 }

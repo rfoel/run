@@ -1,9 +1,17 @@
-import Wrapper from '../components/Wrapper'
+import { node, shape } from 'prop-types'
 
-export default function App({ Component, pageProps }) {
+import Wrapper from '../components/Wrapper'
+function App({ Component, pageProps }) {
   return (
     <Wrapper>
       <Component {...pageProps} />
     </Wrapper>
   )
 }
+
+App.propTypes = {
+  Component: node,
+  pageProps: shape({}),
+}
+
+export default App
