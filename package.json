@@ -1,39 +1,24 @@
 {
+  "name": "run",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "lerna run build --parallel --stream",
-    "lint": "eslint . --fix --ignore-path .gitignore",
-    "start": "lerna run start --parallel --stream"
+    "dev": "NODE_OPTIONS='--inspect' next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@svgr/webpack": "^5.4.0",
+    "dayjs": "^1.8.29",
+    "mongoose": "^5.9.23",
+    "next": "9.4.4",
+    "querystring": "^0.2.0",
+    "react": "16.13.1",
+    "react-dom": "16.13.1",
+    "styled-components": "^5.1.1",
+    "swr": "^0.2.3"
   },
   "devDependencies": {
-    "eslint": "^6.8.0",
-    "eslint-config-1e3": "^0.1.24",
-    "eslint-config-1e3-react": "^0.1.24",
-    "eslint-config-airbnb": "^18.1.0",
-    "eslint-config-airbnb-base": "^14.1.0",
-    "eslint-config-prettier": "^6.10.1",
-    "eslint-plugin-import": "^2.20.2",
-    "eslint-plugin-jsx-a11y": "^6.2.3",
-    "eslint-plugin-prettier": "^3.1.2",
-    "eslint-plugin-react": "^7.19.0",
-    "eslint-plugin-react-hooks": "^2.5.1",
-    "husky": "^4.2.1",
-    "lerna": "^3.20.2",
-    "lint-staged": "^10.0.7",
-    "prettier": "^1.19.1"
-  },
-  "workspaces": [
-    "packages/*"
-  ],
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
-  },
-  "lint-staged": {
-    "*.js": [
-      "yarn lint",
-      "git add"
-    ]
+    "babel-plugin-styled-components": "^1.10.7"
   }
 }
