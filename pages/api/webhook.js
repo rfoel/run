@@ -6,8 +6,8 @@ export default async function webhook(req, res) {
     const { body, queryStringParameters } = req
 
     if (queryStringParameters['hub.mode'] === 'subscribe') {
-      res.statusCode = 200
       res.json({
+        statusCode: 200,
         body: {
           'hub.challenge': queryStringParameters['hub.challenge'],
         },
