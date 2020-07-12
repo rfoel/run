@@ -2,7 +2,6 @@ import getActivityById from '../../utils/strava/getActivityById'
 import addRun from '../../utils/addRun'
 
 export default async function webhook(req, res) {
-  console.log(req)
   try {
     const { body, query } = req
 
@@ -13,7 +12,7 @@ export default async function webhook(req, res) {
       })
     }
 
-    const { aspect_type, object_id, object_type } = JSON.parse(body)
+    const { aspect_type, object_id, object_type } = body
 
     if (aspect_type === 'create' && object_type === 'activity') {
       const activity = await getActivityById(object_id)
