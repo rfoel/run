@@ -1,5 +1,5 @@
-import getActivityById from './strava/getActivityById'
-import addRun from './utils/addRun'
+import getActivityById from '../../utils/strava/getActivityById'
+import addRun from '../../utils/addRun'
 
 export default async function webhook(req, res) {
   try {

@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import ExclamationTriangle from '../images/exclamation-triangle.svg'
 
 const StyledError = styled.div`
-  color: white;
+  color: currentColor;
   width: 200px;
 
   svg {
