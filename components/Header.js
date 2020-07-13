@@ -1,7 +1,10 @@
 import React from 'react'
+import { useRecoilState } from 'recoil'
 import styled from 'styled-components'
 
+import { darkModeState } from '../utils/theme'
 import Run from '../images/run.svg'
+import Switch from './Switch'
 import Text from './Text'
 
 const StyledHeader = styled.header`
@@ -9,30 +12,46 @@ const StyledHeader = styled.header`
   color: currentColor;
   display: flex;
   justify-content: space-between;
-  padding: 16px;
+  padding: 0 16px;
   width: 100%;
-
-  a {
-    text-decoration: none;
-  }
 
   svg {
     width: 46px;
   }
 `
 
+const Right = styled.header`
+  align-items: center;
+  color: currentColor;
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px;
+  width: 100%;
+
+  a {
+    color: currentColor;
+    margin-left: 16px;
+    text-decoration: none;
+  }
+`
+
 export default function Header() {
+  const [darkMode, setDarkMode] = useRecoilState(darkModeState)
+
   return (
     <StyledHeader>
       <Run />
-      <Text
-        as="a"
-        href="https://github.com/rfoel/run"
-        rel="noreferrer"
-        target="_blank"
-      >
-        source code
-      </Text>
+      <Right>
+        <Switch checked={darkMode} onChange={() => setDarkMode(!darkMode)} />
+        <Text
+          as="a"
+          href="https://github.com/rfoel/run"
+          rel="noreferrer"
+          target="_blank"
+        >
+          source code
+        </Text>
+      </Right>
     </StyledHeader>
   )
 }

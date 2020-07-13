@@ -1,18 +1,17 @@
 import React from 'react'
-import { SWRConfig } from 'swr'
 import { node } from 'prop-types'
+import { SWRConfig } from 'swr'
 import { ThemeProvider } from 'styled-components'
 
 import Layout from './Layout'
-
-const theme = { colors: { primary: { base: '#fe5969', contrast: '#11269c' } } }
+import getTheme from '../utils/theme'
 
 function Wrapper({ children }) {
   return (
     <SWRConfig
       value={{ fetcher: (...args) => fetch(...args).then(res => res.json()) }}
     >
-      <ThemeProvider theme={theme}>
+      <ThemeProvider theme={getTheme()}>
         <Layout>{children}</Layout>
       </ThemeProvider>
     </SWRConfig>
