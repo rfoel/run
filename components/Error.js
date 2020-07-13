@@ -4,11 +4,15 @@ import styled from 'styled-components'
 import ExclamationTriangle from '../images/exclamation-triangle.svg'
 
 const StyledError = styled.div`
+  align-items: center;
   color: currentColor;
-  width: 200px;
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  width: 100%;
 
   svg {
-    width: 100%;
+    width: 100px;
   }
 `
 
