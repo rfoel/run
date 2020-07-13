@@ -15,12 +15,12 @@ const Container = styled.div(
     `,
 )
 
-function Page({ children }) {
+function Layout({ children }) {
   return <Container>{children}</Container>
 }
 
-Page.propTypes = {
+Layout.propTypes = {
   children: node.isRequired,
 }
 
-export default Page
+export default Layout

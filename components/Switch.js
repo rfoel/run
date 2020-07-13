@@ -18,7 +18,7 @@ const Track = styled.label`
   position: relative;
   ${({ checked }) =>
     css`
-      background-color: ${checked ? '#162447' : '#0779e4'};
+      background-color: ${checked ? '#ffffff' : '#000000'};
       border-radius: 9999px;
       height: 24px;
       transition-property: background-color;
@@ -29,7 +29,7 @@ const Track = styled.label`
 
 const Thumb = styled.span(
   ({ checked }) => css`
-    background-color: #fbd46d;
+    background-color: #ffffff;
     border-radius: 9999px;
     left: 4px;
     height: 16px;
@@ -42,8 +42,8 @@ const Thumb = styled.span(
 
     ${checked &&
     css`
-      background-color: #162447;
-      box-shadow: inset -5px 0 0 0 #fbd46d;
+      background-color: #ffffff;
+      box-shadow: inset -5px 0 0 0 #000000;
       left: calc(100% - 4px);
       transform: translateX(-100%);
     `}

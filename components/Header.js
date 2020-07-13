@@ -1,11 +1,10 @@
-import React from 'react'
 import { useRecoilState } from 'recoil'
 import styled from 'styled-components'
 
-import { darkModeState } from '../utils/theme'
 import Run from '../images/run.svg'
 import Switch from './Switch'
 import Text from './Text'
+import { darkModeState } from '../utils/theme'
 
 const StyledHeader = styled.header`
   align-items: center;
