@@ -39,6 +39,7 @@ export default class MyDocument extends Document {
             href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap"
             rel="stylesheet"
           />
+          <script async src="https://cdn.splitbee.io/sb.js"></script>
         </Head>
         <body>
           <Main />
