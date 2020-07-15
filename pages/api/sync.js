@@ -8,15 +8,19 @@ import getLoggedInAthleteActivities from '../../utils/strava/getLoggedInAthleteA
 export default async function sync(req, res) {
   try {
     await connectDb()
-    const [{ date }] = await collection.find({}, {}, { sort: { date: -1 } })
-    const after = dayjs(date).unix()
+    const { query } = req
+    let after = query.after
+    if (!after) {
+      const [{ date }] = await collection.find({}, {}, { sort: { date: -1 } })
+      after = dayjs(date).unix()
+    }
     const activities = await getLoggedInAthleteActivities({
       after,
-      per_page: 80,
+      per_page: 100,
     })
     await Promise.all(activities.map(addRun))
 
-    res.statusCode = 200
+    res.statusCode = 201
     res.json({ message: `${activities.length} activities successfully synced` })
   } catch (err) {
     res.statusCode = 500
