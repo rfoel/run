@@ -21,7 +21,6 @@ export default async function getLoggedInAthleteActivities({
 
   return fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
-    params,
   })
     .then(response => response.json())
     .catch(error => {

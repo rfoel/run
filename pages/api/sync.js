@@ -14,9 +14,11 @@ export default async function sync(req, res) {
       const [{ date }] = await collection.find({}, {}, { sort: { date: -1 } })
       after = dayjs(date).unix()
     }
+    const { page, per_page } = query
     const activities = await getLoggedInAthleteActivities({
       after,
-      per_page: 100,
+      page,
+      per_page,
     })
     await Promise.all(activities.map(addRun))
 
