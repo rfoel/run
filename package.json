@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@svgr/webpack": "^5.4.0",
-    "dayjs": "^1.8.29",
+    "dayjs": "^1.8.30",
     "mongoose": "^5.9.25",
     "next": "9.4.4",
     "prop-types": "^15.7.2",
