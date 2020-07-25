@@ -10,14 +10,16 @@
   },
   "dependencies": {
     "@svgr/webpack": "^5.4.0",
-    "dayjs": "^1.8.29",
+    "dayjs": "^1.8.30",
     "mongoose": "^5.9.25",
     "next": "9.4.4",
     "prop-types": "^15.7.2",
     "querystring": "^0.2.0",
     "react": "16.13.1",
+    "react-content-loader": "^5.1.0",
     "react-dom": "16.13.1",
     "recoil": "^0.0.10",
+    "styled-breakpoints": "^8.1.1",
     "styled-components": "^5.1.1",
     "swr": "^0.2.3"
   },

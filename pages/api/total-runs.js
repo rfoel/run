@@ -1,12 +1,13 @@
 import connectDb from '../../utils/connectDb'
 import collection from '../../models/run'
 
-export default async function count(req, res) {
+export default async function totalRuns(req, res) {
   try {
     await connectDb()
-    const count = await collection.countDocuments()
+    const totalRuns = await collection.countDocuments()
+
     res.statusCode = 200
-    res.json({ count })
+    res.json({ totalRuns })
   } catch (err) {
     res.statusCode = 500
     res.json({ message: err.message })

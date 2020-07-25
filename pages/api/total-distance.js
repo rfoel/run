@@ -1,20 +1,20 @@
 import connectDb from '../../utils/connectDb'
 import collection from '../../models/run'
 
-export default async function averageDistance(req, res) {
+export default async function totalDistance(req, res) {
   try {
     await connectDb()
-    const [{ averageDistance }] = await collection.aggregate([
+    const [{ totalDistance }] = await collection.aggregate([
       {
         $group: {
           _id: null,
-          averageDistance: { $avg: '$distance' },
+          totalDistance: { $sum: '$distance' },
         },
       },
     ])
 
     res.statusCode = 200
-    res.json({ averageDistance })
+    res.json({ totalDistance })
   } catch (err) {
     res.statusCode = 500
     res.json({ message: err.message })

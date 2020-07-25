@@ -2,30 +2,33 @@ import React from 'react'
 import { node } from 'prop-types'
 import styled from 'styled-components'
 
-import Header from './Header'
+import Footer from './Footer'
+import Navbar from './Navbar'
 
 const Children = styled.div`
   align-items: center;
   display: flex;
   flex: 1;
   flex-direction: column;
-  height: 100%;
   justify-content: center;
+  width: 100%;
 `
 
 const Container = styled.div`
   align-items: center;
   display: flex;
+  flex: 1 0 auto;
   flex-direction: column;
-  height: 100%;
   justify-content: center;
+  width: 100%;
 `
 
 function Page({ children }) {
   return (
     <Container>
-      <Header />
+      <Navbar />
       <Children>{children}</Children>
+      <Footer />
     </Container>
   )
 }
