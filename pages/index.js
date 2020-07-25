@@ -2,19 +2,24 @@ import React from 'react'
 import useSWR from 'swr'
 
 import Error from '../components/Error'
-import Text from '../components/Text'
-import Loader from '../components/Loader'
+import Header from '../components/Header'
+import Info from '../components/Info'
 import Page from '../components/Page'
+import Run from '../components/Run'
 
 export default function Home() {
-  const { data, error } = useSWR('/api/count')
+  const { data: { runs } = {}, error } = useSWR('/api/runs')
 
   if (error) return <Error />
-  if (!data) return <Loader />
+  if (!runs) return null
 
   return (
     <Page>
-      <Text as="h1">I ran {data.count} days in a row</Text>
+      <Header />
+      <Info />
+      {runs.map(run => (
+        <Run key={run._id} {...run} />
+      ))}
     </Page>
   )
 }
