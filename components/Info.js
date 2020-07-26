@@ -10,13 +10,15 @@ import Error from '../components/Error'
 import { Row, Column } from './Grid'
 
 const StyledInfo = styled.div`
-  height: 156px;
   width: 100%;
 
   ${Column}, ${Row} {
     align-items: center;
-    height: 156px;
     justify-content: center;
+  }
+
+  ${Column} {
+    height: 156px;
   }
 
   ${Text} {

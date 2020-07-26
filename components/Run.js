@@ -1,5 +1,6 @@
-import styled, { css } from 'styled-components'
 import dayjs from 'dayjs'
+import styled, { css } from 'styled-components'
+import { only } from 'styled-breakpoints'
 
 import calculatePace from '../utils/calculatePace'
 import formatPace from '../utils/formatPace'
@@ -30,11 +31,15 @@ const StyledRun = styled.div(
   `,
 )
 
-const Outline = styled.div`
-  height: 120px;
+const Outline = styled(Column)`
+  max-width: 164px;
 
   svg {
-    height: 100%;
+    width: 100%;
+  }
+
+  ${only('sm')} {
+    display: none;
   }
 `
 
@@ -44,12 +49,10 @@ export default function Run(run) {
   return (
     <StyledRun>
       <Row>
-        <Column align="center" justify="center" sm={0} md={1} lg={2}>
-          <Outline>
-            <Test />
-          </Outline>
-        </Column>
-        <Column sm={0} md={3} lg={6}>
+        <Outline align="center" justify="center">
+          <Test />
+        </Outline>
+        <Column sm={4} md={3} lg={6}>
           <Row align="flex-start">
             <Column>
               <MutedText>
