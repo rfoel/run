@@ -1,6 +1,6 @@
 import dayjs from 'dayjs'
 import styled, { css } from 'styled-components'
-import { only } from 'styled-breakpoints'
+import { down } from 'styled-breakpoints'
 
 import calculatePace from '../utils/calculatePace'
 import formatPace from '../utils/formatPace'
@@ -38,7 +38,7 @@ const Outline = styled(Column)`
     width: 100%;
   }
 
-  ${only('sm')} {
+  ${down('sm')} {
     display: none;
   }
 `
