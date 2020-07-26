@@ -61,7 +61,7 @@ export default function Info() {
           <Text>{(averageDistance / 1000).toFixed(2)} km</Text>
           <MutedText>Average distance</MutedText>
         </Column>
-        <Column sm={4} md={1}>
+        <Column sm={4} md={4}>
           <Text>{formatPace(averagePace)}</Text>
           <MutedText>Average pace</MutedText>
         </Column>
