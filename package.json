@@ -11,7 +11,7 @@
   "dependencies": {
     "@svgr/webpack": "^5.4.0",
     "dayjs": "^1.8.30",
-    "mongoose": "^5.9.25",
+    "mongoose": "^5.9.26",
     "next": "9.5.0",
     "prop-types": "^15.7.2",
     "querystring": "^0.2.0",
