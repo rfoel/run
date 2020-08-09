@@ -44,7 +44,7 @@ const Outline = styled(Column)`
 `
 
 export default function Run(run) {
-  const { date, day, distance, location = {}, time, weather = {} } = run
+  const { date, day, distance, location, time, weather } = run
 
   return (
     <StyledRun>
@@ -59,16 +59,20 @@ export default function Run(run) {
                 {formatDate(date)} at {dayjs(date).format('HH:mm')}
               </MutedText>
             </Column>
-            <Column>
-              <MutedText>
-                {location.city}, {location.country}
-              </MutedText>
-            </Column>
-            <Column>
-              <MutedText>
-                {weather.temperature}°C, {weather.condition}
-              </MutedText>
-            </Column>
+            {location && (
+              <Column>
+                <MutedText>
+                  {location.city}, {location.country}
+                </MutedText>
+              </Column>
+            )}
+            {weather && (
+              <Column>
+                <MutedText>
+                  {weather.temperature}°C, {weather.condition}
+                </MutedText>
+              </Column>
+            )}
           </Row>
           <Row align="center">
             <Column>
