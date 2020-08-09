@@ -16,7 +16,7 @@ export default async function getHourlyData(lat, lon) {
 
   if (!features) return null
 
-  const city = features.find(({ id }) => id.startsWith('region')).text
+  const city = features.find(({ id }) => id.startsWith('place')).text
   const country = features.find(({ id }) => id.startsWith('country')).text
 
   return { city, country }
