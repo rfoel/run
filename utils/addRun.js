@@ -1,11 +1,9 @@
-import connectDb from './connectDb'
 import collection from '../models/run'
 import getDay from './getDay'
 import getLocation from './mapbox/getLocation'
 import getWeather from './meteostat/getWeather'
 
-export default async function addRun(run) {
-  await connectDb()
+const addRun = async run => {
   const {
     distance,
     id: stravaId,
@@ -45,3 +43,5 @@ export default async function addRun(run) {
     { returnOriginal: false, upsert: true },
   )
 }
+
+export default addRun

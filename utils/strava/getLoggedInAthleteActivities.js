@@ -6,11 +6,11 @@ import { DAY_ONE } from '../constants'
 
 const STRAVA_URL = 'https://www.strava.com/api/v3/athlete/activities'
 
-export default async function getLoggedInAthleteActivities({
+const getLoggedInAthleteActivities = async ({
   after = DAY_ONE,
   page = 1,
   per_page = 10,
-}) {
+}) => {
   const token = await getRefreshedToken()
   const params = qs.stringify({
     page,
@@ -27,3 +27,5 @@ export default async function getLoggedInAthleteActivities({
       throw error
     })
 }
+
+export default getLoggedInAthleteActivities

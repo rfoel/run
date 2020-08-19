@@ -31,15 +31,9 @@ export default class MyDocument extends Document {
     return (
       <Html lang="en">
         <Head>
-          <meta charSet="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <meta name="theme-color" content="#000000" />
-          <meta name="description" content="Rafael's run every day" />
-          <link
-            href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap"
-            rel="stylesheet"
-          />
-          <script async src="https://cdn.splitbee.io/sb.js"></script>
+          {process.env.NODE_ENV === 'production' && (
+            <script async src="https://cdn.splitbee.io/sb.js"></script>
+          )}
         </Head>
         <body>
           <Main />

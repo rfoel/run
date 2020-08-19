@@ -1,7 +1,8 @@
+import connectDb from '../../utils/middlewares/connectDb'
 import getActivityById from '../../utils/strava/getActivityById'
 import addRun from '../../utils/addRun'
 
-export default async function webhook(req, res) {
+const webhook = async (req, res) => {
   try {
     const { body, query } = req
 
@@ -21,14 +22,13 @@ export default async function webhook(req, res) {
 
       const run = await addRun(activity)
 
-      res.statusCode = 201
-      res.json({ message: `run ${run.id} successfully added` })
+      res.status(201).json({ message: `run ${run.id} successfully added` })
     }
 
-    res.statusCode = 200
-    res.json({ message: 'nothing to do here' })
+    res.status(200).json({ message: 'nothing to do here' })
   } catch (error) {
-    res.statusCode = 400
-    res.json({ message: error.message })
+    res.status(500).json({ message: error.message })
   }
 }
+
+export default connectDb(webhook)

@@ -43,55 +43,49 @@ const Outline = styled(Column)`
   }
 `
 
-export default function Run(run) {
-  const { date, day, distance, location, time, weather } = run
+const Run = ({ date, day, distance, location = {}, time, weather = {} }) => (
+  <StyledRun>
+    <Row>
+      <Outline align="center" justify="center">
+        <Test />
+      </Outline>
+      <Column sm={4} md={3} lg={6}>
+        <Row align="flex-start">
+          <Column>
+            <MutedText>
+              {formatDate(date)} at {dayjs(date).format('HH:mm')}
+            </MutedText>
+          </Column>
+          <Column>
+            <MutedText>
+              {location.city}, {location.country}
+            </MutedText>
+          </Column>
+          <Column>
+            <MutedText>
+              {weather.temperature}°C, {weather.condition}
+            </MutedText>
+          </Column>
+        </Row>
+        <Row align="center">
+          <Column>
+            <Text>Day {day}</Text>
+          </Column>
+        </Row>
+        <Row align="flex-end">
+          <Column>
+            <MutedText>{(distance / 1000).toFixed(2)} km</MutedText>
+          </Column>
+          <Column>
+            <MutedText>{formatPace(calculatePace(time, distance))}</MutedText>
+          </Column>
+          <Column>
+            <MutedText>{dayjs(date).format('HH:mm')}</MutedText>
+          </Column>
+        </Row>
+      </Column>
+    </Row>
+  </StyledRun>
+)
 
-  return (
-    <StyledRun>
-      <Row>
-        <Outline align="center" justify="center">
-          <Test />
-        </Outline>
-        <Column sm={4} md={3} lg={6}>
-          <Row align="flex-start">
-            <Column>
-              <MutedText>
-                {formatDate(date)} at {dayjs(date).format('HH:mm')}
-              </MutedText>
-            </Column>
-            {location && (
-              <Column>
-                <MutedText>
-                  {location.city}, {location.country}
-                </MutedText>
-              </Column>
-            )}
-            {weather && (
-              <Column>
-                <MutedText>
-                  {weather.temperature}°C, {weather.condition}
-                </MutedText>
-              </Column>
-            )}
-          </Row>
-          <Row align="center">
-            <Column>
-              <Text>Day {day}</Text>
-            </Column>
-          </Row>
-          <Row align="flex-end">
-            <Column>
-              <MutedText>{(distance / 1000).toFixed(2)} km</MutedText>
-            </Column>
-            <Column>
-              <MutedText>{formatPace(calculatePace(time, distance))}</MutedText>
-            </Column>
-            <Column>
-              <MutedText>{dayjs(date).format('HH:mm')}</MutedText>
-            </Column>
-          </Row>
-        </Column>
-      </Row>
-    </StyledRun>
-  )
-}
+export default Run

@@ -2,7 +2,7 @@ import qs from 'querystring'
 
 const MAPBOX_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places'
 
-export default async function getHourlyData(lat, lon) {
+const getLocation = async (lat, lon) => {
   const params = qs.stringify({
     access_token: process.env.MAPBOX_TOKEN,
   })
@@ -21,3 +21,5 @@ export default async function getHourlyData(lat, lon) {
 
   return { city, country }
 }
+
+export default getLocation

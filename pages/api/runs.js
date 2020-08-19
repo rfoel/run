@@ -1,15 +1,14 @@
-import connectDb from '../../utils/connectDb'
+import connectDb from '../../utils/middlewares/connectDb'
 import collection from '../../models/run'
 
-export default async function runs(req, res) {
+const runs = async (req, res) => {
   try {
-    await connectDb()
     const runs = await collection.find({}, {}, { limit: 10, sort: { day: -1 } })
 
-    res.statusCode = 200
-    res.json({ runs })
-  } catch (err) {
-    res.statusCode = 500
-    res.json({ message: err.message })
+    res.status(200).json({ runs })
+  } catch (error) {
+    res.status(500).json({ message: error.message })
   }
 }
+
+export default connectDb(runs)
