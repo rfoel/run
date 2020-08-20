@@ -1,7 +1,7 @@
 import { atom, useRecoilState } from 'recoil'
 
 const black = '#000000'
-const gray = '#888888'
+const gray = ['#666666', '#888888']
 const white = '#ffffff'
 
 const grid = {
@@ -33,7 +33,8 @@ export default function getTheme() {
   const [darkMode] = useRecoilState(darkModeAtom)
   const base = darkMode ? black : white
   const contrast = darkMode ? white : black
-  const colors = { base, contrast, muted: gray }
+  const muted = darkMode ? gray[1] : gray[0]
+  const colors = { base, contrast, muted }
 
   return { breakpoints: grid.width, colors, grid }
 }
