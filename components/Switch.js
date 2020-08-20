@@ -59,7 +59,7 @@ const Switch = ({ checked, onChange }) => (
       role="switch"
       type="checkbox"
     />
-    <Thumb checked={checked} role="button" />
+    <Thumb aria-label="Switch Thumb" checked={checked} role="button" />
   </Track>
 )
 
