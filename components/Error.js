@@ -16,10 +16,10 @@ const StyledError = styled.div`
   }
 `
 
-export default function Error() {
-  return (
-    <StyledError>
-      <ExclamationTriangle />
-    </StyledError>
-  )
-}
+const Error = () => (
+  <StyledError>
+    <ExclamationTriangle />
+  </StyledError>
+)
+
+export default Error

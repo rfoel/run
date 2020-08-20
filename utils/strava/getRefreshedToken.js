@@ -8,7 +8,7 @@ const {
 
 const STRAVA_URL = 'https://www.strava.com/oauth/token'
 
-export default async function getRefreshedToken() {
+const getRefreshedToken = async () => {
   const params = qs.stringify({
     client_id: Number(STRAVA_CLIENT_ID),
     client_secret: STRAVA_CLIENT_SECRET,
@@ -25,3 +25,5 @@ export default async function getRefreshedToken() {
 
   return access_token
 }
+
+export default getRefreshedToken

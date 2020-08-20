@@ -1,6 +1,6 @@
 import styled, { css } from 'styled-components'
 
-export default styled.div(
+const Text = styled.div(
   () => css`
     display: inline;
     font-family: 'Programme', sans-serif;
@@ -18,3 +18,5 @@ export default styled.div(
       'ss19' on;
   `,
 )
+
+export default Text

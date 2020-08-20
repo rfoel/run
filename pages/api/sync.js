@@ -1,13 +1,12 @@
 import dayjs from 'dayjs'
 
 import addRun from '../../utils/addRun'
-import connectDb from '../../utils/connectDb'
+import connectDb from '../../utils/middlewares/connectDb'
 import collection from '../../models/run'
 import getLoggedInAthleteActivities from '../../utils/strava/getLoggedInAthleteActivities'
 
-export default async function sync(req, res) {
+const sync = async (req, res) => {
   try {
-    await connectDb()
     const { query } = req
     let after = query.after
     if (!after) {
@@ -22,10 +21,12 @@ export default async function sync(req, res) {
     })
     await Promise.all(activities.map(addRun))
 
-    res.statusCode = 201
-    res.json({ message: `${activities.length} activities successfully synced` })
-  } catch (err) {
-    res.statusCode = 500
-    res.json({ message: err.message })
+    res
+      .status(201)
+      .json({ message: `${activities.length} activities successfully synced` })
+  } catch (error) {
+    res.status(500).json({ message: error.message })
   }
 }
+
+export default connectDb(sync)

@@ -13,28 +13,28 @@ const StyledFooter = styled.footer`
   }
 `
 
-export default function Footer() {
-  return (
-    <StyledFooter>
-      <Text>{new Date().getFullYear()}</Text>
-      {' | '}
-      <Text
-        as="a"
-        href="https://twitter.com/rfoel"
-        rel="noreferrer"
-        target="_blank"
-      >
-        rfoel
-      </Text>
-      {' | '}
-      <Text
-        as="a"
-        href="https://github.com/rfoel/run"
-        rel="noreferrer"
-        target="_blank"
-      >
-        source code
-      </Text>
-    </StyledFooter>
-  )
-}
+const Footer = () => (
+  <StyledFooter>
+    <Text>{new Date().getFullYear()}</Text>
+    {' | '}
+    <Text
+      as="a"
+      href="https://twitter.com/rfoel"
+      rel="noreferrer"
+      target="_blank"
+    >
+      rfoel
+    </Text>
+    {' | '}
+    <Text
+      as="a"
+      href="https://github.com/rfoel/run"
+      rel="noreferrer"
+      target="_blank"
+    >
+      source code
+    </Text>
+  </StyledFooter>
+)
+
+export default Footer

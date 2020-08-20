@@ -24,13 +24,13 @@ const grid = {
   },
 }
 
-export const darkModeState = atom({
-  key: 'darkModeState',
+export const darkModeAtom = atom({
+  key: 'darkMode',
   default: false,
 })
 
 export default function getTheme() {
-  const [darkMode] = useRecoilState(darkModeState)
+  const [darkMode] = useRecoilState(darkModeAtom)
   const base = darkMode ? black : white
   const contrast = darkMode ? white : black
   const colors = { base, contrast, muted: gray }

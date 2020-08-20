@@ -3,12 +3,7 @@ import qs from 'querystring'
 
 const METEOSTAT_URL = 'https://api.meteostat.net/v2/point/hourly'
 
-export default function getHourlyData(
-  lat,
-  lon,
-  date,
-  tz = 'America/Sao_Paulo',
-) {
+const getHourlyData = async (lat, lon, date, tz = 'America/Sao_Paulo') => {
   const params = qs.stringify({
     lat,
     lon,
@@ -17,14 +12,15 @@ export default function getHourlyData(
     tz,
   })
   const url = `${METEOSTAT_URL}?${params}`
+  const headers = {
+    'x-api-key': process.env.METEOSTAT_API_KEY,
+  }
 
   return fetch(url, {
-    headers: {
-      'x-api-key': process.env.METEOSTAT_API_KEY,
-    },
+    headers,
   })
     .then(response => response.json())
-    .catch(error => {
-      throw error
-    })
+    .catch(() => ({}))
 }
+
+export default getHourlyData

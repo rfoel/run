@@ -21,7 +21,7 @@ const StyledHeader = styled.header`
   }
 `
 
-export default function Header() {
+const Header = () => {
   const { data: { totalDistance } = {}, error } = useSWR('/api/total-distance')
 
   if (error) return <Error />
@@ -34,3 +34,5 @@ export default function Header() {
     </StyledHeader>
   )
 }
+
+export default Header

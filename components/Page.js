@@ -23,15 +23,13 @@ const Container = styled.div`
   width: 100%;
 `
 
-function Page({ children }) {
-  return (
-    <Container>
-      <Navbar />
-      <Children>{children}</Children>
-      <Footer />
-    </Container>
-  )
-}
+const Page = ({ children }) => (
+  <Container>
+    <Navbar />
+    <Children>{children}</Children>
+    <Footer />
+  </Container>
+)
 
 Page.propTypes = {
   children: node.isRequired,

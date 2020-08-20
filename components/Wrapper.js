@@ -6,14 +6,17 @@ import { ThemeProvider } from 'styled-components'
 
 import Layout from './Layout'
 import getTheme from '../utils/theme'
-import { darkModeState } from '../utils/theme'
+import { darkModeAtom } from '../utils/theme'
 
-function Wrapper({ children }) {
-  const [darkMode] = useRecoilState(darkModeState)
+const Wrapper = ({ children }) => {
+  const [darkMode] = useRecoilState(darkModeAtom)
 
   return (
     <SWRConfig
-      value={{ fetcher: (...args) => fetch(...args).then(res => res.json()) }}
+      value={{
+        fetcher: (...args) => fetch(...args).then(res => res.json()),
+        revalidateOnFocus: false,
+      }}
     >
       <Head>
         <link rel="icon" href={`/favicon-${darkMode ? 'dark' : 'light'}.png`} />

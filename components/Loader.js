@@ -16,10 +16,10 @@ const StyledLoader = styled.div`
   }
 `
 
-export default function Loader() {
-  return (
-    <StyledLoader>
-      <Run />
-    </StyledLoader>
-  )
-}
+const Loader = () => (
+  <StyledLoader>
+    <Run />
+  </StyledLoader>
+)
+
+export default Loader

@@ -50,20 +50,18 @@ const Thumb = styled.span(
   `,
 )
 
-function Switch({ checked, onChange }) {
-  return (
-    <Track checked={checked}>
-      <Input
-        aria-hidden
-        aria-checked={checked}
-        onChange={onChange}
-        role="switch"
-        type="checkbox"
-      />
-      <Thumb checked={checked} role="button" />
-    </Track>
-  )
-}
+const Switch = ({ checked, onChange }) => (
+  <Track checked={checked}>
+    <Input
+      aria-hidden
+      aria-checked={checked}
+      onChange={onChange}
+      role="switch"
+      type="checkbox"
+    />
+    <Thumb checked={checked} role="button" />
+  </Track>
+)
 
 Switch.propTypes = {
   checked: bool,

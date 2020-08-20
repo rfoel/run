@@ -1,12 +1,11 @@
+import useSWR from 'swr'
 import styled from 'styled-components'
 
 import formatPace from '../utils/formatPace'
-
+import { WORLD_RECORD } from '../utils/constants'
+import Error from '../components/Error'
 import MutedText from './MutedText'
 import Text from './Text'
-import useSWR from 'swr'
-
-import Error from '../components/Error'
 import { Row, Column } from './Grid'
 
 const StyledInfo = styled.div`
@@ -30,7 +29,7 @@ const StyledInfo = styled.div`
   }
 `
 
-export default function Info() {
+const Info = () => {
   const { data: { totalRuns } = {}, error: totalRunsError } = useSWR(
     '/api/total-runs',
   )
@@ -54,7 +53,7 @@ export default function Info() {
           <MutedText>Total runs</MutedText>
         </Column>
         <Column sm={4}>
-          <Text>0.93</Text>
+          <Text>{((totalRuns * 100) / WORLD_RECORD).toFixed(2)}%</Text>
           <MutedText>WR progress</MutedText>
         </Column>
         <Column sm={4}>
@@ -69,3 +68,5 @@ export default function Info() {
     </StyledInfo>
   )
 }
+
+export default Info

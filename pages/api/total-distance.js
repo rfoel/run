@@ -1,9 +1,8 @@
-import connectDb from '../../utils/connectDb'
+import connectDb from '../../utils/middlewares/connectDb'
 import collection from '../../models/run'
 
-export default async function totalDistance(req, res) {
+const totalDistance = async (req, res) => {
   try {
-    await connectDb()
     const [{ totalDistance }] = await collection.aggregate([
       {
         $group: {
@@ -13,10 +12,10 @@ export default async function totalDistance(req, res) {
       },
     ])
 
-    res.statusCode = 200
-    res.json({ totalDistance })
-  } catch (err) {
-    res.statusCode = 500
-    res.json({ message: err.message })
+    res.status(200).json({ totalDistance })
+  } catch (error) {
+    res.status(500).json({ message: error.message })
   }
 }
+
+export default connectDb(totalDistance)

@@ -1,10 +1,9 @@
-import connectDb from '../../utils/connectDb'
+import connectDb from '../../utils/middlewares/connectDb'
 import collection from '../../models/run'
 import calculatePace from '../../utils/calculatePace'
 
-export default async function averagePace(req, res) {
+const averagePace = async (req, res) => {
   try {
-    await connectDb()
     const [{ totalDistance, totalTime }] = await collection.aggregate([
       {
         $group: {
@@ -17,10 +16,10 @@ export default async function averagePace(req, res) {
 
     const averagePace = calculatePace(totalTime, totalDistance)
 
-    res.statusCode = 200
-    res.json({ averagePace })
-  } catch (err) {
-    res.statusCode = 500
-    res.json({ message: err.message })
+    res.status(200).json({ averagePace })
+  } catch (error) {
+    res.status(500).json({ message: error.message })
   }
 }
+
+export default connectDb(averagePace)
