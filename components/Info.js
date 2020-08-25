@@ -1,12 +1,13 @@
 import useSWR from 'swr'
 import styled from 'styled-components'
 
-import formatPace from '../utils/formatPace'
-import { WORLD_RECORD } from '../utils/constants'
+import ContentLoader from './ContentLoader'
 import Error from '../components/Error'
+import formatPace from '../utils/formatPace'
 import MutedText from './MutedText'
 import Text from './Text'
 import { Row, Column } from './Grid'
+import { WORLD_RECORD } from '../utils/constants'
 
 const StyledInfo = styled.div`
   width: 100%;
@@ -30,37 +31,33 @@ const StyledInfo = styled.div`
 `
 
 const Info = () => {
-  const { data: { totalRuns } = {}, error: totalRunsError } = useSWR(
-    '/api/total-runs',
+  const { data: totalRuns, error: totalRunsError } = useSWR('/api/total-runs')
+  const { data: averageDistance, error: averageDistanceError } = useSWR(
+    '/api/average-distance',
   )
-  const {
-    data: { averageDistance } = {},
-    error: averageDistanceError,
-  } = useSWR('/api/average-distance')
-  const { data: { averagePace } = {}, error: averagePaceError } = useSWR(
+  const { data: averagePace, error: averagePaceError } = useSWR(
     '/api/average-pace',
   )
 
-  if (totalRunsError || averageDistanceError || averagePaceError)
-    return <Error />
-  if (!totalRuns || !averageDistance || !averagePace) return null
+  const error = totalRunsError || averageDistanceError || averagePaceError
+  const isLoading = !totalRuns || !averageDistance || !averagePace || error
 
   return (
     <StyledInfo>
       <Row>
-        <Column sm={4}>
-          <Text>{totalRuns}</Text>
+        <Column as={ContentLoader} isLoading={isLoading}>
+          <Text>{totalRuns || 999}</Text>
           <MutedText>Total runs</MutedText>
         </Column>
-        <Column sm={4}>
+        <Column as={ContentLoader} isLoading={isLoading}>
           <Text>{((totalRuns * 100) / WORLD_RECORD).toFixed(2)}%</Text>
           <MutedText>WR progress</MutedText>
         </Column>
-        <Column sm={4}>
+        <Column as={ContentLoader} isLoading={isLoading}>
           <Text>{(averageDistance / 1000).toFixed(2)} km</Text>
           <MutedText>Average distance</MutedText>
         </Column>
-        <Column sm={4} md={4}>
+        <Column as={ContentLoader} isLoading={isLoading}>
           <Text>{formatPace(averagePace)}</Text>
           <MutedText>Average pace</MutedText>
         </Column>
