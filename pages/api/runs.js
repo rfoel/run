@@ -6,7 +6,7 @@ const runs = async (req, res) => {
     const {
       query: { limit = 1, skip = 0 },
     } = req
-    console.log({ limit, skip })
+
     const runs = await collection.find(
       {},
       {},

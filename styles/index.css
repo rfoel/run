@@ -7,7 +7,7 @@
   src: url('/public/TTFirsNeue-DemiBold.eot?#iefix') format('embedded-opentype'),
     url('/public/TTFirsNeue-DemiBold.woff2') format('woff2'),
     url('/public/TTFirsNeue-DemiBold.woff') format('woff'),
-    url('/public/TTFirsNeue-DemiBold.svg#TTFirsNeue-DemiBold') format('svg');
+    url('/public/TTFirsNeue-DemiBold.ttf') format('truetype');
 }
 
 html,

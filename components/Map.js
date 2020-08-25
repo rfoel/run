@@ -60,7 +60,7 @@ const Map = ({ summaryPolyline }) => {
       <polyline
         points={points}
         fill="none"
-        stroke="black"
+        stroke="currentColor"
         strokeWidth="0.0001"
         strokeLinecap="round"
         strokeLinejoin="round"

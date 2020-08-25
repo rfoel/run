@@ -5,6 +5,7 @@ const Text = styled.div(
     display: inline;
     font-family: 'TT Firs Neue', -apple-system, system-ui, 'Segoe UI', Roboto,
       Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-weight: 600;
   `,
 )
 
