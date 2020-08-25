@@ -22,7 +22,7 @@ const sync = async (req, res) => {
     await Promise.all(activities.map(addRun))
 
     res
-      .status(201)
+      .status(200)
       .json({ message: `${activities.length} activities successfully synced` })
   } catch (error) {
     res.status(500).json({ message: error.message })
