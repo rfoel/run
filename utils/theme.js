@@ -34,7 +34,8 @@ export default function getTheme() {
   const base = darkMode ? black : white
   const contrast = darkMode ? white : black
   const muted = darkMode ? gray[1] : gray[0]
-  const colors = { base, contrast, muted }
+  const loader = gray
+  const colors = { base, contrast, muted, loader }
 
   return { breakpoints: grid.width, colors, grid }
 }

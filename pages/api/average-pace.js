@@ -16,7 +16,7 @@ const averagePace = async (req, res) => {
 
     const averagePace = calculatePace(totalTime, totalDistance)
 
-    res.status(200).json({ averagePace })
+    res.status(200).json(averagePace)
   } catch (error) {
     res.status(500).json({ message: error.message })
   }

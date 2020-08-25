@@ -16,6 +16,7 @@ const Wrapper = ({ children }) => {
       value={{
         fetcher: (...args) => fetch(...args).then(res => res.json()),
         revalidateOnFocus: false,
+        errorRetryInterval: 500,
       }}
     >
       <Head>

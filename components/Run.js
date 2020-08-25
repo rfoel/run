@@ -8,12 +8,12 @@ import formatDate from '../utils/formatDate'
 
 import MutedText from './MutedText'
 import Text from './Text'
-import Test from '../images/test.svg'
+import Map from './Map'
+import Logo from '../images/run.svg'
 import { Row, Column } from './Grid'
 
 const StyledRun = styled.div(
   () => css`
-    height: 156px;
     margin: 24px 0;
     width: 100%;
 
@@ -32,24 +32,32 @@ const StyledRun = styled.div(
 )
 
 const Outline = styled(Column)`
-  max-width: 164px;
+  max-height: 164px;
 
   svg {
-    width: 100%;
+    height: 100%;
   }
 
   ${down('sm')} {
-    display: none;
+    text-align: center;
   }
 `
 
-const Run = ({ date, day, distance, location = {}, time, weather = {} }) => (
+const Run = ({
+  date,
+  day,
+  distance,
+  location,
+  time,
+  summaryPolyline,
+  weather,
+}) => (
   <StyledRun>
     <Row>
-      <Outline align="center" justify="center">
-        <Test />
+      <Outline align="center" justify="center" sm={2}>
+        {summaryPolyline ? <Map summaryPolyline={summaryPolyline} /> : <Logo />}
       </Outline>
-      <Column sm={4} md={3} lg={6}>
+      <Column sm={2} md={3} lg={6}>
         <Row align="flex-start">
           <Column>
             <MutedText>
@@ -58,12 +66,12 @@ const Run = ({ date, day, distance, location = {}, time, weather = {} }) => (
           </Column>
           <Column>
             <MutedText>
-              {location.city}, {location.country}
+              {location?.city}, {location?.country}
             </MutedText>
           </Column>
           <Column>
             <MutedText>
-              {weather.temperature}°C, {weather.condition}
+              {weather?.temperature}°C, {weather?.condition}
             </MutedText>
           </Column>
         </Row>

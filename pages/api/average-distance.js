@@ -12,7 +12,7 @@ const averageDistance = async (req, res) => {
       },
     ])
 
-    res.status(200).json({ averageDistance })
+    res.status(200).json(averageDistance)
   } catch (error) {
     res.status(500).json({ message: error.message })
   }

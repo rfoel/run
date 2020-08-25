@@ -22,6 +22,7 @@ const schema = new Schema(
     location: Location,
     name: String,
     stravaId: String,
+    summaryPolyline: String,
     time: Number,
     timezone: String,
     utcOffset: Number,
