@@ -12,6 +12,7 @@ const addRun = async run => {
     start_date: date,
     start_latitude,
     start_longitude,
+    map: { summary_polyline: summaryPolyline },
     timezone,
     utc_offset: utcOffset,
   } = run
@@ -35,6 +36,7 @@ const addRun = async run => {
       location,
       name,
       stravaId,
+      summaryPolyline,
       time,
       timezone,
       utcOffset,

@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@mapbox/polyline": "^1.1.1",
     "@svgr/webpack": "^5.4.0",
     "dayjs": "^1.8.33",
     "mongoose": "^5.10.0",
