@@ -1,7 +1,7 @@
-import styled, { css } from 'styled-components'
 import useSWR from 'swr'
+import styled, { css } from 'styled-components'
+import ContentLoader from 'styled-content-loader'
 
-import ContentLoader from './ContentLoader'
 import MutedText from './MutedText'
 import Text from './Text'
 
