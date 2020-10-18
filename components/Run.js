@@ -3,8 +3,9 @@ import styled, { css } from 'styled-components'
 import { down } from 'styled-breakpoints'
 
 import calculatePace from '../utils/calculatePace'
-import formatPace from '../utils/formatPace'
 import formatDate from '../utils/formatDate'
+import formatPace from '../utils/formatPace'
+import formatTime from '../utils/formatTime'
 
 import MutedText from './MutedText'
 import Text from './Text'
@@ -33,10 +34,6 @@ const StyledRun = styled.div(
 
 const Outline = styled(Column)`
   max-height: 164px;
-
-  svg {
-    height: 100%;
-  }
 
   ${down('sm')} {
     text-align: center;
@@ -88,7 +85,7 @@ const Run = ({
             <MutedText>{formatPace(calculatePace(time, distance))}</MutedText>
           </Column>
           <Column>
-            <MutedText>{dayjs(date).format('HH:mm')}</MutedText>
+            <MutedText>{formatTime(time)}</MutedText>
           </Column>
         </Row>
       </Column>

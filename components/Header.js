@@ -16,6 +16,7 @@ const StyledHeader = styled(ContentLoader)(
     ${Text} {
       font-size: 56px;
       line-height: 56px;
+      margin-bottom: 8px;
     }
 
     ${MutedText} {
@@ -29,7 +30,7 @@ const Header = () => {
   const { data: totalDistance, error } = useSWR('/api/total-distance')
 
   return (
-    <StyledHeader isLoading={!totalDistance || error}>
+    <StyledHeader isLoading={Boolean(!totalDistance || error)}>
       <Text>{(totalDistance / 1000).toFixed(2)} km</Text>
       <MutedText>Total kilometers</MutedText>
     </StyledHeader>
