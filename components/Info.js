@@ -1,8 +1,7 @@
 import useSWR from 'swr'
 import styled from 'styled-components'
+import ContentLoader from 'styled-content-loader'
 
-import ContentLoader from './ContentLoader'
-import Error from '../components/Error'
 import formatPace from '../utils/formatPace'
 import MutedText from './MutedText'
 import Text from './Text'
