@@ -22,6 +22,7 @@ const StyledInfo = styled.div`
 
   ${Text} {
     font-size: 40px;
+    margin-bottom: 8px;
   }
 
   ${MutedText} {
@@ -39,7 +40,9 @@ const Info = () => {
   )
 
   const error = totalRunsError || averageDistanceError || averagePaceError
-  const isLoading = !totalRuns || !averageDistance || !averagePace || error
+  const isLoading = Boolean(
+    !totalRuns || !averageDistance || !averagePace || error,
+  )
 
   return (
     <StyledInfo>

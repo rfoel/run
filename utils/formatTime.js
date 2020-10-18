@@ -1,9 +1,14 @@
 import dayjs from 'dayjs'
+import duration from 'dayjs/plugin/duration'
+import utc from 'dayjs/plugin/utc'
 
-const formatDate = date => {
-  if (dayjs().isSame(dayjs(date), 'day')) return 'Today'
-  if (dayjs().subtract(1, 'day').isSame(dayjs(date), 'day')) return 'Yesterday'
-  return dayjs(date).format('MMMM DD, YYYY')
+dayjs.extend(duration)
+dayjs.extend(utc)
+
+const formatTime = time => {
+  return dayjs
+    .utc(dayjs.duration(time, 'second').asMilliseconds())
+    .format('m:ss')
 }
 
-export default formatDate
+export default formatTime
