@@ -28,7 +28,7 @@
     "styled-breakpoints": "^8.1.2",
     "styled-components": "^5.2.0",
     "styled-content-loader": "^1.1.0",
-    "swr": "^0.3.5"
+    "swr": "^0.3.6"
   },
   "devDependencies": {
     "babel-plugin-styled-components": "^1.11.1",
