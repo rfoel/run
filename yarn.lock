@@ -3798,10 +3798,10 @@ merge-stream@^2.0.0:
   resolved "https://registry.yarnpkg.com/merge-stream/-/merge-stream-2.0.0.tgz#52823629a14dd00c9770fb6ad47dc6310f2c1f60"
   integrity sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w==
 
-meteostat@^1.0.2:
-  version "1.0.2"
-  resolved "https://registry.yarnpkg.com/meteostat/-/meteostat-1.0.2.tgz#b5efa7a8c1d4dd496ed14709a2dfb44c2690801f"
-  integrity sha512-rlctad8DMDvQtzLKIb/0kdbdBNuz3j3S80x0+0bDBN5S47j/uqyfBzG7DDwdV4k8fIh2xUWyzr/2qluUHJPJMw==
+meteostat@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/meteostat/-/meteostat-1.1.0.tgz#f39f899a198277d8024f4d19fb1fd0f958bdb9ec"
+  integrity sha512-pKAoAWnK7dLfMomhSr7reZTwku6deRTgd4H/8KjxFollFGm3OeGeXTLTq+oWTeb8FSC1MyAOMSsuSLaUGGLKHw==
   dependencies:
     node-fetch "^2.6.1"
 
