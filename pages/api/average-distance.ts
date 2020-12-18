@@ -6,23 +6,29 @@ import { Period } from '../../models'
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   try {
-    const collection = await connectToDatabase()
-
     const { start, end }: Period = req.query
 
-    const runs = await collection
-      .find(
+    const collection = await connectToDatabase()
+    const [{ totalDistance }] = await collection
+      .aggregate([
         {
-          date: {
-            $gte: dayjs(start).toDate(),
-            $lte: dayjs(end).toDate(),
+          $match: {
+            date: {
+              $gte: dayjs(start).startOf('day').toDate(),
+              $lte: dayjs(end).startOf('day').toDate(),
+            },
           },
         },
-        { sort: { day: -1 } },
-      )
+        {
+          $group: {
+            _id: null,
+            totalDistance: { $avg: '$distance' },
+          },
+        },
+      ])
       .toArray()
 
-    return res.json({ runs })
+    return res.json({ totalDistance })
   } catch (err) {
     return res.status(500).json({ message: err.message })
   }

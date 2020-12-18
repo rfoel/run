@@ -6,23 +6,17 @@ import { Period } from '../../models'
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   try {
-    const collection = await connectToDatabase()
-
     const { start, end }: Period = req.query
 
-    const runs = await collection
-      .find(
-        {
-          date: {
-            $gte: dayjs(start).toDate(),
-            $lte: dayjs(end).toDate(),
-          },
-        },
-        { sort: { day: -1 } },
-      )
-      .toArray()
+    const collection = await connectToDatabase()
+    const count = await collection.countDocuments({
+      date: {
+        $gte: dayjs(start).startOf('day').toDate(),
+        $lte: dayjs(end).endOf('day').toDate(),
+      },
+    })
 
-    return res.json({ runs })
+    return res.json({ count })
   } catch (err) {
     return res.status(500).json({ message: err.message })
   }
