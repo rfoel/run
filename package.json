@@ -18,7 +18,7 @@
     "@semantic-release/release-notes-generator": "^9.0.1",
     "@svgr/webpack": "^5.4.0",
     "dayjs": "^1.9.3",
-    "mongoose": "^5.10.9",
+    "mongoose": "^5.11.9",
     "next": "9.5.5",
     "prop-types": "^15.7.2",
     "querystring": "^0.2.0",
