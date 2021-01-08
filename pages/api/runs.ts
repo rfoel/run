@@ -14,8 +14,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       .find(
         {
           date: {
-            $gte: dayjs(start).toDate(),
-            $lte: dayjs(end).toDate(),
+            $gte: dayjs(start).startOf('day').toDate(),
+            $lte: dayjs(end).endOf('day').toDate(),
           },
         },
         { sort: { day: -1 } },

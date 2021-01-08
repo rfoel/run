@@ -29,7 +29,7 @@ const addActivity = async (activity: SummaryActivity): Promise<Run> => {
   ])
 
   const run = {
-    date,
+    date: new Date(date),
     day,
     distance,
     location,

@@ -1,5 +1,5 @@
 import dayjs from 'dayjs'
-import Meteostat from 'meteostat'
+import { Meteostat } from 'meteostat'
 
 import { Weather } from '../models'
 import codes from './weatherConditionCodes'

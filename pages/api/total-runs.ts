@@ -16,7 +16,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       },
     })
 
-    return res.json({ count })
+    return res.json(count)
   } catch (err) {
     return res.status(500).json({ message: err.message })
   }

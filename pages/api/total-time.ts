@@ -9,7 +9,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     const { start, end }: Period = req.query
 
     const collection = await connectToDatabase()
-    const [{ totalDistance }] = await collection
+    const [{ totalTime } = { totalTime: 0 }] = await collection
       .aggregate([
         {
           $match: {
@@ -22,13 +22,13 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         {
           $group: {
             _id: null,
-            totalDistance: { $avg: '$distance' },
+            totalTime: { $sum: '$time' },
           },
         },
       ])
       .toArray()
 
-    return res.json({ totalDistance })
+    return res.json(totalTime)
   } catch (err) {
     return res.status(500).json({ message: err.message })
   }
