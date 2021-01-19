@@ -4,10 +4,10 @@ const GlobalStyles = createGlobalStyle`
   html,
   body,
   #__next {
-    align-items: center;
     display: flex;
+    flex-grow: 1;
+    flex-direction: column;
     font-size: 16px;
-    justify-content: center;
     margin: 0;
     min-height: 100%;
     padding: 0;

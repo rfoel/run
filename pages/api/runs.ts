@@ -22,7 +22,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       )
       .toArray()
 
-    return res.json({ runs })
+    return res.json(runs)
   } catch (err) {
     return res.status(500).json({ message: err.message })
   }

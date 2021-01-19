@@ -2,7 +2,6 @@ import { FunctionComponent } from 'react'
 import styled, { css } from 'styled-components'
 
 import ArrowDown from '../images/arrow-down.svg'
-import Box from './Box'
 
 const Wrapper = styled.span(
   () => css`
@@ -17,7 +16,12 @@ const Wrapper = styled.span(
   `,
 )
 
-const SelectorLabel: FunctionComponent = ({ children, withIcon = true }) => (
+type Props = { withIcon: boolean }
+
+const SelectorLabel: FunctionComponent = ({
+  children,
+  withIcon = true,
+}: Props) => (
   <Wrapper alignItems="center" display="flex" my={3}>
     {children} {withIcon && <ArrowDown />}
   </Wrapper>

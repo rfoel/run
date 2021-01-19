@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import dayjs from 'dayjs'
 import styled, { css } from 'styled-components'
 import equal from 'deepequal'
 
@@ -17,7 +16,7 @@ const Wrapper = styled.div(
 )
 
 const Selector = styled.div(
-  ({ theme: { colors } }) => css`
+  () => css`
     align-items: center;
     display: flex;
     flex-direction: column;

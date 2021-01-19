@@ -9,8 +9,9 @@ import WeekSelector from './WeekSelector'
 import YearSelector from './YearSelector'
 
 const Wrapper = styled.div(
-  ({ theme: { colors } }) => css`
+  () => css`
     display: flex;
+    margin-top: 96px;
   `,
 )
 

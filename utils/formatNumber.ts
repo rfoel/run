@@ -1,6 +1,6 @@
 const formatNumber = (
   value: number | string,
-  options: Intl.NumberFormatOptions,
+  options?: Intl.NumberFormatOptions,
 ) => new Intl.NumberFormat('pt-BR', options).format(Number(value))
 
 export default formatNumber

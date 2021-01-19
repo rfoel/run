@@ -7,7 +7,7 @@ import Period from '../components/Period'
 import Runs from '../components/Runs'
 import useGlobalState from '../hooks/useGlobalState'
 
-const IndexPage: NextPage = ({ years }) => {
+const IndexPage: NextPage = () => {
   const { data } = useSWR('/api/years')
   const [, setState] = useGlobalState()
 

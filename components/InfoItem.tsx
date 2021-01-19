@@ -1,4 +1,3 @@
-import { FunctionComponent } from 'react'
 import styled, { css } from 'styled-components'
 import ContentLoader from 'styled-content-loader'
 
@@ -8,18 +7,29 @@ const Wrapper = styled.div(
 
     h1 {
       color: ${colors.black};
-      font-size: 1rem;
       margin: 0;
-
-      ${size === 'large' &&
-      css`
-        font-family: 'Futura';
-        font-size: 3rem;
-      `};
+      margin-bottom: 4px;
     }
 
     span {
       color: ${colors.gray};
+      font-size: 0.9rem;
+    }
+
+    h1 {
+      font-size: 0.9rem;
+      font-weight: normal;
+
+      ${size === 'md' &&
+      css`
+        font-size: 1rem;
+      `};
+
+      ${size === 'lg' &&
+      css`
+        font-family: 'Futura';
+        font-size: 3rem;
+      `};
     }
   `,
 )
@@ -27,16 +37,11 @@ const Wrapper = styled.div(
 type Props = {
   title: string
   label: string
-  size?: 'small' | 'large'
+  size?: 'sm' | 'md' | 'lg'
   isLoading?: boolean
 }
 
-const Info: FunctionComponent = ({
-  title,
-  label,
-  size = 'small',
-  isLoading = false,
-}: Props) => {
+const Info = ({ title, label, size = 'md', isLoading = false }: Props) => {
   return (
     <Wrapper size={size}>
       <ContentLoader isLoading={isLoading}>

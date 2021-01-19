@@ -1,15 +1,29 @@
-import { createContext, useContext, useMemo, useReducer, useState } from 'react'
-import equal from 'deepequal'
+import {
+  createContext,
+  FunctionComponent,
+  useContext,
+  useMemo,
+  useReducer,
+} from 'react'
+import equal from 'fast-deep-equal'
 import merge from 'deepmerge'
 
-export const GlobalStateContext = createContext()
+export const GlobalStateContext = createContext({})
 
-const reducer = (state = {}, newState = {}) => {
+const reducer = (state: object, newState: object): object => {
   if (equal(state, newState)) return state
   return merge(state, newState)
 }
 
-export const GlobalStateProvider = ({ children, initialState = {} }) => {
+type GlobalStateProviderProps = {
+  children: FunctionComponent
+  initialState: Object
+}
+
+export const GlobalStateProvider = ({
+  children,
+  initialState = {},
+}: GlobalStateProviderProps) => {
   const [state, setState] = useReducer(reducer, initialState)
 
   const value = useMemo(() => [state, setState], [state])

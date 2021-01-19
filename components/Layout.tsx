@@ -7,6 +7,9 @@ import theme from '../utils/theme'
 const Container = styled.div(
   ({ theme: { colors } }) => css`
     color: ${colors.black};
+    display: flex;
+    flex: 1 0 100%;
+    flex-direction: column;
     width: 100%;
   `,
 )
