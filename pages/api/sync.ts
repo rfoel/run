@@ -15,8 +15,6 @@ const sync = async (req: NextApiRequest, res: NextApiResponse) => {
   try {
     const collection = await connectToDatabase()
 
-    await collection.updateMany({}, {$rename:{"summaryPolyline":"map"}})
-
     let { after }: Query = req.query
     if (!after) {
       const [{ date }] = await collection

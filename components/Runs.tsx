@@ -1,15 +1,29 @@
-import useSWR from 'swr'
+import { useEffect } from 'react'
+import useSWR, { useSWRInfinite } from 'swr'
 
 import Box from './Box'
 import Container from './Container'
 import Run from './Run'
 import Text from './Text'
 import useGlobalState from '../hooks/useGlobalState'
+import useIsBottomOfThePage from '../hooks/useIsBottomOfThePage'
 
 const Runs = () => {
+  const limit = 7
   const [state] = useGlobalState()
   const query = new URLSearchParams(state.range.value)
-  const { data: runs = [] } = useSWR(`/api/runs?${query}`)
+  const { data, error, size, setSize } = useSWRInfinite(index => {
+    return `/api/runs?${query}&limit=${limit}&skip=${index * limit}`
+  })
+  const { data: totalRuns } = useSWR(`/api/total-runs?${query}`)
+
+  const isBottom = useIsBottomOfThePage()
+
+  useEffect(() => {
+    if (isBottom && totalRuns > size * limit) setSize(size + 1)
+  }, [isBottom])
+
+  const runs = data ? [].concat(...data) : []
 
   return (
     <Box bg="whisper" flex="1 0 100%" mt={4} padding={3}>

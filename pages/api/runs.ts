@@ -8,7 +8,12 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   try {
     const collection = await connectToDatabase()
 
-    const { start, end }: Period = req.query
+    const {
+      start,
+      end,
+      limit,
+      skip,
+    }: Period & { limit: number; skip: number } = req.query
 
     const runs = await collection
       .find(
@@ -18,7 +23,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
             $lte: dayjs(end).endOf('day').toDate(),
           },
         },
-        { sort: { day: -1 } },
+        { sort: { day: -1 }, limit: Number(limit), skip: Number(skip) },
       )
       .toArray()
 

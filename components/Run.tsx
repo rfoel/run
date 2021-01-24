@@ -41,6 +41,7 @@ const Run = (run: Props) => {
             size="sm"
             title={formatNumber(run.distance / 1000, {
               maximumFractionDigits: 2,
+              minimumFractionDigits: 2,
             })}
           />
         </Box>
