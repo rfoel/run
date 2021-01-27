@@ -1,4 +1,5 @@
 import { FunctionComponent } from 'react'
+
 import Box from './Box'
 
 const Container: FunctionComponent = ({ children }) => (

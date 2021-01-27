@@ -11,7 +11,7 @@ import YearSelector from './YearSelector'
 const Wrapper = styled.div(
   () => css`
     display: flex;
-    margin-top: 96px;
+    margin-top: 16px;
   `,
 )
 
@@ -23,6 +23,7 @@ const PeriodButtonWrapper = styled.div(
     border-bottom-width: 1px;
     border-left: none;
     border-right: none;
+    flex: 1;
 
     &:first-child {
       border-right-width: 0;
@@ -53,14 +54,13 @@ const PeriodButton = styled.label(
     color: ${colors.gray};
     cursor: pointer;
     display: flex;
-    flex: 1 1 0%;
+    flex: 1;
     height: 32px;
     justify-content: center;
     padding-left: 32px;
     padding-right: 32px;
     user-select: none;
     white-space: nowrap;
-    width: 80px;
 
     ${checked &&
     css`

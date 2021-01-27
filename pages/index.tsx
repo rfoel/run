@@ -2,6 +2,7 @@ import { NextPage } from 'next'
 import { useEffect } from 'react'
 import useSWR from 'swr'
 
+import Header from '../components/Header'
 import Info from '../components/Info'
 import Period from '../components/Period'
 import Runs from '../components/Runs'
@@ -17,6 +18,7 @@ const IndexPage: NextPage = () => {
 
   return (
     <>
+      <Header />
       <Period />
       <Info />
       <Runs />
