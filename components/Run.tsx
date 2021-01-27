@@ -1,4 +1,6 @@
 import dayjs from 'dayjs'
+import useSWR from 'swr'
+import ContentLoader from 'styled-content-loader'
 
 import Box from './Box'
 import calculatePace from '../utils/calculatePace'
@@ -13,12 +15,19 @@ import formatNumber from '../utils/formatNumber'
 type Props = DbRun
 
 const Run = (run: Props) => {
+  const query = new URLSearchParams({
+    polyline: encodeURIComponent(run.polyline),
+  })
+  const { data: { map } = {} } = useSWR(`/api/map?${query}`)
+
   return (
     <Box bg="white" borderRadius={8} my={3} padding={3}>
       <Box display="flex">
-        <Box mr={4} width="auto">
-          <Map map={run.map} />
-        </Box>
+        <ContentLoader isLoading={!map}>
+          <Box mr={3} height="70px" width="70px">
+            <Box as="img" src={`data:image/png;base64, ${map}`} />
+          </Box>
+        </ContentLoader>
         <Box
           display="flex"
           flexDirection="column"

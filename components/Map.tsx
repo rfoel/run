@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react'
 import styled, { css } from 'styled-components'
 import mapboxgl, { LngLatLike } from 'mapbox-gl'
-import polyline from '@mapbox/polyline'
+import { decode } from '@mapbox/polyline'
 
 mapboxgl.accessToken = process.env.MAPBOX_TOKEN
 
@@ -21,12 +21,13 @@ type Props = {
   map: string
 }
 
-const Map = ({ map }: Props) => {
+const Map = ({ polyline }: Props) => {
   const ref = useRef(null)
 
-  const coordinates: LngLatLike[] = polyline
-    .decode(map)
-    .map(([lat, lng]) => [lng, lat])
+  const coordinates: LngLatLike[] = decode(polyline).map(([lat, lng]) => [
+    lng,
+    lat,
+  ])
 
   useEffect(() => {
     const bounds = coordinates.reduce((bounds, coord) => {

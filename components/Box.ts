@@ -12,7 +12,9 @@ import {
   SpaceProps,
 } from 'styled-system'
 
-const Box = styled.div<BorderProps & ColorProps & FlexboxProps & LayoutProps & SpaceProps>(
+const Box = styled.div<
+  BorderProps & ColorProps & FlexboxProps & LayoutProps & SpaceProps
+>(
   {
     boxSizing: 'border-box',
     minWidth: 0,
@@ -20,9 +22,9 @@ const Box = styled.div<BorderProps & ColorProps & FlexboxProps & LayoutProps & S
   },
   border,
   color,
-  space,
-  layout,
   flexbox,
+  layout,
+  space,
 )
 
 export default Box

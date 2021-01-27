@@ -17,7 +17,7 @@ const addActivity = async (activity: SummaryActivity): Promise<Run> => {
     start_date: date,
     start_latitude,
     start_longitude,
-    map: { summary_polyline: map },
+    map: { summary_polyline: polyline },
     timezone,
     utc_offset: utcOffset,
   } = activity
@@ -35,7 +35,7 @@ const addActivity = async (activity: SummaryActivity): Promise<Run> => {
     location,
     name,
     stravaId,
-    map,
+    polyline,
     time,
     timezone,
     utcOffset,
