@@ -2,6 +2,7 @@ import dayjs from 'dayjs'
 import { Meteostat } from 'meteostat'
 
 import { Weather } from '../models'
+
 import codes from './weatherConditionCodes'
 
 const meteostat = new Meteostat(process.env.METEOSTAT_API_KEY)
@@ -11,6 +12,10 @@ const getWeather = async (
   lon: number,
   date: string,
 ): Promise<Weather | null> => {
+  if (!lon || !lat) {
+    return null
+  }
+
   const { data } = await meteostat.point.hourly({
     lat,
     lon,
@@ -19,13 +24,13 @@ const getWeather = async (
     tz: 'America/Sao_Paulo',
   })
 
-  if (!data) return null
-
-  const found = data.find(({ time_local }) =>
-    dayjs(date).minute(0).second(0).isSame(dayjs(time_local)),
+  const found = (data || []).find(({ time_local }) =>
+    dayjs(date).isSame(dayjs(time_local), 'hour'),
   )
 
-  if (!found) return null
+  if (!found) {
+    return null
+  }
 
   return { temperature: found.temp, condition: codes[found.coco] }
 }

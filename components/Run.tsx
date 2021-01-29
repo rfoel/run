@@ -1,20 +1,21 @@
 import dayjs from 'dayjs'
-import useSWR from 'swr'
+import { ReactElement } from 'react'
 import ContentLoader from 'styled-content-loader'
+import useSWR from 'swr'
 
-import Box from './Box'
+import { Run as DbRun } from '../models/run'
 import calculatePace from '../utils/calculatePace'
+import formatNumber from '../utils/formatNumber'
 import formatPace from '../utils/formatPace'
 import formatTime from '../utils/formatTime'
+
+import Box from './Box'
 import InfoItem from './InfoItem'
-import Map from './Map'
 import Text from './Text'
-import { Run as DbRun } from '../models/run'
-import formatNumber from '../utils/formatNumber'
 
 type Props = DbRun
 
-const Run = (run: Props) => {
+const Run = (run: Props): ReactElement => {
   const query = new URLSearchParams({
     polyline: encodeURIComponent(run.polyline),
   })
@@ -23,7 +24,7 @@ const Run = (run: Props) => {
   return (
     <Box bg="white" borderRadius={8} my={3} padding={3}>
       <Box display="flex">
-        <ContentLoader isLoading={!map}>
+        <ContentLoader isLoading={Boolean(!map)}>
           <Box mr={3} height="70px" width="70px">
             <Box as="img" src={`data:image/png;base64, ${map}`} />
           </Box>

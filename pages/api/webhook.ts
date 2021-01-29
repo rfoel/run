@@ -22,13 +22,14 @@ const webhook = async (req: NextApiRequest, res: NextApiResponse) => {
 
       return res
         .status(201)
-        .json({ message: `run ${run.id} successfully added` })
+        .json({ message: `run ${run._id} successfully added` })
     }
 
     return res.json({ message: 'nothing to do here' })
   } catch (error) {
-    if (error.status === 404)
+    if (error.status === 404) {
       return res.status(404).json({ message: 'activity not found' })
+    }
 
     return res.status(500).json({ message: error.message })
   }

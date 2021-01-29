@@ -1,5 +1,5 @@
 import { NextPage } from 'next'
-import { useEffect } from 'react'
+import { ReactElement, useEffect } from 'react'
 import useSWR from 'swr'
 
 import Header from '../components/Header'
@@ -8,13 +8,19 @@ import Period from '../components/Period'
 import Runs from '../components/Runs'
 import useGlobalState from '../hooks/useGlobalState'
 
-const IndexPage: NextPage = () => {
-  const { data } = useSWR('/api/years')
+const IndexPage: NextPage = (): ReactElement => {
+  const { data: streaks } = useSWR('/api/streaks')
+  const { data: years } = useSWR('/api/years')
   const [, setState] = useGlobalState()
 
-  useEffect(() => {
-    if (data) setState(data)
-  }, [data])
+  useEffect((): void => {
+    if (streaks) {
+      setState({ streaks })
+    }
+    if (years) {
+      setState({ years })
+    }
+  }, [streaks, years])
 
   return (
     <>

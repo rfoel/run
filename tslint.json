@@ -59,13 +59,14 @@
       "check-finally",
       "check-whitespace"
     ],
-    "quotemark": [true, "single", "avoid-escape"],
+    "quotemark": [true, "single", "avoid-escape", "jsx-double"],
     "semicolon": false,
     "variable-name": [
       true,
       "check-format",
       "ban-keywords",
-      "allow-pascal-case"
+      "allow-pascal-case",
+      "allow-leading-underscore"
     ],
     "whitespace": [
       true,

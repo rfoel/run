@@ -1,32 +1,37 @@
 import dayjs from 'dayjs'
 import weekOfYear from 'dayjs/plugin/weekOfYear'
+
 import { DATE_FORMAT } from './constants'
 
 dayjs.extend(weekOfYear)
 
 type Option = {
+  label: string
   value: {
     start: string
     end: string
   }
-  label: string
 }
 
 export const getMonthNames = () =>
-  [...Array(12)].map((_, index) => dayjs().month(index).format('MMMM'))
+  [...Array(12)].map((_, index): string => dayjs().month(index).format('MMMM'))
 
 export const getWeeks = (
   startOfWeek = dayjs().startOf('week'),
-  weeks = [],
+  weeks: Option[] = [],
 ): Option[] => {
   const endOfWeek = startOfWeek.endOf('week')
 
-  if (startOfWeek.isBefore(dayjs().subtract(5, 'week'))) return weeks
+  if (startOfWeek.isBefore(dayjs().subtract(5, 'week'))) {
+    return weeks
+  }
 
   const getLabel = () => {
-    if (startOfWeek.week() === dayjs().week()) return 'This week'
-    if (startOfWeek.week() === dayjs().subtract(1, 'week').week())
+    if (startOfWeek.week() === dayjs().week()) {
+      return 'This week'
+    } else if (startOfWeek.week() === dayjs().subtract(1, 'week').week()) {
       return 'Last week'
+    }
     return `${startOfWeek.format('DD/MM')} - ${endOfWeek.format('DD/MM')}`
   }
 

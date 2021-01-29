@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react'
+import equal from 'fast-deep-equal'
+import { ReactElement, useEffect, useState } from 'react'
 import styled, { css } from 'styled-components'
-import equal from 'deepequal'
+
+import useGlobalState from '../hooks/useGlobalState'
+import { getWeeks } from '../utils/period'
 
 import Button from './Button'
 import HiddenInput from './HiddenInput'
 import Modal from './Modal'
 import SelectorLabel from './SelectorLabel'
-import useGlobalState from '../hooks/useGlobalState'
-import { getWeeks } from '../utils/period'
 
 const Wrapper = styled.div(
   () => css`
@@ -28,8 +29,8 @@ const Selector = styled.div(
   `,
 )
 
-const Option = styled.label(
-  ({ selected, theme: { colors } }) => css`
+const Option = styled.label<{ selected: boolean }>(
+  ({ selected, theme: { colors } }): any => css`
     border-radius: 8px;
     cursor: pointer;
     margin: 4px;
@@ -44,7 +45,7 @@ const Option = styled.label(
   `,
 )
 
-const WeekSelector = () => {
+const WeekSelector = (): ReactElement => {
   const [state, setState] = useGlobalState()
   const [isOpen, setIsOpen] = useState(false)
 
@@ -52,17 +53,17 @@ const WeekSelector = () => {
 
   const [value, setValue] = useState(options[0])
 
-  useEffect(() => {
+  useEffect((): void => {
     handleClick()
   }, [])
 
-  const handleClick = () => {
+  const handleClick = (): void => {
     setState({ range: value })
     setIsOpen(false)
   }
 
-  const handleClose = event => {
-    event.stopPropagation()
+  const handleClose = (event?: Event): void => {
+    event?.stopPropagation()
     setIsOpen(false)
   }
 
@@ -71,17 +72,19 @@ const WeekSelector = () => {
       <SelectorLabel>{state.range?.label}</SelectorLabel>
       <Modal isOpen={isOpen} handleClose={handleClose}>
         <Selector>
-          {options.map(option => (
-            <Option key={option.label} selected={equal(option, value)}>
-              <HiddenInput
-                defaultChecked={equal(option, value)}
-                name="range"
-                type="radio"
-                onClick={() => setValue(option)}
-              />
-              {option.label}
-            </Option>
-          ))}
+          {options.map(
+            (option): ReactElement => (
+              <Option key={option.label} selected={equal(option, value)}>
+                <HiddenInput
+                  defaultChecked={equal(option, value)}
+                  name="range"
+                  type="radio"
+                  onClick={() => setValue(option)}
+                />
+                {option.label}
+              </Option>
+            ),
+          )}
           <Button onClick={handleClick}>Select</Button>
         </Selector>
       </Modal>

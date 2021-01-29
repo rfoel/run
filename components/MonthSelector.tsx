@@ -1,48 +1,42 @@
-import { useEffect, useState } from 'react'
 import dayjs from 'dayjs'
+import { ReactElement, useEffect, useState } from 'react'
 import styled, { css } from 'styled-components'
-import equal from 'deepequal'
+
+import useGlobalState from '../hooks/useGlobalState'
+import { DATE_FORMAT } from '../utils/constants'
+import { getMonthNames } from '../utils/period'
 
 import Button from './Button'
 import HiddenInput from './HiddenInput'
 import Modal from './Modal'
 import SelectorLabel from './SelectorLabel'
-import useGlobalState from '../hooks/useGlobalState'
-import { getMonthNames, getWeeks } from '../utils/period'
-import { DATE_FORMAT } from '../utils/constants'
 
-const Wrapper = styled.div(
-  () => css`
-    cursor: pointer;
+const Wrapper = styled.div`
+  cursor: pointer;
 
-    ${Button} {
-      margin-top: 24px;
-    }
-  `,
-)
+  ${Button} {
+    margin-top: 24px;
+  }
+`
 
-const Selector = styled.div(
-  ({ theme: { colors } }) => css`
-    align-items: center;
-    display: flex;
-    justify-content: center;
-    overflow: hidden;
-    padding: 16px 24px;
-  `,
-)
+const Selector = styled.div`
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  padding: 16px 24px;
+`
 
-const Options = styled.div(
-  () => css`
-    display: flex;
-    flex-direction: column;
-    height: 150px;
-    padding: 16px 32px;
-    overflow-y: scroll;
-  `,
-)
+const Options = styled.div`
+  display: flex;
+  flex-direction: column;
+  height: 150px;
+  padding: 16px 32px;
+  overflow-y: scroll;
+`
 
-const Option = styled.label(
-  ({ selected, theme: { colors } }) => css`
+const Option = styled.label<{ selected: boolean }>(
+  ({ selected, theme: { colors } }): any => css`
     border-radius: 8px;
     cursor: pointer;
     margin: 4px;
@@ -58,14 +52,18 @@ const Option = styled.label(
   `,
 )
 
-const MonthSelector = () => {
+const MonthSelector = (): ReactElement | null => {
   const [state, setState] = useGlobalState()
   const [isOpen, setIsOpen] = useState(false)
 
   const monthNames = getMonthNames()
 
   const [month, setMonth] = useState(dayjs().month())
-  const [year, setYear] = useState(dayjs().year().toString())
+  const [year, setYear] = useState(dayjs().year())
+
+  if (!state.years) {
+    return null
+  }
 
   useEffect(() => {
     handleClick()
@@ -92,41 +90,45 @@ const MonthSelector = () => {
     setIsOpen(false)
   }
 
-  const handleClose = event => {
-    event.stopPropagation()
+  const handleClose = (event?: Event): void => {
+    event?.stopPropagation()
     setIsOpen(false)
   }
 
   return (
-    <Wrapper onClick={() => setIsOpen(true)}>
+    <Wrapper onClick={(): void => setIsOpen(true)}>
       <SelectorLabel>{state.range?.label}</SelectorLabel>
       <Modal isOpen={isOpen} handleClose={handleClose}>
         <Selector>
           <Options>
-            {monthNames.map((value, index) => (
-              <Option key={value} selected={month === index}>
-                <HiddenInput
-                  defaultChecked={month === index}
-                  name="range"
-                  type="radio"
-                  onClick={() => setMonth(index)}
-                />
-                {value}
-              </Option>
-            ))}
+            {monthNames.map(
+              (value, index): ReactElement => (
+                <Option key={value} selected={month === index}>
+                  <HiddenInput
+                    defaultChecked={month === index}
+                    name="range"
+                    type="radio"
+                    onClick={(): void => setMonth(index)}
+                  />
+                  {value}
+                </Option>
+              ),
+            )}
           </Options>
           <Options>
-            {state.years.map(value => (
-              <Option key={value} selected={year === value}>
-                <HiddenInput
-                  defaultChecked={year === value}
-                  name="range"
-                  type="radio"
-                  onClick={() => setYear(value)}
-                />
-                {value}
-              </Option>
-            ))}
+            {state.years.map(
+              (value): ReactElement => (
+                <Option key={value} selected={year === value}>
+                  <HiddenInput
+                    defaultChecked={year === value}
+                    name="range"
+                    type="radio"
+                    onClick={(): void => setYear(value)}
+                  />
+                  {value}
+                </Option>
+              ),
+            )}
           </Options>
         </Selector>
         <Button onClick={handleClick}>Select</Button>

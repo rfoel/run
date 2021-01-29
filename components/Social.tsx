@@ -1,7 +1,9 @@
-import Box from './Box'
+import styled, { css } from 'styled-components'
+
 import GitHub from '../images/github.svg'
 import Twitter from '../images/twitter.svg'
-import styled, { css } from 'styled-components'
+
+import Box from './Box'
 
 const Link = styled.a(
   ({ theme: { colors } }) => css`
@@ -9,7 +11,7 @@ const Link = styled.a(
     margin-left: 16px;
 
     svg {
-      height: 24px;
+      max-height: 24px;
     }
   `,
 )

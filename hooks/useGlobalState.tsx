@@ -1,44 +1,51 @@
-import {
-  createContext,
-  FunctionComponent,
-  useContext,
-  useMemo,
-  useReducer,
-} from 'react'
-import equal from 'fast-deep-equal'
 import merge from 'deepmerge'
+import equal from 'fast-deep-equal'
+import { createContext, useContext, useReducer } from 'react'
 
-export const GlobalStateContext = createContext({})
+import { Range } from '../models'
+import initialState from '../utils/initialState'
+
+type GlobalState = {
+  period?: string
+  range?: Range
+  years?: number[]
+  streaks?: Range[]
+}
+
+type GlobalStateHook = [
+  GlobalState,
+  React.Dispatch<React.SetStateAction<GlobalState>>,
+]
+
+type GlobalStateProviderProps = {
+  children: JSX.Element | JSX.Element[]
+  initialState: Object
+}
+
+const defaultGlobalState: GlobalStateHook = [initialState, (): void => {}]
+
+const GlobalStateContext = createContext<GlobalStateHook>(defaultGlobalState)
 
 const reducer = (state: object, newState: object): object => {
   if (equal(state, newState)) return state
   return merge(state, newState)
 }
 
-type GlobalStateProviderProps = {
-  children: FunctionComponent
-  initialState: Object
-}
-
 export const GlobalStateProvider = ({
   children,
   initialState = {},
 }: GlobalStateProviderProps) => {
-  const [state, setState] = useReducer(reducer, initialState)
-
-  const value = useMemo(() => [state, setState], [state])
+  const [state, setGlobalState] = useReducer(reducer, initialState)
 
   return (
-    <GlobalStateContext.Provider value={value}>
+    <GlobalStateContext.Provider value={[state, setGlobalState]}>
       {children}
     </GlobalStateContext.Provider>
   )
 }
 
-const useGlobalState = () => {
-  const context = useContext(GlobalStateContext)
-  if (!context) throw Error('useGlobalState must be used within a context')
-  return context
+const useGlobalState = (): GlobalStateHook => {
+  return useContext(GlobalStateContext)
 }
 
 export default useGlobalState

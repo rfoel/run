@@ -1,18 +1,25 @@
 import { useEffect } from 'react'
 import useSWR, { useSWRInfinite } from 'swr'
 
+import useGlobalState from '../hooks/useGlobalState'
+import useIsBottomOfThePage from '../hooks/useIsBottomOfThePage'
+import { Run as DbRun } from '../models'
+
 import Box from './Box'
 import Container from './Container'
 import Run from './Run'
 import Text from './Text'
-import useGlobalState from '../hooks/useGlobalState'
-import useIsBottomOfThePage from '../hooks/useIsBottomOfThePage'
 
 const Runs = () => {
   const limit = 7
   const [state] = useGlobalState()
+
+  if (!state.range) {
+    return null
+  }
+
   const query = new URLSearchParams(state.range.value)
-  const { data, error, size, setSize } = useSWRInfinite(index => {
+  const { data, size, setSize } = useSWRInfinite(index => {
     return `/api/runs?${query}&limit=${limit}&skip=${index * limit}`
   })
   const { data: totalRuns } = useSWR(`/api/total-runs?${query}`)
@@ -20,10 +27,12 @@ const Runs = () => {
   const isBottom = useIsBottomOfThePage()
 
   useEffect(() => {
-    if (isBottom && totalRuns > size * limit) setSize(size + 1)
+    if (isBottom && totalRuns > size * limit) {
+      setSize(size + 1)
+    }
   }, [isBottom])
 
-  const runs = data ? [].concat(...data) : []
+  const runs: DbRun[] = data ? [].concat(...data) : []
 
   return (
     <Box bg="whisper" flex="1 0 100%" mt={4} padding={3}>

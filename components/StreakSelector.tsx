@@ -1,4 +1,5 @@
 import dayjs from 'dayjs'
+import equal from 'fast-deep-equal'
 import { ReactElement, useEffect, useState } from 'react'
 import styled, { css } from 'styled-components'
 
@@ -41,15 +42,15 @@ const Option = styled.label<{ checked: boolean }>(
   `,
 )
 
-const YearSelector = (): ReactElement | null => {
+const StreakSelector = (): ReactElement | null => {
   const [state, setState] = useGlobalState()
   const [isOpen, setIsOpen] = useState(false)
 
-  if (!state.years) {
+  if (!state.streaks) {
     return null
   }
 
-  const [value, setValue] = useState(state.years[0])
+  const [{ value, label }, setValue] = useState(state.streaks[0])
 
   useEffect((): void => {
     handleClick()
@@ -58,10 +59,10 @@ const YearSelector = (): ReactElement | null => {
   const handleClick = (): void => {
     setState({
       range: {
-        label: String(value),
+        label,
         value: {
-          start: dayjs().year(value).startOf('year').format(DATE_FORMAT),
-          end: dayjs().year(value).endOf('year').format(DATE_FORMAT),
+          start: dayjs(value.start).format(DATE_FORMAT),
+          end: dayjs(value.end).format(DATE_FORMAT),
         },
       },
     })
@@ -78,18 +79,18 @@ const YearSelector = (): ReactElement | null => {
       <SelectorLabel>{state.range?.label}</SelectorLabel>
       <Modal isOpen={isOpen} handleClose={handleClose}>
         <Selector>
-          {state.years?.map(
-            (year): ReactElement => {
-              const checked = year === value
+          {state.streaks?.map(
+            (streak): ReactElement => {
+              const checked = equal(streak.value, value)
               return (
-                <Option key={year} checked={checked}>
+                <Option key={streak.label} checked={checked}>
                   <HiddenInput
                     defaultChecked={checked}
                     name="range"
                     type="radio"
-                    onClick={() => setValue(year)}
+                    onClick={(): void => setValue(streak)}
                   />
-                  {year}
+                  {streak.label}
                 </Option>
               )
             },
@@ -101,4 +102,4 @@ const YearSelector = (): ReactElement | null => {
   )
 }
 
-export default YearSelector
+export default StreakSelector

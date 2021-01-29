@@ -1,22 +1,25 @@
+import { ChangeEvent, ReactElement } from 'react'
 import styled, { css } from 'styled-components'
+
+import useGlobalState from '../hooks/useGlobalState'
 
 import AllSelector from './AllSelector'
 import Container from './Container'
 import HiddenInput from './HiddenInput'
 import MonthSelector from './MonthSelector'
-import useGlobalState from '../hooks/useGlobalState'
+import StreakSelector from './StreakSelector'
 import WeekSelector from './WeekSelector'
 import YearSelector from './YearSelector'
 
 const Wrapper = styled.div(
-  () => css`
+  (): any => css`
     display: flex;
     margin-top: 16px;
   `,
 )
 
 const PeriodButtonWrapper = styled.div(
-  ({ theme: { colors } }) => css`
+  ({ theme: { colors } }): any => css`
     border-style: solid;
     border-color: ${colors.gainsboro};
     border-top-width: 1px;
@@ -45,8 +48,8 @@ const PeriodButtonWrapper = styled.div(
   `,
 )
 
-const PeriodButton = styled.label(
-  ({ checked, theme: { colors } }) => css`
+const PeriodButton = styled.label<{ checked: boolean }>(
+  ({ checked, theme: { colors } }): any => css`
     align-items: center;
     background-color: transparent;
     border-radius: 9999px;
@@ -57,8 +60,6 @@ const PeriodButton = styled.label(
     flex: 1;
     height: 32px;
     justify-content: center;
-    padding-left: 32px;
-    padding-right: 32px;
     user-select: none;
     white-space: nowrap;
 
@@ -75,33 +76,38 @@ const options = [
   { label: 'W', value: 'week' },
   { label: 'M', value: 'month' },
   { label: 'Y', value: 'year' },
+  { label: 'S', value: 'streak' },
   { label: 'All', value: 'all' },
 ]
 
 const Period = () => {
   const [state, setState] = useGlobalState()
-  const handleChange = ({ target }) => setState({ period: target.value })
+  const handleChange = ({ target }: ChangeEvent): void =>
+    setState({ period: (target as HTMLInputElement).value })
 
   return (
     <Container>
       <Wrapper role="radiogroup">
-        {options.map((option, index) => (
-          <PeriodButtonWrapper key={option.value}>
-            <PeriodButton checked={option.value === state.period}>
-              <HiddenInput
-                checked={option.value === state.period}
-                name="period"
-                onChange={handleChange}
-                value={option.value}
-                type="radio"
-              />
-              {option.label}
-            </PeriodButton>
-          </PeriodButtonWrapper>
-        ))}
+        {options.map(
+          (option): ReactElement => (
+            <PeriodButtonWrapper key={option.value}>
+              <PeriodButton checked={option.value === state.period}>
+                <HiddenInput
+                  checked={option.value === state.period}
+                  name="period"
+                  onChange={handleChange}
+                  value={option.value}
+                  type="radio"
+                />
+                {option.label}
+              </PeriodButton>
+            </PeriodButtonWrapper>
+          ),
+        )}
       </Wrapper>
       {state.period === 'all' && <AllSelector />}
       {state.period === 'month' && <MonthSelector />}
+      {state.period === 'streak' && <StreakSelector />}
       {state.period === 'week' && <WeekSelector />}
       {state.period === 'year' && <YearSelector />}
     </Container>

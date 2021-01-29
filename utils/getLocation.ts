@@ -6,6 +6,10 @@ const getLocation = async (
   lat: number,
   lon: number,
 ): Promise<Location | null> => {
+  if (!lon || !lat) {
+    return null
+  }
+
   const params = qs.stringify({
     access_token: process.env.MAPBOX_TOKEN,
     types: 'country,place',

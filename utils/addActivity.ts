@@ -1,10 +1,10 @@
 import { SummaryActivity } from 'strava'
 
+import { Run } from '../models/run'
+
 import connectToDatabase from './connectToDatabase'
-import getDay from './getDay'
 import getLocation from './getLocation'
 import getWeather from './getWeather'
-import { Run } from '../models/run'
 
 const addActivity = async (activity: SummaryActivity): Promise<Run> => {
   const collection = await connectToDatabase()
@@ -21,7 +21,6 @@ const addActivity = async (activity: SummaryActivity): Promise<Run> => {
     timezone,
     utc_offset: utcOffset,
   } = activity
-  const day = getDay(date)
 
   const [weather, location] = await Promise.all([
     getWeather(start_latitude, start_longitude, date),
@@ -30,7 +29,6 @@ const addActivity = async (activity: SummaryActivity): Promise<Run> => {
 
   const run = {
     date: new Date(date),
-    day,
     distance,
     location,
     name,

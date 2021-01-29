@@ -10,6 +10,14 @@ export type Period = {
   end?: string
 }
 
+export type Range = {
+  label: string
+  value: {
+    start: string
+    end: string
+  }
+}
+
 export type Weather = {
   temperature: number
   condition: string

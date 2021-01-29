@@ -1,8 +1,8 @@
-import { NextApiRequest, NextApiResponse } from 'next'
 import dayjs from 'dayjs'
+import { NextApiRequest, NextApiResponse } from 'next'
 
-import connectToDatabase from '../../utils/connectToDatabase'
 import { Period } from '../../models'
+import connectToDatabase from '../../utils/connectToDatabase'
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   try {
@@ -13,7 +13,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       end,
       limit,
       skip,
-    }: Period & { limit: number; skip: number } = req.query
+    }: Period & { limit?: number; skip?: number } = req.query
 
     const runs = await collection
       .find(
@@ -23,7 +23,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
             $lte: dayjs(end).endOf('day').toDate(),
           },
         },
-        { sort: { day: -1 }, limit: Number(limit), skip: Number(skip) },
+        { sort: { date: -1 }, limit: Number(limit), skip: Number(skip) },
       )
       .toArray()
 

@@ -1,3 +1,4 @@
-const fetcher = (...args) => fetch(...args).then(res => res.json())
+const fetcher = (url: string): Promise<Response> =>
+  fetch(url).then((res): Promise<any> => res.json())
 
 export default fetcher

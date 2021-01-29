@@ -1,16 +1,22 @@
-import { FunctionComponent } from 'react'
+import { ReactElement } from 'react'
 import useSWR from 'swr'
+
+import useGlobalState from '../hooks/useGlobalState'
+import formatNumber from '../utils/formatNumber'
+import formatPace from '../utils/formatPace'
+import formatTime from '../utils/formatTime'
 
 import Box from './Box'
 import Container from './Container'
-import formatNumber from '../utils/formatNumber'
-import formatPace from '../utils/formatPace'
 import InfoItem from './InfoItem'
-import formatTime from '../utils/formatTime'
-import useGlobalState from '../hooks/useGlobalState'
 
-const Info: FunctionComponent = () => {
+const Info = (): ReactElement | null => {
   const [state] = useGlobalState()
+
+  if (!state.range) {
+    return null
+  }
+
   const query = new URLSearchParams(state.range.value)
 
   const { data: averagePace } = useSWR(`/api/average-pace?${query}`)

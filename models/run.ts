@@ -1,16 +1,13 @@
-import { ObjectId } from 'mongodb'
-
 import { Location, Weather } from './common'
 
 export interface Run {
-  id: ObjectId
+  _id: string
   date: Date
-  day: number
   distance: number
   location: Location
   name: string
   stravaId: string
-  map: string
+  polyline: string
   time: number
   timezone: string
   utcOffset: number

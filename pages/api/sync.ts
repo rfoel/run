@@ -1,5 +1,5 @@
-import { NextApiRequest, NextApiResponse } from 'next'
 import dayjs from 'dayjs'
+import { NextApiRequest, NextApiResponse } from 'next'
 
 import addActivity from '../../utils/addActivity'
 import connectToDatabase from '../../utils/connectToDatabase'
@@ -20,8 +20,10 @@ const sync = async (req: NextApiRequest, res: NextApiResponse) => {
       const [{ date }] = await collection
         .find({}, { sort: { date: -1 } })
         .toArray()
-      after = dayjs(date).unix().toString()
+      after = date
     }
+    after = dayjs(after).unix().toString()
+
     const { page, per_page }: Query = req.query
     const activities = await strava.activities.getLoggedInAthleteActivities({
       after: Number(after),

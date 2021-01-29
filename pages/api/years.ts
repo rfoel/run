@@ -1,9 +1,11 @@
 import { NextApiRequest, NextApiResponse } from 'next'
-import dayjs from 'dayjs'
 
 import connectToDatabase from '../../utils/connectToDatabase'
 
-const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+const handler = async (
+  _req: NextApiRequest,
+  res: NextApiResponse,
+): Promise<void> => {
   try {
     const collection = await connectToDatabase()
 
@@ -18,7 +20,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       ])
       .toArray()
 
-    return res.json({ years: years.map(({ _id: year }) => year) })
+    return res.json(years.map(({ _id: year }): number => year))
   } catch (err) {
     return res.status(500).json({ message: err.message })
   }

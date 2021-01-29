@@ -1,8 +1,8 @@
-import styled, { css } from 'styled-components'
+import styled, { css, FlattenSimpleInterpolation } from 'styled-components'
 import ContentLoader from 'styled-content-loader'
 
-const Wrapper = styled.div(
-  ({ size, theme: { colors } }) => css`
+const Wrapper = styled.div<{ size: string }>(
+  ({ size, theme: { colors } }): FlattenSimpleInterpolation => css`
     display: flex;
 
     h1 {
