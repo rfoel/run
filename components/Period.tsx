@@ -90,7 +90,7 @@ const Period = () => {
       <Wrapper role="radiogroup">
         {options.map(
           (option): ReactElement => (
-            <PeriodButtonWrapper key={option.value}>
+            <PeriodButtonWrapper title={option.value} key={option.value}>
               <PeriodButton checked={option.value === state.period}>
                 <HiddenInput
                   checked={option.value === state.period}
