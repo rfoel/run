@@ -1,30 +1,19 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# rafael.run
 
-## Getting Started
+Personal page where I log my runs and display them in a nice way.
 
-First, run the development server:
+This application consists in creating a new MongoDB entry for every new activity in my Strava account. This is powered by [Strava Webhooks](https://developers.strava.com/docs/webhooks/).
 
-```bash
-npm run dev
-# or
-yarn dev
-```
+## Built with
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- [Next.js](https://nextjs.org/)
+- [React](https://reactjs.org/)
+- [styled-components](https://styled-components.com/)
+- [styled-system](https://styled-system.com/)
+- [Mapbox](https://www.mapbox.com/)
+- [Splitbee](https://splitbee.io/)
+- [Meteostat](https://meteostat.net/)
 
-You can start editing the page by modifying `pages/index.js`. The page auto-updates as you edit the file.
+## Design ~~ripoff~~ inspiration
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/import?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+- [Nike Run Club](https://www.nike.com/nrc-app)

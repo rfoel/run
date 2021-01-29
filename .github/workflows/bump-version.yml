@@ -1,12 +1,12 @@
-name: Bump version
+name: Release
 
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
-  bump-version:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
