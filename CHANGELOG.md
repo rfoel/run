@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/rfoel/run/compare/v2.0.0...v2.0.1) (2021-01-30)
+
+
+### Bug Fixes
+
+* fix font-face path ([9b8c3cf](https://github.com/rfoel/run/commit/9b8c3cfed52864141fc287d76067ef810520fd8c))
+
 # [2.0.0](https://github.com/rfoel/run/compare/v1.7.4...v2.0.0) (2021-01-30)
 
 
