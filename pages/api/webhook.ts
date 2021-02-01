@@ -1,11 +1,16 @@
 import { NextApiRequest, NextApiResponse } from 'next'
+import { NextApiRequestQuery } from 'next/dist/next-server/server/api-utils'
+import { SubscriptionEvent } from 'strava'
 
 import addActivity from '../../utils/addActivity'
 import strava from '../../utils/strava'
 
 const webhook = async (req: NextApiRequest, res: NextApiResponse) => {
   try {
-    const { body, query } = req
+    const {
+      body,
+      query,
+    }: { body: SubscriptionEvent; query: NextApiRequestQuery } = req
 
     if (query['hub.mode'] === 'subscribe') {
       return res.json({
@@ -16,7 +21,9 @@ const webhook = async (req: NextApiRequest, res: NextApiResponse) => {
     const { aspect_type, object_id, object_type } = body
 
     if (aspect_type === 'create' && object_type === 'activity') {
-      const activity = await strava.activities.getActivityById(object_id)
+      const activity = await strava.activities.getActivityById({
+        id: object_id,
+      })
 
       const run = await addActivity(activity)
 
