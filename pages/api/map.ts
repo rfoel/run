@@ -6,7 +6,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     const { polyline }: { polyline?: string } = req.query
 
     const map = await fetch(
-      `https://api.mapbox.com/styles/v1/rfoel/ckk33or0z1ghj17n3ixrq0ifb/static/path-1+000000(${polyline})/auto/70x70?access_token=${process.env.MAPBOX_TOKEN}`,
+      `https://api.mapbox.com/styles/v1/rfoel/ckk33or0z1ghj17n3ixrq0ifb/static/path-3+000000(${polyline})/auto/140x140?access_token=${process.env.MAPBOX_TOKEN}`,
     )
       .then((response): Promise<Buffer> => response.buffer())
       .then((buffer): string => buffer.toString('base64'))

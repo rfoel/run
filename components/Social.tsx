@@ -24,6 +24,9 @@ const Social = () => (
       target="_blank"
     >
       <GitHub />
+      <Box as="span" display="none">
+        GitHub
+      </Box>
     </Link>
     <Link
       href="https://twitter.com/rfoel"
@@ -31,6 +34,9 @@ const Social = () => (
       target="_blank"
     >
       <Twitter />
+      <Box as="span" display="none">
+        Twitter
+      </Box>
     </Link>
   </Box>
 )

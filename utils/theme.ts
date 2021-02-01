@@ -6,6 +6,7 @@ declare module 'styled-components' {
       gray: string
       whisper: string
       white: string
+      zambezi: string
     }
   }
 }
@@ -16,6 +17,7 @@ const colors = {
   gray: '#7a7a7a',
   whisper: '#eeeeee',
   white: '#ffffff',
+  zambezi: '#595959',
 }
 
 const theme = {

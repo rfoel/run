@@ -35,9 +35,9 @@ const Runs = () => {
   const runs: DbRun[] = data ? [].concat(...data) : []
 
   return (
-    <Box bg="whisper" flex="1 0 100%" mt={4} padding={3}>
+    <Box bg="snow" flex="1 0 100%" mt={4} padding={3}>
       <Container>
-        <Text as="h3" my={3}>
+        <Text as="h2" my={3}>
           Recent Activity
         </Text>
         {runs.map(run => (
