@@ -1,3 +1,11 @@
+## [2.0.2](https://github.com/rfoel/run/compare/v2.0.1...v2.0.2) (2021-02-01)
+
+
+### Bug Fixes
+
+* fix strava api call ([112d96a](https://github.com/rfoel/run/commit/112d96a0e82ee94c94e66af8a99b8a8073038abd))
+* update strava ([4d38fc0](https://github.com/rfoel/run/commit/4d38fc012147c0e5af5f4a2238f6a4f9f5058a96))
+
 ## [2.0.1](https://github.com/rfoel/run/compare/v2.0.0...v2.0.1) (2021-01-30)
 
 
