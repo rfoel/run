@@ -24,7 +24,7 @@
     "react-dom": "^17.0.1",
     "react-error-boundary": "^3.1.0",
     "react-modal": "^3.12.1",
-    "strava": "^1.2.0",
+    "strava": "^1.2.1",
     "styled-components": "^5.2.1",
     "styled-content-loader": "^1.2.2",
     "styled-system": "^5.1.5",

@@ -7268,7 +7268,7 @@ stacktrace-parser@0.1.10:
   resolved "https://registry.yarnpkg.com/statuses/-/statuses-1.5.0.tgz#161c7dac177659fd9811f43771fa99381478628c"
   integrity sha1-Fhx9rBd2Wf2YEfQ3cfqZOBR4Yow=
 
-strava@^1.2.0:
+strava@^1.2.1:
   version "1.2.1"
   resolved "https://registry.yarnpkg.com/strava/-/strava-1.2.1.tgz#ef934565e601b76412cf3c6e308e9c39aea2aeba"
   integrity sha512-RNezZjJSWi5JZ/hm6jKv3WyPW32TgGYlWJ3VHmOj2cFqB+Vx4C7VkBgjqHZ882kWbP5baQa2lyGqvJsHJ+1suw==
