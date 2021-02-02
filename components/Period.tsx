@@ -54,7 +54,7 @@ const PeriodButton = styled.label<{ checked: boolean }>(
     background-color: transparent;
     border-radius: 9999px;
     box-sizing: border-box;
-    color: ${colors.gray};
+    color: ${colors.zambezi};
     cursor: pointer;
     display: flex;
     flex: 1;
