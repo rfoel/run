@@ -1,3 +1,10 @@
+## [2.0.4](https://github.com/rfoel/run/compare/v2.0.3...v2.0.4) (2021-02-02)
+
+
+### Bug Fixes
+
+* add robots.txt ([#158](https://github.com/rfoel/run/issues/158)) ([124215a](https://github.com/rfoel/run/commit/124215aa75a7c16fdb4e1305a70da703e1c5ddb3))
+
 ## [2.0.3](https://github.com/rfoel/run/compare/v2.0.2...v2.0.3) (2021-02-02)
 
 
