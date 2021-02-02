@@ -44,7 +44,7 @@ const Run = (run: Props): ReactElement => {
             <Text fontSize={1}>{dayjs(run.date).format('DD/MM/YYYY')}</Text>
           </Box>
           <Box>
-            <Text color="gray" fontSize={1}>
+            <Text color="zambezi" fontSize={1}>
               {run.name}
             </Text>
           </Box>
