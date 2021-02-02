@@ -40,19 +40,21 @@ export default class MyDocument extends Document {
           {process.env.NODE_ENV === 'production' && (
             <script async data-api="/_hive" src="/bee.js"></script>
           )}
-          <link rel="stylesheet" href="/fonts.css" />
           <link
-            rel="preload"
-            href="/futura_condensed_extra_bold_italic-webfont.woff"
             as="font"
+            crossorigin="anonymous"
+            href="/futura_condensed_extra_bold_italic-webfont.woff"
+            rel="preload"
             type="font/woff"
           />
           <link
-            rel="preload"
-            href="/futura_condensed_extra_bold_italic-webfont.woff2"
             as="font"
+            crossorigin="anonymous"
+            href="/futura_condensed_extra_bold_italic-webfont.woff2"
+            rel="preload"
             type="font/woff2"
           />
+          <link as="style" href="/fonts.css" rel="stylesheet preload " />
         </Head>
         <body>
           <Main />

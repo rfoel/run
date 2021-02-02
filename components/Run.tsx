@@ -26,7 +26,13 @@ const Run = (run: Props): ReactElement => {
       <Box display="flex">
         <ContentLoader isLoading={Boolean(!map)}>
           <Box mr={3} height="70px" width="70px">
-            <Box as="img" src={`data:image/png;base64, ${map}`} />
+            {map && (
+              <Box
+                alt={run.name}
+                as="img"
+                src={`data:image/png;base64, ${map}`}
+              />
+            )}
           </Box>
         </ContentLoader>
         <Box

@@ -12,7 +12,7 @@ const Wrapper = styled.div<{ size: string }>(
     }
 
     span {
-      color: ${colors.gray};
+      color: ${colors.zambezi};
       font-size: 0.9rem;
     }
 
