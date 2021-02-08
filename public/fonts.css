@@ -1,7 +1,8 @@
 @font-face {
   font-family: 'Futura';
-  src: url('/futura_condensed_extra_bold_italic-webfont.woff2') format('woff2'),
-    url('/futura_condensed_extra_bold_italic-webfont.woff') format('woff');
+  src: url('futura_condensed_extra_bold_italic-webfont.ttf') format('truetype'),
+    url('futura_condensed_extra_bold_italic-webfont.woff2') format('woff2'),
+    url('futura_condensed_extra_bold_italic-webfont.woff') format('woff');
   font-weight: bolder;
   font-style: italic;
 }

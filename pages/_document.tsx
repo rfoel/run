@@ -43,14 +43,21 @@ export default class MyDocument extends Document {
           <link
             as="font"
             crossOrigin="anonymous"
-            href="/futura_condensed_extra_bold_italic-webfont.woff"
+            href="futura_condensed_extra_bold_italic-webfont.ttf"
+            rel="preload"
+            type="font/ttf"
+          />
+          <link
+            as="font"
+            crossOrigin="anonymous"
+            href="futura_condensed_extra_bold_italic-webfont.woff"
             rel="preload"
             type="font/woff"
           />
           <link
             as="font"
             crossOrigin="anonymous"
-            href="/futura_condensed_extra_bold_italic-webfont.woff2"
+            href="futura_condensed_extra_bold_italic-webfont.woff2"
             rel="preload"
             type="font/woff2"
           />
