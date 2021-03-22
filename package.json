@@ -28,7 +28,7 @@
     "styled-components": "^5.2.1",
     "styled-content-loader": "^1.2.2",
     "styled-system": "^5.1.5",
-    "swr": "^0.4.1"
+    "swr": "^0.5.4"
   },
   "devDependencies": {
     "@semantic-release/changelog": "^5.0.1",
