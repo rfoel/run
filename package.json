@@ -19,7 +19,7 @@
     "meteostat": "^1.1.2",
     "mongodb": "^3.6.3",
     "next": "^10.0.6",
-    "node-fetch": "^2.6.1",
+    "node-fetch": "^3.1.1",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
     "react-error-boundary": "^3.1.0",
