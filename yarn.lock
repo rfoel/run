@@ -1525,10 +1525,10 @@
     "@types/react" "*"
     hoist-non-react-statics "^3.3.0"
 
-"@types/mapbox-gl@^2.0.4":
-  version "2.0.4"
-  resolved "https://registry.yarnpkg.com/@types/mapbox-gl/-/mapbox-gl-2.0.4.tgz#cc407ee56d4ac89e71340b3bedbb6cc58d9d27e9"
-  integrity sha512-0qxx/jK+/t5dcJ9LjTCvtcUamryk8yZUCQcpcOs/mQU6JipW15taAfUKvyNLC/PmhJYLSN5U4GrLFl6cBSGemg==
+"@types/mapbox-gl@^2.6.3":
+  version "2.6.3"
+  resolved "https://registry.yarnpkg.com/@types/mapbox-gl/-/mapbox-gl-2.6.3.tgz#09e4992bb540fe5e024eebc5fbc315317cb13ffe"
+  integrity sha512-oF5eQmczkoPQfxfRSwpF9GcrWi3YleptJ67uiCQKps+7aKxwIbww0EHHqIrxvOg49l07+AZBtJU2FPKZm1jKAg==
   dependencies:
     "@types/geojson" "*"
 
