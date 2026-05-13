@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { Resource } from "sst";
 import { listActivities, type Activity } from "@run/core/activity";
+import { isAuthorized } from "../lib/auth.ts";
 import { runTool, tools } from "./tools.ts";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -69,6 +70,18 @@ type ContentBlock =
   | { type: "tool_result"; tool_use_id: string; content: string };
 
 export const handler = awslambda.streamifyResponse(async (event, stream) => {
+  const headers = (event as { headers?: Record<string, string | undefined> })
+    .headers;
+  if (!isAuthorized(headers)) {
+    const unauthorizedStream = awslambda.HttpResponseStream.from(stream, {
+      statusCode: 401,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+    unauthorizedStream.write("unauthorized");
+    unauthorizedStream.end();
+    return;
+  }
+
   const body = (event as { body?: string }).body;
   if (!body) {
     stream.write("missing body");

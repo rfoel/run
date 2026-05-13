@@ -49,6 +49,11 @@ api.route("DELETE /plans/{date}/{id}", {
   link: linked,
 });
 
+api.route("POST /auth/verify", {
+  handler: "packages/functions/src/auth/verify.handler",
+  link: linked,
+});
+
 router.route("/api", api.url, {
   rewrite: { regex: "^/api/(.*)$", to: "/$1" },
 });

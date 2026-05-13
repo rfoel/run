@@ -4,10 +4,12 @@ export const stravaClientId = new sst.Secret("StravaClientId");
 export const stravaClientSecret = new sst.Secret("StravaClientSecret");
 export const stravaVerifyToken = new sst.Secret("StravaVerifyToken");
 export const anthropicApiKey = new sst.Secret("AnthropicApiKey");
+export const writePassword = new sst.Secret("WritePassword");
 
 export const allSecrets = [
   stravaClientId,
   stravaClientSecret,
   stravaVerifyToken,
   anthropicApiKey,
+  writePassword,
 ];

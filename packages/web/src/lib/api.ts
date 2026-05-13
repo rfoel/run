@@ -1,5 +1,36 @@
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "/api";
 
+const TOKEN_KEY = "run.writeToken";
+
+export function getWriteToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setWriteToken(token: string) {
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+  } catch {
+    // ignore
+  }
+}
+
+export function clearWriteToken() {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+function authHeaders(): Record<string, string> {
+  const t = getWriteToken();
+  return t ? { "x-write-token": t } : {};
+}
+
 export type Activity = {
   source: "strava" | "garmin" | "apple" | "manual";
   externalId: string;
@@ -69,7 +100,10 @@ export async function listPlans(opts: { from?: string; to?: string } = {}) {
 }
 
 export async function deletePlan(date: string, id: string) {
-  const res = await fetch(`${BASE}/plans/${date}/${id}`, { method: "DELETE" });
+  const res = await fetch(`${BASE}/plans/${date}/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(`delete plan ${res.status}`);
 }
 
@@ -84,6 +118,7 @@ export type SyncResult = {
 export async function syncStrava(days = 30): Promise<SyncResult> {
   const res = await fetch(`${BASE}/strava/sync?days=${days}`, {
     method: "POST",
+    headers: authHeaders(),
   });
   if (!res.ok) throw new Error(`sync ${res.status}`);
   return (await res.json()) as SyncResult;
@@ -103,7 +138,7 @@ export async function chatStream(
 ) {
   const res = await fetch(`${BASE}/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ messages }),
     signal,
   });
@@ -115,4 +150,12 @@ export async function chatStream(
     if (done) break;
     if (value) onChunk(decoder.decode(value, { stream: true }));
   }
+}
+
+export async function verifyWriteToken(token: string): Promise<boolean> {
+  const res = await fetch(`${BASE}/auth/verify`, {
+    method: "POST",
+    headers: { "x-write-token": token },
+  });
+  return res.ok;
 }

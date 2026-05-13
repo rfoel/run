@@ -8,6 +8,7 @@ import {
   fetchStreams,
   getValidAccessToken,
 } from "@run/core/strava";
+import { requireWriteAuth } from "../lib/auth.ts";
 import { json } from "../lib/response.ts";
 
 const RUN_TYPES = new Set(["Run", "TrailRun", "VirtualRun"]);
@@ -21,6 +22,8 @@ type Result = {
 };
 
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
+  const unauthorized = requireWriteAuth(event);
+  if (unauthorized) return unauthorized;
   const days = Number(event.queryStringParameters?.days ?? 30);
   const accessToken = await getValidAccessToken();
   const afterEpoch = Math.floor(Date.now() / 1000) - days * 86400;

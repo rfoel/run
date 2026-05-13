@@ -15,7 +15,7 @@ const TYPE_LABELS: Record<PlannedRun["type"], string> = {
   recovery: "Regen",
 };
 
-export default function Plan() {
+export default function Plan({ unlocked }: { unlocked: boolean }) {
   const [items, setItems] = useState<PlannedRun[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,9 +52,11 @@ export default function Plan() {
         <div className="text-xs uppercase tracking-[0.2em] text-ink/60 mb-2">
           Nenhum treino planejado
         </div>
-        <p className="font-mono text-sm">
-          Vá para a aba Treinador e peça: "Monta um plano de 5k abaixo de 20min em 12 semanas"
-        </p>
+        {unlocked && (
+          <p className="font-mono text-sm">
+            Vá para a aba Treinador e peça: "Monta um plano de 5k abaixo de 20min em 12 semanas"
+          </p>
+        )}
       </div>
     );
   }
@@ -70,7 +72,12 @@ export default function Plan() {
           </h2>
           <ul className="border-2 border-ink divide-y-2 divide-ink">
             {runs.map((p) => (
-              <PlanRow key={`${p.date}/${p.id}`} plan={p} onDelete={refresh} />
+              <PlanRow
+                key={`${p.date}/${p.id}`}
+                plan={p}
+                unlocked={unlocked}
+                onDelete={refresh}
+              />
             ))}
           </ul>
         </div>
@@ -81,9 +88,11 @@ export default function Plan() {
 
 function PlanRow({
   plan,
+  unlocked,
   onDelete,
 }: {
   plan: PlannedRun;
+  unlocked: boolean;
   onDelete: () => void | Promise<void>;
 }) {
   const done = plan.status === "done";
@@ -134,7 +143,7 @@ function PlanRow({
             {paceString(plan.paceTargetSec)}
           </div>
         )}
-        {!done && (
+        {!done && unlocked && (
           <button
             onClick={async () => {
               await apiDeletePlan(plan.date, plan.id);

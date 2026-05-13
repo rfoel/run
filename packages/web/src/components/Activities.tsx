@@ -19,7 +19,7 @@ const RANGE_LABELS: Record<Range, string> = {
   total: "total",
 };
 
-export default function Activities() {
+export default function Activities({ unlocked }: { unlocked: boolean }) {
   const [items, setItems] = useState<Activity[]>([]);
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [range, setRange] = useState<Range>("total");
@@ -88,13 +88,15 @@ export default function Activities() {
               </button>
             ))}
           </div>
-          <button
-            onClick={() => void sync()}
-            disabled={syncing}
-            className="text-[10px] uppercase tracking-[0.2em] font-medium border-2 border-ink px-3 py-1 hover:bg-ink hover:text-paper disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
-          >
-            {syncing ? "sincronizando…" : "sincronizar"}
-          </button>
+          {unlocked && (
+            <button
+              onClick={() => void sync()}
+              disabled={syncing}
+              className="text-[10px] uppercase tracking-[0.2em] font-medium border-2 border-ink px-3 py-1 hover:bg-ink hover:text-paper disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
+            >
+              {syncing ? "sincronizando…" : "sincronizar"}
+            </button>
+          )}
         </div>
       </div>
 
