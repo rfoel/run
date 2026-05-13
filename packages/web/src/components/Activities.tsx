@@ -2,8 +2,12 @@ import { ToggleGroup } from "@base-ui-components/react/toggle-group";
 import { Toggle } from "@base-ui-components/react/toggle";
 import {
   ArrowsClockwiseIcon,
+  GaugeIcon,
   HeartbeatIcon,
+  HourglassIcon,
   PathIcon,
+  PersonSimpleRunIcon,
+  RulerIcon,
   TimerIcon,
   WarningIcon,
 } from "@phosphor-icons/react";
@@ -131,23 +135,48 @@ export default function Activities({ unlocked }: { unlocked: boolean }) {
         </div>
       )}
 
-      <div className="grid grid-cols-3 border-2 border-ink mb-10">
+      <div className="grid grid-cols-3 gap-px bg-ink border-2 border-ink mb-10">
         <StatBox
           label="Corridas"
-          icon={<PathIcon className="h-4 w-4" />}
+          icon={<PersonSimpleRunIcon className="h-4 w-4" />}
           value={active ? String(active.count) : "0"}
         />
         <StatBox
           label="Km"
           icon={<PathIcon className="h-4 w-4" />}
           value={active ? (active.distance / 1000).toFixed(1) : "0"}
-          border
         />
         <StatBox
           label="Tempo"
           icon={<TimerIcon className="h-4 w-4" />}
           value={active ? duration(active.movingTime) : "0"}
-          border
+        />
+        <StatBox
+          label="Média km"
+          icon={<RulerIcon className="h-4 w-4" />}
+          value={
+            active && active.count > 0
+              ? (active.distance / active.count / 1000).toFixed(2)
+              : "—"
+          }
+        />
+        <StatBox
+          label="Média tempo"
+          icon={<HourglassIcon className="h-4 w-4" />}
+          value={
+            active && active.count > 0
+              ? duration(active.movingTime / active.count)
+              : "—"
+          }
+        />
+        <StatBox
+          label="Pace médio"
+          icon={<GaugeIcon className="h-4 w-4" />}
+          value={
+            active && active.distance > 0
+              ? pace(active.distance, active.movingTime)
+              : "—"
+          }
         />
       </div>
 
@@ -201,15 +230,13 @@ function StatBox({
   label,
   value,
   icon,
-  border,
 }: {
   label: string;
   value: string;
   icon?: React.ReactNode;
-  border?: boolean;
 }) {
   return (
-    <div className={`px-5 py-4 ${border ? "border-l-2 border-ink" : ""}`}>
+    <div className="bg-paper px-5 py-4">
       <div className="text-[10px] uppercase tracking-[0.2em] text-ink/60 flex items-center gap-1.5">
         {icon}
         {label}
