@@ -1,0 +1,27 @@
+{
+  "name": "@run/functions",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
+    "@aws-sdk/client-dynamodb": "^3.700.0",
+    "@aws-sdk/lib-dynamodb": "^3.700.0",
+    "@mapbox/polyline": "^1.2.1",
+    "@run/core": "workspace:*",
+    "adm-zip": "^0.5.17",
+    "csv-parse": "^6.2.1",
+    "fast-xml-parser": "^5.8.0",
+    "fit-file-parser": "^3.0.0",
+    "sst": "4.14.1"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
+    "@types/aws-lambda": "^8.10.146",
+    "@types/mapbox__polyline": "^1.0.5",
+    "typescript": "^5.7.2"
+  }
+}

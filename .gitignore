@@ -1,0 +1,11 @@
+node_modules
+dist
+.sst
+sst-env.d.ts
+.env
+.env.local
+.env.development.local
+*.log
+*.zip
+*.tsbuildinfo
+.DS_Store
