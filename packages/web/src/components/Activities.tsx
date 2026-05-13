@@ -1,3 +1,12 @@
+import { ToggleGroup } from "@base-ui-components/react/toggle-group";
+import { Toggle } from "@base-ui-components/react/toggle";
+import {
+  ArrowsClockwiseIcon,
+  HeartbeatIcon,
+  PathIcon,
+  TimerIcon,
+  WarningIcon,
+} from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import {
   getStats,
@@ -73,54 +82,70 @@ export default function Activities({ unlocked }: { unlocked: boolean }) {
           Totais
         </h2>
         <div className="flex items-center gap-3">
-          <div className="flex gap-1 text-[10px] uppercase tracking-[0.2em] font-medium">
+          <ToggleGroup
+            value={[range]}
+            onValueChange={(v) => {
+              const next = v[0] as Range | undefined;
+              if (next) setRange(next);
+            }}
+            className="flex gap-1 text-[10px] uppercase tracking-[0.2em] font-medium"
+          >
             {RANGES.map((r) => (
-              <button
+              <Toggle
                 key={r}
-                onClick={() => setRange(r)}
-                className={
-                  range === r
-                    ? "px-2 py-1 bg-ink text-paper"
-                    : "px-2 py-1 text-ink/60 hover:text-ink"
-                }
+                value={r}
+                aria-label={RANGE_LABELS[r]}
+                className="px-2 py-1 text-ink/60 hover:text-ink data-[pressed]:bg-ink data-[pressed]:text-paper"
               >
                 {RANGE_LABELS[r]}
-              </button>
+              </Toggle>
             ))}
-          </div>
+          </ToggleGroup>
           {unlocked && (
             <button
               onClick={() => void sync()}
               disabled={syncing}
-              className="text-[10px] uppercase tracking-[0.2em] font-medium border-2 border-ink px-3 py-1 hover:bg-ink hover:text-paper disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
+              className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border-2 border-ink px-3 py-1 hover:bg-ink hover:text-paper disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
             >
-              {syncing ? "sincronizando…" : "sincronizar"}
+              <ArrowsClockwiseIcon
+                className={"h-3.5 w-3.5 " + (syncing ? "animate-spin" : "")}
+              />
+              <span>{syncing ? "sincronizando…" : "sincronizar"}</span>
             </button>
           )}
         </div>
       </div>
 
       {syncResult && (
-        <div className="border-2 border-ink p-3 mb-4 bg-paper-2 font-mono text-xs flex gap-4">
+        <div className="border-2 border-ink p-3 mb-4 bg-paper-2 font-mono text-xs flex gap-4 flex-wrap">
           <span>buscadas {syncResult.fetched}</span>
           <span>importadas {syncResult.imported}</span>
           <span>ignoradas {syncResult.skipped}</span>
           <span>vinculadas {syncResult.linked}</span>
           {syncResult.errors.length > 0 && (
-            <span className="text-red-700">erros {syncResult.errors.length}</span>
+            <span className="text-red-700 flex items-center gap-1">
+              <WarningIcon className="h-3.5 w-3.5" />
+              erros {syncResult.errors.length}
+            </span>
           )}
         </div>
       )}
 
       <div className="grid grid-cols-3 border-2 border-ink mb-10">
-        <StatBox label="Corridas" value={active ? String(active.count) : "0"} />
+        <StatBox
+          label="Corridas"
+          icon={<PathIcon className="h-4 w-4" />}
+          value={active ? String(active.count) : "0"}
+        />
         <StatBox
           label="Km"
+          icon={<PathIcon className="h-4 w-4" />}
           value={active ? (active.distance / 1000).toFixed(1) : "0"}
           border
         />
         <StatBox
           label="Tempo"
+          icon={<TimerIcon className="h-4 w-4" />}
           value={active ? duration(active.movingTime) : "0"}
           border
         />
@@ -145,9 +170,19 @@ export default function Activities({ unlocked }: { unlocked: boolean }) {
               <div className="font-semibold">
                 {km(a.distance)} <span className="text-ink/40">km</span>
               </div>
-              <div className="text-ink/60 text-xs mt-1">
-                {duration(a.movingTime)} · {pace(a.distance, a.movingTime)}
-                {a.avgHr ? ` · ${Math.round(a.avgHr)} bpm` : ""}
+              <div className="text-ink/60 text-xs mt-1 flex items-center justify-end gap-2">
+                <span>{duration(a.movingTime)}</span>
+                <span>·</span>
+                <span>{pace(a.distance, a.movingTime)}</span>
+                {a.avgHr && (
+                  <>
+                    <span>·</span>
+                    <span className="flex items-center gap-0.5">
+                      <HeartbeatIcon className="h-3 w-3" />
+                      {Math.round(a.avgHr)} bpm
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </li>
@@ -165,15 +200,18 @@ export default function Activities({ unlocked }: { unlocked: boolean }) {
 function StatBox({
   label,
   value,
+  icon,
   border,
 }: {
   label: string;
   value: string;
+  icon?: React.ReactNode;
   border?: boolean;
 }) {
   return (
     <div className={`px-5 py-4 ${border ? "border-l-2 border-ink" : ""}`}>
-      <div className="text-[10px] uppercase tracking-[0.2em] text-ink/60">
+      <div className="text-[10px] uppercase tracking-[0.2em] text-ink/60 flex items-center gap-1.5">
+        {icon}
         {label}
       </div>
       <div className="text-2xl font-bold font-mono mt-1">{value}</div>

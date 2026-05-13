@@ -1,3 +1,9 @@
+import { AlertDialog } from "@base-ui-components/react/alert-dialog";
+import {
+  CheckCircleIcon,
+  MinusCircleIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import {
   deletePlan as apiDeletePlan,
@@ -113,12 +119,14 @@ function PlanRow({
             {formatDate(plan.date)}
           </span>
           {done && (
-            <span className="text-[10px] uppercase tracking-[0.2em] text-emerald-700">
-              ✓ feito
+            <span className="text-[10px] uppercase tracking-[0.2em] text-emerald-700 flex items-center gap-1">
+              <CheckCircleIcon weight="fill" className="h-3.5 w-3.5" />
+              feito
             </span>
           )}
           {skipped && (
-            <span className="text-[10px] uppercase tracking-[0.2em] text-ink/50">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-ink/50 flex items-center gap-1">
+              <MinusCircleIcon className="h-3.5 w-3.5" />
               pulado
             </span>
           )}
@@ -144,18 +152,75 @@ function PlanRow({
           </div>
         )}
         {!done && unlocked && (
-          <button
-            onClick={async () => {
-              await apiDeletePlan(plan.date, plan.id);
-              await onDelete();
-            }}
-            className="text-[10px] uppercase tracking-[0.2em] text-ink/40 hover:text-ink mt-2"
-          >
-            excluir
-          </button>
+          <DeletePlanButton
+            plan={plan}
+            onDeleted={onDelete}
+          />
         )}
       </div>
     </li>
+  );
+}
+
+function DeletePlanButton({
+  plan,
+  onDeleted,
+}: {
+  plan: PlannedRun;
+  onDeleted: () => void | Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function confirm() {
+    setBusy(true);
+    try {
+      await apiDeletePlan(plan.date, plan.id);
+      await onDeleted();
+      setOpen(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <AlertDialog.Root open={open} onOpenChange={setOpen}>
+      <AlertDialog.Trigger
+        className="text-[10px] uppercase tracking-[0.2em] text-ink/40 hover:text-ink mt-2 flex items-center gap-1 ml-auto"
+        aria-label="Excluir treino"
+      >
+        <TrashIcon className="h-3.5 w-3.5" />
+        excluir
+      </AlertDialog.Trigger>
+      <AlertDialog.Portal>
+        <AlertDialog.Backdrop className="fixed inset-0 bg-ink/40 z-40" />
+        <AlertDialog.Popup className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-paper border-2 border-ink w-[min(92vw,24rem)] p-6 flex flex-col gap-4 outline-none">
+          <AlertDialog.Title className="text-xs uppercase tracking-[0.2em] text-ink/60 flex items-center gap-2">
+            <TrashIcon className="h-4 w-4" />
+            Excluir treino
+          </AlertDialog.Title>
+          <AlertDialog.Description className="font-mono text-sm">
+            {formatDate(plan.date)} — {plannedTarget(plan)}
+          </AlertDialog.Description>
+          <div className="flex gap-2 justify-end">
+            <AlertDialog.Close
+              className="text-xs uppercase tracking-[0.2em] font-medium px-3 py-2 text-ink/60 hover:text-ink"
+              disabled={busy}
+            >
+              cancelar
+            </AlertDialog.Close>
+            <button
+              type="button"
+              onClick={confirm}
+              disabled={busy}
+              className="text-xs uppercase tracking-[0.2em] font-medium bg-ink text-paper px-4 py-2 disabled:opacity-40"
+            >
+              {busy ? "excluindo…" : "excluir"}
+            </button>
+          </div>
+        </AlertDialog.Popup>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
   );
 }
 

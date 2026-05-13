@@ -1,3 +1,4 @@
+import { PaperPlaneRightIcon, SparkleIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { chatStream, type ChatMessage } from "../lib/api.ts";
 
@@ -35,7 +36,8 @@ export default function Chat() {
       <div className="flex flex-col gap-3 min-h-[40vh]">
         {messages.length === 0 && (
           <div className="border-2 border-ink p-6 bg-paper-2">
-            <div className="text-xs uppercase tracking-[0.2em] text-ink/60 mb-2">
+            <div className="text-xs uppercase tracking-[0.2em] text-ink/60 mb-2 flex items-center gap-1.5">
+              <SparkleIcon className="h-3.5 w-3.5" />
               Pergunte ao treinador
             </div>
             <p className="font-mono text-sm">
@@ -71,9 +73,11 @@ export default function Chat() {
         <button
           type="submit"
           disabled={streaming || !input.trim()}
-          className="bg-ink text-paper px-6 py-3 text-xs uppercase tracking-[0.2em] font-medium disabled:opacity-30"
+          aria-label="Enviar"
+          className="bg-ink text-paper px-6 py-3 text-xs uppercase tracking-[0.2em] font-medium disabled:opacity-30 flex items-center gap-2"
         >
-          Enviar
+          <span>Enviar</span>
+          <PaperPlaneRightIcon className="h-4 w-4" />
         </button>
       </form>
     </section>

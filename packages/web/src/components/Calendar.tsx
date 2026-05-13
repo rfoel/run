@@ -1,3 +1,8 @@
+import {
+  CaretLeftIcon,
+  CaretRightIcon,
+  HeartbeatIcon,
+} from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import {
   listActivities,
@@ -105,9 +110,10 @@ export default function Calendar() {
         <div className="flex gap-1 text-[10px] uppercase tracking-[0.2em] font-medium">
           <button
             onClick={() => shift(-1)}
-            className="px-3 py-1 border-2 border-ink hover:bg-ink hover:text-paper"
+            aria-label="Mês anterior"
+            className="px-3 py-1 border-2 border-ink hover:bg-ink hover:text-paper flex items-center"
           >
-            ←
+            <CaretLeftIcon className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={jumpToday}
@@ -117,9 +123,10 @@ export default function Calendar() {
           </button>
           <button
             onClick={() => shift(1)}
-            className="px-3 py-1 border-2 border-ink hover:bg-ink hover:text-paper"
+            aria-label="Próximo mês"
+            className="px-3 py-1 border-2 border-ink hover:bg-ink hover:text-paper flex items-center"
           >
-            →
+            <CaretRightIcon className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -300,9 +307,17 @@ function DayDetail({ iso, slot }: { iso: string; slot: DaySlot }) {
                   <div>
                     {km(a.distance)} km · {duration(a.movingTime)}
                   </div>
-                  <div className="text-ink/60 text-xs">
-                    {pace(a.distance, a.movingTime)}
-                    {a.avgHr ? ` · ${Math.round(a.avgHr)} bpm` : ""}
+                  <div className="text-ink/60 text-xs flex items-center justify-end gap-2">
+                    <span>{pace(a.distance, a.movingTime)}</span>
+                    {a.avgHr && (
+                      <>
+                        <span>·</span>
+                        <span className="flex items-center gap-0.5">
+                          <HeartbeatIcon className="h-3 w-3" />
+                          {Math.round(a.avgHr)} bpm
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               </li>
