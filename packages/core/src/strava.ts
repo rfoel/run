@@ -91,6 +91,28 @@ export async function fetchActivity(stravaId: number, accessToken: string) {
   return (await res.json()) as StravaActivityRaw;
 }
 
+export async function updateActivityName(
+  stravaId: number | string,
+  name: string,
+  accessToken: string,
+): Promise<void> {
+  const res = await fetch(
+    `https://www.strava.com/api/v3/activities/${stravaId}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name }),
+    },
+  );
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Strava activity update failed: ${res.status} ${body}`);
+  }
+}
+
 export async function fetchActivities(
   accessToken: string,
   opts: { page?: number; perPage?: number; before?: number; after?: number } = {},

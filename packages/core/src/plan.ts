@@ -192,15 +192,20 @@ type ActivityLike = {
 
 /**
  * Match an incoming Activity to the first still-planned PlannedRun on the same
- * date and snapshot the actual metrics onto it. Returns the linked plan id
+ * date and snapshot the actual metrics onto it. Returns the matched plan
  * (or null if no plan exists for that day).
  */
 export async function linkActivityToPlan(
   activity: ActivityLike,
-): Promise<string | null> {
+): Promise<PlannedRun | null> {
   const date = activity.startDate.slice(0, 10);
   const plans = await listPlans({ from: date, to: date, userId: activity.userId });
-  const plan = plans.find((p) => p.status === "planned");
+  const plan = plans.find(
+    (p) =>
+      p.status === "planned" ||
+      (p.actualSource === activity.source &&
+        p.actualExternalId === activity.externalId),
+  );
   if (!plan) return null;
   await updatePlan(
     plan.date,
@@ -217,5 +222,29 @@ export async function linkActivityToPlan(
     },
     activity.userId,
   );
-  return plan.id;
+  return plan;
+}
+
+const TYPE_LABEL: Record<PlannedRunType, string> = {
+  easy: "Easy",
+  long: "Long",
+  tempo: "Tempo",
+  interval: "Intervals",
+  race: "Race",
+  recovery: "Recovery",
+};
+
+export function planTitle(plan: PlannedRun): string {
+  if (plan.notes && plan.notes.trim()) return plan.notes.trim();
+  const label = TYPE_LABEL[plan.type];
+  if (plan.distance && plan.distance > 0) {
+    const km = plan.distance / 1000;
+    const formatted = km % 1 === 0 ? km.toFixed(0) : km.toFixed(1);
+    return `${label} ${formatted} km`;
+  }
+  if (plan.durationSec && plan.durationSec > 0) {
+    const min = Math.round(plan.durationSec / 60);
+    return `${label} ${min} min`;
+  }
+  return label;
 }

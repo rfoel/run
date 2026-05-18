@@ -22,6 +22,7 @@ import {
   type SyncResult,
 } from "../lib/api.ts";
 import { date, duration, km, pace } from "../lib/format.ts";
+import StravaLink from "./StravaLink.tsx";
 
 type Range = "week" | "month" | "year" | "total";
 const RANGES: Range[] = ["week", "month", "year", "total"];
@@ -190,7 +191,10 @@ export default function Activities({ unlocked }: { unlocked: boolean }) {
             className="px-5 py-4 flex items-baseline justify-between gap-6 hover:bg-paper-2"
           >
             <div className="min-w-0 flex-1">
-              <div className="font-semibold truncate">{a.name}</div>
+              <div className="font-semibold truncate flex items-center gap-2">
+                <span className="truncate">{a.name}</span>
+                <StravaLink source={a.source} externalId={a.externalId} />
+              </div>
               <div className="text-xs uppercase tracking-wider text-ink/50 mt-1">
                 {date(a.startDate)} · {a.sportType}
               </div>

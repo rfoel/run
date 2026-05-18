@@ -11,6 +11,7 @@ import {
   type PlannedRun,
 } from "../lib/api.ts";
 import { duration, km, pace } from "../lib/format.ts";
+import StravaLink from "./StravaLink.tsx";
 
 const TYPE_SHORT: Record<PlannedRun["type"], string> = {
   easy: "Leve",
@@ -302,7 +303,10 @@ function DayDetail({ iso, slot }: { iso: string; slot: DaySlot }) {
                 key={`${a.source}:${a.externalId}`}
                 className="px-4 py-3 flex items-start justify-between gap-4"
               >
-                <div className="font-semibold truncate">{a.name}</div>
+                <div className="font-semibold truncate flex items-center gap-2 min-w-0">
+                  <span className="truncate">{a.name}</span>
+                  <StravaLink source={a.source} externalId={a.externalId} />
+                </div>
                 <div className="text-right font-mono text-sm shrink-0">
                   <div>
                     {km(a.distance)} km · {duration(a.movingTime)}

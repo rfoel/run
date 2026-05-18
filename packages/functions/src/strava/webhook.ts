@@ -1,12 +1,13 @@
 import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { buildActivity, putActivity } from "@run/core/activity";
-import { linkActivityToPlan } from "@run/core/plan";
+import { linkActivityToPlan, planTitle } from "@run/core/plan";
 import { computeMetrics } from "@run/core/track";
 import { streamsToTrack } from "@run/core/parsers/streams";
 import {
   fetchActivity,
   fetchStreams,
   getValidAccessToken,
+  updateActivityName,
 } from "@run/core/strava";
 import { json } from "../lib/response.ts";
 
@@ -66,8 +67,18 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   console.log(`put activity ${activity.externalId} created=${created}`);
   let linkedPlanId: string | null = null;
   if (created) {
-    linkedPlanId = await linkActivityToPlan(activity);
+    const linkedPlan = await linkActivityToPlan(activity);
+    linkedPlanId = linkedPlan?.id ?? null;
     console.log(`linked plan=${linkedPlanId}`);
+    if (linkedPlan) {
+      const title = planTitle(linkedPlan);
+      try {
+        await updateActivityName(raw.id, title, accessToken);
+        console.log(`renamed strava ${raw.id} -> ${title}`);
+      } catch (e) {
+        console.log(`rename failed: ${(e as Error).message}`);
+      }
+    }
   }
   return json(200, {
     ok: true,

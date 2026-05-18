@@ -1,12 +1,13 @@
 import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { buildActivity, putActivity } from "@run/core/activity";
-import { linkActivityToPlan } from "@run/core/plan";
+import { linkActivityToPlan, planTitle } from "@run/core/plan";
 import { streamsToTrack } from "@run/core/parsers/streams";
 import { computeMetrics } from "@run/core/track";
 import {
   fetchActivities,
   fetchStreams,
   getValidAccessToken,
+  updateActivityName,
 } from "@run/core/strava";
 import { requireWriteAuth } from "../lib/auth.ts";
 import { json } from "../lib/response.ts";
@@ -75,8 +76,15 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
         const { created } = await putActivity(activity);
         if (created) {
           result.imported++;
-          const linked = await linkActivityToPlan(activity);
-          if (linked) result.linked++;
+          const linkedPlan = await linkActivityToPlan(activity);
+          if (linkedPlan) {
+            result.linked++;
+            try {
+              await updateActivityName(summary.id, planTitle(linkedPlan), accessToken);
+            } catch (e) {
+              result.errors.push(`rename ${summary.id}: ${(e as Error).message}`);
+            }
+          }
         } else {
           result.skipped++;
         }

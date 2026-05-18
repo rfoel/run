@@ -55,7 +55,7 @@ async function remove() {
 function oauthUrl() {
   const { client_id } = clientCreds();
   const redirect = "https://run.rfoel.dev/api/strava/oauth/callback";
-  const scope = "read,activity:read_all";
+  const scope = "read,activity:read_all,activity:write";
   const url = `https://www.strava.com/oauth/authorize?client_id=${client_id}&redirect_uri=${encodeURIComponent(redirect)}&response_type=code&scope=${scope}&approval_prompt=force`;
   console.log(url);
 }
