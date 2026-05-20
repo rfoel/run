@@ -1,3 +1,4 @@
+import { AlertDialog } from "@base-ui-components/react/alert-dialog";
 import { ToggleGroup } from "@base-ui-components/react/toggle-group";
 import { Toggle } from "@base-ui-components/react/toggle";
 import {
@@ -9,10 +10,12 @@ import {
   PersonSimpleRunIcon,
   RulerIcon,
   TimerIcon,
+  TrashIcon,
   WarningIcon,
 } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import {
+  deleteActivity as apiDeleteActivity,
   getStats,
   listActivities,
   syncStrava,
@@ -186,39 +189,12 @@ export default function Activities({ unlocked }: { unlocked: boolean }) {
       </h2>
       <ul className="border-2 border-ink divide-y-2 divide-ink">
         {items.slice(0, 100).map((a) => (
-          <li
+          <ActivityRow
             key={`${a.source}:${a.externalId}`}
-            className="px-5 py-4 flex items-baseline justify-between gap-6 hover:bg-paper-2"
-          >
-            <div className="min-w-0 flex-1">
-              <div className="font-semibold truncate flex items-center gap-2">
-                <span className="truncate">{a.name}</span>
-                <StravaLink source={a.source} externalId={a.externalId} />
-              </div>
-              <div className="text-xs uppercase tracking-wider text-ink/50 mt-1">
-                {date(a.startDate)} · {a.sportType}
-              </div>
-            </div>
-            <div className="text-right shrink-0 font-mono text-sm">
-              <div className="font-semibold">
-                {km(a.distance)} <span className="text-ink/40">km</span>
-              </div>
-              <div className="text-ink/60 text-xs mt-1 flex items-center justify-end gap-2">
-                <span>{duration(a.movingTime)}</span>
-                <span>·</span>
-                <span>{pace(a.distance, a.movingTime)}</span>
-                {a.avgHr && (
-                  <>
-                    <span>·</span>
-                    <span className="flex items-center gap-0.5">
-                      <HeartbeatIcon className="h-3 w-3" />
-                      {Math.round(a.avgHr)} bpm
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-          </li>
+            activity={a}
+            unlocked={unlocked}
+            onDeleted={refresh}
+          />
         ))}
       </ul>
       {items.length > 100 && (
@@ -227,6 +203,124 @@ export default function Activities({ unlocked }: { unlocked: boolean }) {
         </p>
       )}
     </section>
+  );
+}
+
+function ActivityRow({
+  activity: a,
+  unlocked,
+  onDeleted,
+}: {
+  activity: Activity;
+  unlocked: boolean;
+  onDeleted: () => void | Promise<void>;
+}) {
+  return (
+    <li className="px-5 py-4 flex items-baseline justify-between gap-6 hover:bg-paper-2">
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold truncate flex items-center gap-2">
+          <span className="truncate">{a.name}</span>
+          <StravaLink source={a.source} externalId={a.externalId} />
+        </div>
+        <div className="text-xs uppercase tracking-wider text-ink/50 mt-1">
+          {date(a.startDate)} · {a.sportType}
+        </div>
+      </div>
+      <div className="text-right shrink-0 font-mono text-sm">
+        <div className="font-semibold">
+          {km(a.distance)} <span className="text-ink/40">km</span>
+        </div>
+        <div className="text-ink/60 text-xs mt-1 flex items-center justify-end gap-2">
+          <span>{duration(a.movingTime)}</span>
+          <span>·</span>
+          <span>{pace(a.distance, a.movingTime)}</span>
+          {a.avgHr && (
+            <>
+              <span>·</span>
+              <span className="flex items-center gap-0.5">
+                <HeartbeatIcon className="h-3 w-3" />
+                {Math.round(a.avgHr)} bpm
+              </span>
+            </>
+          )}
+        </div>
+        {unlocked && (
+          <DeleteActivityButton activity={a} onDeleted={onDeleted} />
+        )}
+      </div>
+    </li>
+  );
+}
+
+function DeleteActivityButton({
+  activity,
+  onDeleted,
+}: {
+  activity: Activity;
+  onDeleted: () => void | Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function confirm() {
+    setBusy(true);
+    setError(null);
+    try {
+      await apiDeleteActivity(activity.source, activity.externalId);
+      await onDeleted();
+      setOpen(false);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <AlertDialog.Root open={open} onOpenChange={setOpen}>
+      <AlertDialog.Trigger
+        className="text-[10px] uppercase tracking-[0.2em] text-ink/40 hover:text-ink mt-2 flex items-center gap-1 ml-auto"
+        aria-label="Excluir corrida"
+      >
+        <TrashIcon className="h-3.5 w-3.5" />
+        excluir
+      </AlertDialog.Trigger>
+      <AlertDialog.Portal>
+        <AlertDialog.Backdrop className="fixed inset-0 bg-ink/40 z-40" />
+        <AlertDialog.Popup className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-paper border-2 border-ink w-[min(92vw,24rem)] p-6 flex flex-col gap-4 outline-none">
+          <AlertDialog.Title className="text-xs uppercase tracking-[0.2em] text-ink/60 flex items-center gap-2">
+            <TrashIcon className="h-4 w-4" />
+            Excluir corrida
+          </AlertDialog.Title>
+          <AlertDialog.Description className="font-mono text-sm">
+            {activity.name} — {date(activity.startDate)}
+          </AlertDialog.Description>
+          <p className="font-mono text-xs text-ink/60">
+            Stats serão recalculados. Treino vinculado volta para "planejado". Re-sync vai trazer a corrida de novo.
+          </p>
+          {error && (
+            <p className="font-mono text-xs text-red-700">{error}</p>
+          )}
+          <div className="flex gap-2 justify-end">
+            <AlertDialog.Close
+              className="text-xs uppercase tracking-[0.2em] font-medium px-3 py-2 text-ink/60 hover:text-ink"
+              disabled={busy}
+            >
+              cancelar
+            </AlertDialog.Close>
+            <button
+              type="button"
+              onClick={confirm}
+              disabled={busy}
+              className="text-xs uppercase tracking-[0.2em] font-medium bg-ink text-paper px-4 py-2 disabled:opacity-40"
+            >
+              {busy ? "excluindo…" : "excluir"}
+            </button>
+          </div>
+        </AlertDialog.Popup>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
   );
 }
 

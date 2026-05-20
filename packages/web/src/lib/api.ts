@@ -124,6 +124,17 @@ export async function syncStrava(days = 30): Promise<SyncResult> {
   return (await res.json()) as SyncResult;
 }
 
+export async function deleteActivity(source: string, externalId: string) {
+  const res = await fetch(
+    `${BASE}/activities/${source}/${encodeURIComponent(externalId)}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(),
+    },
+  );
+  if (!res.ok) throw new Error(`delete activity ${res.status}`);
+}
+
 export async function listActivities(limit = 50): Promise<Activity[]> {
   const res = await fetch(`${BASE}/activities?limit=${limit}`);
   if (!res.ok) throw new Error(`activities ${res.status}`);

@@ -225,6 +225,41 @@ export async function linkActivityToPlan(
   return plan;
 }
 
+/**
+ * Reverse of linkActivityToPlan: find plans where actual* fields snapshot the
+ * given activity and reset them to "planned" with the actual* fields cleared.
+ */
+export async function unlinkActivityFromPlan(
+  source: string,
+  externalId: string,
+  startDate: string,
+  userId: string = USER_ID,
+): Promise<number> {
+  const date = startDate.slice(0, 10);
+  const plans = await listPlans({ from: date, to: date, userId });
+  const matches = plans.filter(
+    (p) => p.actualSource === source && p.actualExternalId === externalId,
+  );
+  for (const plan of matches) {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: tableName(),
+        Key: { pk: userPk(userId), sk: sk(plan.date, plan.id) },
+        UpdateExpression:
+          "SET #status = :planned, updatedAt = :now " +
+          "REMOVE actualSource, actualExternalId, actualStartDate, " +
+          "actualDistance, actualMovingTime, actualAvgHr, actualName",
+        ExpressionAttributeNames: { "#status": "status" },
+        ExpressionAttributeValues: {
+          ":planned": "planned",
+          ":now": new Date().toISOString(),
+        },
+      }),
+    );
+  }
+  return matches.length;
+}
+
 const TYPE_LABEL: Record<PlannedRunType, string> = {
   easy: "Easy",
   long: "Long",

@@ -188,6 +188,62 @@ export async function findActivitiesOnDate(
   return (res.Items ?? []) as Activity[];
 }
 
+/**
+ * Atomically delete activity and decrement rollup stats. If the activity does
+ * not exist, the delete is a no-op and stats are NOT decremented.
+ */
+export async function deleteActivity(
+  source: ActivitySource,
+  externalId: string,
+  userId: string = USER_ID,
+): Promise<{ deleted: boolean }> {
+  const existing = await getActivity(source, externalId, userId);
+  if (!existing) return { deleted: false };
+  const pk = userPk(userId);
+  const sk = activitySk(source, externalId);
+  const scopes = scopesForDate(existing.startDate);
+
+  const updateStats = scopes.map((scope) => ({
+    Update: {
+      TableName: tableName(),
+      Key: statsKey(scope, userId),
+      UpdateExpression:
+        "ADD #c :negOne, distance :negD, movingTime :negM, elapsedTime :negE, elevationGain :negG",
+      ExpressionAttributeNames: { "#c": "count" },
+      ExpressionAttributeValues: {
+        ":negOne": -1,
+        ":negD": -existing.distance,
+        ":negM": -existing.movingTime,
+        ":negE": -existing.elapsedTime,
+        ":negG": -existing.elevationGain,
+      },
+    },
+  }));
+
+  try {
+    await ddb.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Delete: {
+              TableName: tableName(),
+              Key: { pk, sk },
+              ConditionExpression: "attribute_exists(pk)",
+            },
+          },
+          ...updateStats,
+        ],
+      }),
+    );
+    return { deleted: true };
+  } catch (err) {
+    if ((err as { name?: string }).name === "TransactionCanceledException") {
+      return { deleted: false };
+    }
+    throw err;
+  }
+}
+
 export async function listActivities(opts: {
   userId?: string;
   limit?: number;
