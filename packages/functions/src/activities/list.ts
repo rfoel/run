@@ -10,7 +10,10 @@ const strip = (a: Activity): ActivitySummary => {
 };
 
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
-  const limit = Number(event.queryStringParameters?.limit ?? 1000);
-  const items = await listActivities({ limit });
+  const qs = event.queryStringParameters ?? {};
+  const limit = Number(qs.limit ?? 1000);
+  const from = qs.from || undefined;
+  const to = qs.to || undefined;
+  const items = await listActivities({ limit, from, to });
   return json(200, { items: items.map(strip) });
 };

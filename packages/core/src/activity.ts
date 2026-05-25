@@ -247,20 +247,36 @@ export async function deleteActivity(
 export async function listActivities(opts: {
   userId?: string;
   limit?: number;
+  from?: string;
+  to?: string;
 } = {}) {
   const userId = opts.userId ?? USER_ID;
   const limit = opts.limit ?? 1000;
+  const { from, to } = opts;
   const items: Activity[] = [];
   let lastKey: Record<string, unknown> | undefined;
+
+  const useRange = Boolean(from || to);
+  const keyExpr = useRange
+    ? from && to
+      ? "gsi1pk = :pk AND gsi1sk BETWEEN :from AND :toEnd"
+      : from
+        ? "gsi1pk = :pk AND gsi1sk >= :from"
+        : "gsi1pk = :pk AND gsi1sk <= :toEnd"
+    : "gsi1pk = :pk";
+  const values: Record<string, string> = {
+    ":pk": activityGsi1pk(userPk(userId)),
+  };
+  if (from) values[":from"] = from;
+  if (to) values[":toEnd"] = `${to}T23:59:59.999Z`;
+
   do {
     const res = await ddb.send(
       new QueryCommand({
         TableName: tableName(),
         IndexName: "gsi1",
-        KeyConditionExpression: "gsi1pk = :pk",
-        ExpressionAttributeValues: {
-          ":pk": activityGsi1pk(userPk(userId)),
-        },
+        KeyConditionExpression: keyExpr,
+        ExpressionAttributeValues: values,
         ScanIndexForward: false,
         ExclusiveStartKey: lastKey,
       }),

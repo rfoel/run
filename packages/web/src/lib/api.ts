@@ -135,8 +135,15 @@ export async function deleteActivity(source: string, externalId: string) {
   if (!res.ok) throw new Error(`delete activity ${res.status}`);
 }
 
-export async function listActivities(limit = 50): Promise<Activity[]> {
-  const res = await fetch(`${BASE}/activities?limit=${limit}`);
+export async function listActivities(
+  opts: { limit?: number; from?: string; to?: string } | number = 50,
+): Promise<Activity[]> {
+  const { limit = 50, from, to } =
+    typeof opts === "number" ? { limit: opts } : opts;
+  const qs = new URLSearchParams({ limit: String(limit) });
+  if (from) qs.set("from", from);
+  if (to) qs.set("to", to);
+  const res = await fetch(`${BASE}/activities?${qs}`);
   if (!res.ok) throw new Error(`activities ${res.status}`);
   const data = (await res.json()) as { items: Activity[] };
   return data.items;
