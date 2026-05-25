@@ -3,7 +3,7 @@ import {
   CaretRightIcon,
   HeartbeatIcon,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   listActivities,
   listPlans,
@@ -47,7 +47,7 @@ export default function Calendar() {
         const to = localIso(new Date(month.y, month.m + 2, 0));
         const [p, a] = await Promise.all([
           listPlans({ from, to }),
-          listActivities(1000),
+          listActivities({ from, to, limit: 1000 }),
         ]);
         if (cancelled) return;
         setPlans(p);
@@ -100,6 +100,23 @@ export default function Calendar() {
     setMonth({ y: d.getFullYear(), m: d.getMonth() });
   }
 
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  function onTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    if (!t) return;
+    touchStart.current = { x: t.clientX, y: t.clientY };
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    const start = touchStart.current;
+    touchStart.current = null;
+    const t = e.changedTouches[0];
+    if (!start || !t) return;
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    shift(dx < 0 ? 1 : -1);
+  }
+
   const selectedSlot = selected ? byDate.get(selected) : null;
 
   return (
@@ -141,7 +158,11 @@ export default function Calendar() {
         </p>
       )}
 
-      <div className="border-2 border-ink">
+      <div
+        className="border-2 border-ink touch-pan-y"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
         <div className="grid grid-cols-7 gap-px bg-ink">
           {WEEKDAYS.map((d) => (
             <div
