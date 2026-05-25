@@ -1,0 +1,19 @@
+{
+  "name": "run",
+  "short_name": "run",
+  "description": "Treino, plano e corridas.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fafaf7",
+  "theme_color": "#0a0a0a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
