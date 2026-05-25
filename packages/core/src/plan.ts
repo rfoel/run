@@ -28,6 +28,7 @@ export type PlannedRun = {
   durationSec?: number;
   paceTargetSec?: number; // sec/km
   notes?: string;
+  shortTitle?: string;
   status: PlannedRunStatus;
   // Snapshot of the matching Activity, denormalized so the Plan page never
   // needs a second roundtrip. If the source activity is later updated, the
@@ -128,6 +129,7 @@ export async function updatePlan(
       | "durationSec"
       | "paceTargetSec"
       | "notes"
+      | "shortTitle"
       | "status"
       | "actualSource"
       | "actualExternalId"
@@ -269,8 +271,19 @@ const TYPE_LABEL: Record<PlannedRunType, string> = {
   recovery: "Recovery",
 };
 
+function shortenNotes(notes: string): string {
+  let s = notes.trim();
+  const cut = s.search(/[:(]/u);
+  if (cut > 0) s = s.slice(0, cut);
+  return s.replace(/[\s.…\-—]+$/u, "").trim();
+}
+
 export function planTitle(plan: PlannedRun): string {
-  if (plan.notes && plan.notes.trim()) return plan.notes.trim();
+  if (plan.shortTitle && plan.shortTitle.trim()) return plan.shortTitle.trim();
+  if (plan.notes && plan.notes.trim()) {
+    const short = shortenNotes(plan.notes);
+    if (short) return short;
+  }
   const label = TYPE_LABEL[plan.type];
   if (plan.distance && plan.distance > 0) {
     const km = plan.distance / 1000;
