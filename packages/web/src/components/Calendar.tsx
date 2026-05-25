@@ -146,9 +146,10 @@ export default function Calendar() {
           {WEEKDAYS.map((d) => (
             <div
               key={d}
-              className="bg-paper px-2 py-2 text-[10px] uppercase tracking-[0.2em] text-ink/60 font-medium"
+              className="bg-paper px-1 sm:px-2 py-1.5 sm:py-2 text-[9px] sm:text-[10px] uppercase tracking-[0.15em] sm:tracking-[0.2em] text-ink/60 font-medium text-center sm:text-left"
             >
-              {d}
+              <span className="sm:hidden">{d.slice(0, 1)}</span>
+              <span className="hidden sm:inline">{d}</span>
             </div>
           ))}
           {grid.map((day) => {
@@ -168,18 +169,18 @@ export default function Calendar() {
               <button
                 key={iso}
                 onClick={() => setSelected(isSelected ? null : iso)}
-                className={`min-h-[92px] p-1.5 flex flex-col gap-1 text-left ${bg}`}
+                className={`min-h-[64px] sm:min-h-[92px] p-1 sm:p-1.5 flex flex-col gap-0.5 sm:gap-1 text-left min-w-0 ${bg}`}
               >
-                <div className="flex items-baseline justify-between gap-2">
+                <div className="flex items-baseline justify-between gap-1 min-w-0">
                   {isToday && !isSelected ? (
-                    <span className="font-mono text-xs bg-ink text-paper px-1.5 py-0.5 font-bold">
+                    <span className="font-mono text-[11px] sm:text-xs bg-ink text-paper px-1 sm:px-1.5 py-0.5 font-bold">
                       {day.getDate()}
                     </span>
                   ) : (
-                    <span className="font-mono text-xs">{day.getDate()}</span>
+                    <span className="font-mono text-[11px] sm:text-xs">{day.getDate()}</span>
                   )}
                   {slot && slot.runs.length > 0 && (
-                    <span className="font-mono text-[10px] opacity-60">
+                    <span className="hidden sm:inline font-mono text-[10px] opacity-60 truncate">
                       {km(totalDistance(slot.runs))}k
                     </span>
                   )}
@@ -216,12 +217,14 @@ function PlanPill({ plan, inverted }: { plan: PlannedRun; inverted: boolean }) {
     <span
       title={planTooltip(plan)}
       className={
-        "font-mono text-[10px] uppercase tracking-wider px-1.5 py-0.5 truncate " +
+        "font-mono text-[9px] sm:text-[10px] uppercase tracking-wider px-1 sm:px-1.5 py-0.5 truncate " +
         (inverted ? "bg-paper text-ink" : "bg-ink text-paper")
       }
     >
       {TYPE_SHORT[plan.type]}
-      {plan.distance ? ` ${km(plan.distance)}k` : ""}
+      {plan.distance ? (
+        <span className="hidden sm:inline"> {km(plan.distance)}k</span>
+      ) : null}
       {suffix}
     </span>
   );
@@ -232,13 +235,16 @@ function RunPill({ run, inverted }: { run: Activity; inverted: boolean }) {
     <span
       title={run.name}
       className={
-        "font-mono text-[10px] px-1.5 py-0.5 truncate border " +
+        "font-mono text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 truncate border " +
         (inverted
           ? "border-paper/40 text-paper"
           : "border-ink/30 text-ink/80 bg-paper")
       }
     >
-      {km(run.distance)}k · {pace(run.distance, run.movingTime)}
+      <span className="sm:hidden">{km(run.distance)}k</span>
+      <span className="hidden sm:inline">
+        {km(run.distance)}k · {pace(run.distance, run.movingTime)}
+      </span>
     </span>
   );
 }

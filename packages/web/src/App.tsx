@@ -63,25 +63,27 @@ export default function App() {
     <Tabs.Root
       value={activeTab}
       onValueChange={(v) => setTab(v as Tab)}
-      className="min-h-full bg-paper text-ink"
+      className="min-h-full bg-paper text-ink overflow-x-clip"
     >
       <header className="border-b-2 border-ink">
-        <div className="max-w-5xl mx-auto px-6 py-5 flex items-end justify-between gap-4">
-          <a href="/" className="flex items-end gap-3 text-ink">
-            <Logo className="h-7 w-auto" />
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-5 flex items-center sm:items-end justify-between gap-2 sm:gap-4">
+          <a href="/" className="flex items-end gap-3 text-ink shrink-0">
+            <Logo className="h-6 sm:h-7 w-auto" />
           </a>
-          <div className="flex items-center gap-3">
-            <Tabs.List className="flex gap-1 text-xs uppercase tracking-[0.15em] font-medium">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Tabs.List className="flex gap-0.5 sm:gap-1 text-xs uppercase tracking-[0.15em] font-medium">
               {tabs.map((t) => {
                 const { label, Icon } = TAB_META[t];
                 return (
                   <Tabs.Tab
                     key={t}
                     value={t}
-                    className="px-3 py-2 flex items-center gap-2 text-ink/60 hover:text-ink data-[selected]:bg-ink data-[selected]:text-paper"
+                    title={label}
+                    aria-label={label}
+                    className="px-2 sm:px-3 py-2 flex items-center gap-2 text-ink/60 hover:text-ink data-[selected]:bg-ink data-[selected]:text-paper"
                   >
                     <Icon className="h-4 w-4" />
-                    <span>{label}</span>
+                    <span className="hidden md:inline">{label}</span>
                   </Tabs.Tab>
                 );
               })}
@@ -94,23 +96,23 @@ export default function App() {
                 className="flex items-center gap-1 text-[10px] uppercase tracking-[0.2em] font-medium text-ink/50 hover:text-ink"
               >
                 <LockOpenIcon className="h-4 w-4" />
-                <span>trancar</span>
+                <span className="hidden md:inline">trancar</span>
               </button>
             ) : (
               <button
                 onClick={() => setUnlockOpen(true)}
                 title="Destrancar ações de escrita"
                 aria-label="Destrancar"
-                className="flex items-center gap-1 text-[10px] uppercase tracking-[0.2em] font-medium border-2 border-ink px-3 py-1 hover:bg-ink hover:text-paper"
+                className="flex items-center gap-1 text-[10px] uppercase tracking-[0.2em] font-medium border-2 border-ink px-2 sm:px-3 py-1 hover:bg-ink hover:text-paper"
               >
                 <LockIcon className="h-4 w-4" />
-                <span>destrancar</span>
+                <span className="hidden md:inline">destrancar</span>
               </button>
             )}
           </div>
         </div>
       </header>
-      <main className="max-w-5xl mx-auto px-6 py-10">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         <Tabs.Panel value="calendar">
           <Calendar />
         </Tabs.Panel>
