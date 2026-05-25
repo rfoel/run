@@ -1,13 +1,54 @@
-import { PaperPlaneRightIcon, SparkleIcon } from "@phosphor-icons/react";
-import { useState } from "react";
+import {
+  PaperPlaneRightIcon,
+  SparkleIcon,
+  StopIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { chatStream, type ChatMessage } from "../lib/api.ts";
 
+const STORAGE_KEY = "run.chat.history";
+const MAX_TEXTAREA_PX = 200;
+
+function loadHistory(): ChatMessage[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as ChatMessage[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function Chat() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(loadHistory);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const scrollAnchor = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch {
+      // ignore quota
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    scrollAnchor.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+  }, [messages]);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, MAX_TEXTAREA_PX)}px`;
+  }, [input]);
 
   async function send() {
     const text = input.trim();
@@ -17,24 +58,58 @@ export default function Chat() {
     setInput("");
     setStreaming(true);
 
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     let acc = "";
     try {
-      await chatStream(next, (chunk) => {
-        acc += chunk;
-        setMessages([...next, { role: "assistant", content: acc }]);
-      });
+      await chatStream(
+        next,
+        (chunk) => {
+          acc += chunk;
+          setMessages([...next, { role: "assistant", content: acc }]);
+        },
+        ctrl.signal,
+      );
     } catch (e) {
-      setMessages([
-        ...next,
-        { role: "assistant", content: acc + `\n\n[erro: ${String(e)}]` },
-      ]);
+      const aborted = ctrl.signal.aborted;
+      const suffix = aborted ? "\n\n[interrompido]" : `\n\n[erro: ${String(e)}]`;
+      setMessages([...next, { role: "assistant", content: acc + suffix }]);
     } finally {
+      abortRef.current = null;
       setStreaming(false);
     }
   }
 
+  function abort() {
+    abortRef.current?.abort();
+  }
+
+  function clear() {
+    if (streaming) return;
+    setMessages([]);
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      void send();
+    }
+  }
+
   return (
-    <section className="flex flex-col gap-4 sm:gap-6 pb-24">
+    <section className="flex flex-col gap-4 sm:gap-6 pb-32">
+      {messages.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            onClick={clear}
+            disabled={streaming}
+            className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium text-ink/50 hover:text-ink disabled:opacity-30"
+          >
+            <TrashIcon className="h-3.5 w-3.5" />
+            <span>limpar</span>
+          </button>
+        </div>
+      )}
       <div className="flex flex-col gap-3 min-h-[40vh]">
         {messages.length === 0 && (
           <div className="border-2 border-ink p-4 sm:p-6 bg-paper-2">
@@ -52,10 +127,17 @@ export default function Chat() {
           </div>
         )}
         {messages.map((m, i) => (
-          <Bubble key={i} role={m.role} streaming={streaming && i === messages.length - 1 && m.role === "assistant"}>
+          <Bubble
+            key={i}
+            role={m.role}
+            streaming={
+              streaming && i === messages.length - 1 && m.role === "assistant"
+            }
+          >
             {m.content}
           </Bubble>
         ))}
+        <div ref={scrollAnchor} />
       </div>
 
       <form
@@ -66,23 +148,38 @@ export default function Chat() {
         className="fixed bottom-0 left-0 right-0 z-30 bg-paper border-t-2 border-ink"
       >
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
-          <div className="flex border-2 border-ink bg-paper">
-            <input
-              className="flex-1 min-w-0 bg-transparent px-3 sm:px-4 py-3 outline-none font-mono text-sm placeholder:text-ink/40"
-              placeholder="pergunte…"
+          <div className="flex items-end border-2 border-ink bg-paper">
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              className="flex-1 min-w-0 bg-transparent px-3 sm:px-4 py-3 outline-none font-mono text-sm placeholder:text-ink/40 resize-none leading-relaxed"
+              placeholder="pergunte… (Shift+Enter quebra linha)"
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onKeyDown}
               disabled={streaming}
             />
-            <button
-              type="submit"
-              disabled={streaming || !input.trim()}
-              aria-label="Enviar"
-              className="bg-ink text-paper px-3 sm:px-6 py-3 text-xs uppercase tracking-[0.2em] font-medium disabled:opacity-30 flex items-center gap-2 shrink-0"
-            >
-              <span className="hidden sm:inline">Enviar</span>
-              <PaperPlaneRightIcon className="h-4 w-4" />
-            </button>
+            {streaming ? (
+              <button
+                type="button"
+                onClick={abort}
+                aria-label="Parar"
+                className="bg-ink text-paper px-3 sm:px-6 py-3 text-xs uppercase tracking-[0.2em] font-medium flex items-center gap-2 shrink-0 self-stretch"
+              >
+                <span className="hidden sm:inline">Parar</span>
+                <StopIcon className="h-4 w-4" weight="fill" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                aria-label="Enviar"
+                className="bg-ink text-paper px-3 sm:px-6 py-3 text-xs uppercase tracking-[0.2em] font-medium disabled:opacity-30 flex items-center gap-2 shrink-0 self-stretch"
+              >
+                <span className="hidden sm:inline">Enviar</span>
+                <PaperPlaneRightIcon className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
       </form>
