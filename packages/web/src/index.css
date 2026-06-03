@@ -26,3 +26,11 @@ body {
   background: var(--color-ink);
   color: var(--color-paper);
 }
+
+/* Kill the browser focus ring recharts puts on its <svg> surface on click. */
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible,
+.recharts-surface:focus,
+.recharts-surface:focus-visible {
+  outline: none;
+}

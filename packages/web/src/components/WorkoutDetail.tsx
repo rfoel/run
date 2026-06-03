@@ -9,6 +9,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import {
   Area,
+  Brush,
   CartesianGrid,
   ComposedChart,
   Line,
@@ -371,7 +372,7 @@ function PaceChart({
           </LegendItem>
         )}
       </div>
-      <ResponsiveContainer width="100%" height={320}>
+      <ResponsiveContainer width="100%" height={360}>
         <ComposedChart
           data={data}
           margin={{ top: 16, right: 8, bottom: 8, left: 0 }}
@@ -480,6 +481,14 @@ function PaceChart({
             dot={false}
             connectNulls
             isAnimationActive={false}
+          />
+          <Brush
+            dataKey="km"
+            height={24}
+            travellerWidth={8}
+            stroke="currentColor"
+            fill="var(--color-paper-2, #eee)"
+            tickFormatter={((v: number) => `${Number(v).toFixed(1)}`) as never}
           />
         </ComposedChart>
       </ResponsiveContainer>
