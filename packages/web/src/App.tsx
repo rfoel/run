@@ -1,5 +1,4 @@
 import { Dialog } from "@base-ui-components/react/dialog";
-import { Tabs } from "@base-ui-components/react/tabs";
 import {
   CalendarBlankIcon,
   ChatCircleTextIcon,
@@ -9,6 +8,15 @@ import {
   PersonSimpleRunIcon,
 } from "@phosphor-icons/react";
 import { lazy, Suspense, useEffect, useState } from "react";
+import {
+  Link,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import Activities from "./components/Activities.tsx";
 import Calendar from "./components/Calendar.tsx";
 import Chat from "./components/Chat.tsx";
@@ -26,30 +34,43 @@ import {
 
 type Tab = "calendar" | "activities" | "plan" | "chat";
 
-const TAB_META: Record<
-  Tab,
-  { label: string; Icon: React.ComponentType<{ className?: string }> }
-> = {
-  calendar: { label: "Calendário", Icon: CalendarBlankIcon },
-  activities: { label: "Corridas", Icon: PersonSimpleRunIcon },
-  plan: { label: "Plano", Icon: ListChecksIcon },
-  chat: { label: "Treinador", Icon: ChatCircleTextIcon },
+type TabMeta = {
+  path: string;
+  label: string;
+  Icon: React.ComponentType<{ className?: string }>;
+  private?: boolean;
 };
 
-const PUBLIC_TABS: Tab[] = ["calendar", "activities", "plan"];
-const PRIVATE_TABS: Tab[] = ["chat"];
+const TABS: Record<Tab, TabMeta> = {
+  calendar: { path: "/calendario", label: "Calendário", Icon: CalendarBlankIcon },
+  activities: { path: "/corridas", label: "Corridas", Icon: PersonSimpleRunIcon },
+  plan: { path: "/plano", label: "Plano", Icon: ListChecksIcon },
+  chat: {
+    path: "/treinador",
+    label: "Treinador",
+    Icon: ChatCircleTextIcon,
+    private: true,
+  },
+};
+
+const TAB_ORDER: Tab[] = ["calendar", "activities", "plan", "chat"];
+
+function activeTabFor(pathname: string): Tab {
+  const hit = TAB_ORDER.find(
+    (t) =>
+      pathname === TABS[t].path || pathname.startsWith(`${TABS[t].path}/`),
+  );
+  return hit ?? "calendar";
+}
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>("calendar");
   const [unlocked, setUnlocked] = useState(false);
   const [unlockOpen, setUnlockOpen] = useState(false);
-  const [openActivity, setOpenActivity] = useState<{
-    source: string;
-    externalId: string;
-  } | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const openDetail = (source: string, externalId: string) =>
-    setOpenActivity({ source, externalId });
+    navigate(`/corridas/${source}/${encodeURIComponent(externalId)}`);
 
   useEffect(() => {
     const t = getWriteToken();
@@ -60,44 +81,50 @@ export default function App() {
     });
   }, []);
 
-  const tabs = unlocked ? [...PUBLIC_TABS, ...PRIVATE_TABS] : PUBLIC_TABS;
-  const activeTab = tabs.includes(tab) ? tab : "calendar";
+  const visibleTabs = TAB_ORDER.filter((t) => unlocked || !TABS[t].private);
+  const activeTab = activeTabFor(location.pathname);
 
   function lock() {
     clearWriteToken();
     setUnlocked(false);
-    if (!PUBLIC_TABS.includes(tab)) setTab("calendar");
+    if (TABS[activeTab].private) navigate("/calendario");
   }
 
   return (
-    <Tabs.Root
-      value={activeTab}
-      onValueChange={(v) => setTab(v as Tab)}
-      className="min-h-full bg-paper text-ink overflow-x-clip"
-    >
+    <div className="min-h-full bg-paper text-ink overflow-x-clip">
       <header className="border-b-2 border-ink">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-5 flex items-center sm:items-end justify-between gap-2 sm:gap-4">
-          <a href="/" className="flex items-end gap-3 text-ink shrink-0">
+          <Link
+            to="/calendario"
+            className="flex items-end gap-3 text-ink shrink-0"
+          >
             <Logo className="h-6 sm:h-7 w-auto" />
-          </a>
+          </Link>
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Tabs.List className="flex gap-0.5 sm:gap-1 text-xs uppercase tracking-[0.15em] font-medium">
-              {tabs.map((t) => {
-                const { label, Icon } = TAB_META[t];
+            <nav className="flex gap-0.5 sm:gap-1 text-xs uppercase tracking-[0.15em] font-medium">
+              {visibleTabs.map((t) => {
+                const { label, Icon, path } = TABS[t];
+                const selected = t === activeTab;
                 return (
-                  <Tabs.Tab
+                  <Link
                     key={t}
-                    value={t}
+                    to={path}
                     title={label}
                     aria-label={label}
-                    className="px-2 sm:px-3 py-2 flex items-center gap-2 text-ink/60 hover:text-ink data-[selected]:bg-ink data-[selected]:text-paper"
+                    aria-current={selected ? "page" : undefined}
+                    className={
+                      "px-2 sm:px-3 py-2 flex items-center gap-2 " +
+                      (selected
+                        ? "bg-ink text-paper"
+                        : "text-ink/60 hover:text-ink")
+                    }
                   >
                     <Icon className="h-4 w-4" />
                     <span className="hidden md:inline">{label}</span>
-                  </Tabs.Tab>
+                  </Link>
                 );
               })}
-            </Tabs.List>
+            </nav>
             {unlocked ? (
               <button
                 onClick={lock}
@@ -123,37 +150,29 @@ export default function App() {
         </div>
       </header>
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-        {openActivity ? (
-          <Suspense
-            fallback={
-              <p className="text-ink/60 font-mono text-sm">Carregando…</p>
+        <Routes>
+          <Route path="/" element={<Navigate to="/calendario" replace />} />
+          <Route
+            path="/calendario"
+            element={<Calendar onOpenActivity={openDetail} />}
+          />
+          <Route
+            path="/corridas"
+            element={<Activities unlocked={unlocked} onOpenActivity={openDetail} />}
+          />
+          <Route
+            path="/corridas/:source/:externalId"
+            element={<WorkoutDetailRoute unlocked={unlocked} />}
+          />
+          <Route path="/plano" element={<Plan unlocked={unlocked} />} />
+          <Route
+            path="/treinador"
+            element={
+              unlocked ? <Chat /> : <Navigate to="/calendario" replace />
             }
-          >
-            <WorkoutDetail
-              source={openActivity.source}
-              externalId={openActivity.externalId}
-              unlocked={unlocked}
-              onBack={() => setOpenActivity(null)}
-            />
-          </Suspense>
-        ) : (
-          <>
-            <Tabs.Panel value="calendar">
-              <Calendar onOpenActivity={openDetail} />
-            </Tabs.Panel>
-            <Tabs.Panel value="activities">
-              <Activities unlocked={unlocked} onOpenActivity={openDetail} />
-            </Tabs.Panel>
-            <Tabs.Panel value="plan">
-              <Plan unlocked={unlocked} />
-            </Tabs.Panel>
-            {unlocked && (
-              <Tabs.Panel value="chat">
-                <Chat />
-              </Tabs.Panel>
-            )}
-          </>
-        )}
+          />
+          <Route path="*" element={<Navigate to="/calendario" replace />} />
+        </Routes>
       </main>
       <UnlockDialog
         open={unlockOpen}
@@ -163,7 +182,25 @@ export default function App() {
           setUnlockOpen(false);
         }}
       />
-    </Tabs.Root>
+    </div>
+  );
+}
+
+function WorkoutDetailRoute({ unlocked }: { unlocked: boolean }) {
+  const { source, externalId } = useParams();
+  const navigate = useNavigate();
+  if (!source || !externalId) return <Navigate to="/corridas" replace />;
+  return (
+    <Suspense
+      fallback={<p className="text-ink/60 font-mono text-sm">Carregando…</p>}
+    >
+      <WorkoutDetail
+        source={source}
+        externalId={decodeURIComponent(externalId)}
+        unlocked={unlocked}
+        onBack={() => navigate(-1)}
+      />
+    </Suspense>
   );
 }
 
