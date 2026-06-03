@@ -21,8 +21,9 @@ export default function RouteMap({
         attributionControl={false}
       >
         <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; OpenStreetMap'
+          url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
+          subdomains="abcd"
+          attribution="&copy; OpenStreetMap &copy; CARTO"
         />
         <Polyline
           positions={geo.points}
