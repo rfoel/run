@@ -47,14 +47,14 @@ export default function Plan({ unlocked }: { unlocked: boolean }) {
   }
   if (error) {
     return (
-      <p className="border-2 border-ink p-5 bg-paper-2 font-mono text-sm">
+      <p className="border border-line rounded-lg p-5 bg-paper-2 font-mono text-sm">
         {error}
       </p>
     );
   }
   if (items.length === 0) {
     return (
-      <div className="border-2 border-ink p-6 bg-paper-2">
+      <div className="border border-line rounded-lg p-6 bg-paper-2">
         <div className="text-xs uppercase tracking-[0.2em] text-ink/60 mb-2">
           Nenhum treino planejado
         </div>
@@ -76,7 +76,7 @@ export default function Plan({ unlocked }: { unlocked: boolean }) {
           <h2 className="text-xs uppercase tracking-[0.2em] mb-3 text-ink/60">
             {weekLabel}
           </h2>
-          <ul className="border-2 border-ink divide-y-2 divide-ink">
+          <ul className="border border-line rounded-lg divide-y divide-line bg-card shadow-sm overflow-hidden">
             {runs.map((p) => (
               <PlanRow
                 key={`${p.date}/${p.id}`}
@@ -112,7 +112,7 @@ function PlanRow({
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-3 mb-1 flex-wrap">
-          <span className="font-mono text-xs uppercase tracking-wider bg-ink text-paper px-2 py-0.5">
+          <span className="font-mono text-xs uppercase tracking-wider bg-accent text-white px-2 py-0.5">
             {TYPE_LABELS[plan.type]}
           </span>
           <span className="font-mono text-sm font-semibold">
@@ -194,7 +194,7 @@ function DeletePlanButton({
       </AlertDialog.Trigger>
       <AlertDialog.Portal>
         <AlertDialog.Backdrop className="fixed inset-0 bg-ink/40 z-40" />
-        <AlertDialog.Popup className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-paper border-2 border-ink w-[min(92vw,24rem)] p-6 flex flex-col gap-4 outline-none">
+        <AlertDialog.Popup className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-card border border-line rounded-lg shadow-lg w-[min(92vw,24rem)] p-6 flex flex-col gap-4 outline-none">
           <AlertDialog.Title className="text-xs uppercase tracking-[0.2em] text-ink/60 flex items-center gap-2">
             <TrashIcon className="h-4 w-4" />
             Excluir treino
@@ -213,7 +213,7 @@ function DeletePlanButton({
               type="button"
               onClick={confirm}
               disabled={busy}
-              className="text-xs uppercase tracking-[0.2em] font-medium bg-ink text-paper px-4 py-2 disabled:opacity-40"
+              className="text-xs uppercase tracking-[0.2em] font-medium bg-accent text-white px-4 py-2 disabled:opacity-40"
             >
               {busy ? "excluindo…" : "excluir"}
             </button>

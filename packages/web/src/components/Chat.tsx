@@ -30,6 +30,9 @@ export default function Chat() {
   const abortRef = useRef<AbortController | null>(null);
   const scrollAnchor = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Whether the viewport is near the bottom. Auto-scroll only follows new
+  // content when true, so scrolling up to read isn't yanked back down.
+  const atBottomRef = useRef(true);
 
   useEffect(() => {
     try {
@@ -40,8 +43,21 @@ export default function Chat() {
   }, [messages]);
 
   useEffect(() => {
+    if (!atBottomRef.current) return;
     scrollAnchor.current?.scrollIntoView({ block: "end", behavior: "smooth" });
   }, [messages]);
+
+  // Track how close the window is to the bottom of the page.
+  useEffect(() => {
+    const onScroll = () => {
+      const doc = document.documentElement;
+      const dist = doc.scrollHeight - window.scrollY - window.innerHeight;
+      atBottomRef.current = dist < 120;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -54,6 +70,8 @@ export default function Chat() {
     const text = input.trim();
     if (!text || streaming) return;
     const next: ChatMessage[] = [...messages, { role: "user", content: text }];
+    // Sending always pins to the bottom so the new exchange is visible.
+    atBottomRef.current = true;
     setMessages([...next, { role: "assistant", content: "" }]);
     setInput("");
     setStreaming(true);
@@ -112,7 +130,7 @@ export default function Chat() {
       )}
       <div className="flex flex-col gap-3 min-h-[40vh]">
         {messages.length === 0 && (
-          <div className="border-2 border-ink p-4 sm:p-6 bg-paper-2">
+          <div className="border border-line rounded-lg p-4 sm:p-6 bg-paper-2">
             <div className="text-xs uppercase tracking-[0.2em] text-ink/60 mb-2 flex items-center gap-1.5">
               <SparkleIcon className="h-3.5 w-3.5" />
               Pergunte ao treinador
@@ -137,7 +155,7 @@ export default function Chat() {
             {m.content}
           </Bubble>
         ))}
-        <div ref={scrollAnchor} />
+        <div ref={scrollAnchor} className="scroll-mb-32" />
       </div>
 
       <form
@@ -145,10 +163,10 @@ export default function Chat() {
           e.preventDefault();
           void send();
         }}
-        className="fixed bottom-0 left-0 right-0 z-30 bg-paper border-t-2 border-ink"
+        className="fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-line"
       >
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
-          <div className="flex items-end border-2 border-ink bg-paper">
+          <div className="flex items-end border border-line rounded-lg bg-card">
             <textarea
               ref={textareaRef}
               rows={1}
@@ -164,7 +182,7 @@ export default function Chat() {
                 type="button"
                 onClick={abort}
                 aria-label="Parar"
-                className="bg-ink text-paper px-3 sm:px-6 py-3 text-xs uppercase tracking-[0.2em] font-medium flex items-center gap-2 shrink-0 self-stretch"
+                className="bg-accent text-white px-3 sm:px-6 py-3 text-xs uppercase tracking-[0.2em] font-medium flex items-center gap-2 shrink-0 self-stretch"
               >
                 <span className="hidden sm:inline">Parar</span>
                 <StopIcon className="h-4 w-4" weight="fill" />
@@ -174,7 +192,7 @@ export default function Chat() {
                 type="submit"
                 disabled={!input.trim()}
                 aria-label="Enviar"
-                className="bg-ink text-paper px-3 sm:px-6 py-3 text-xs uppercase tracking-[0.2em] font-medium disabled:opacity-30 flex items-center gap-2 shrink-0 self-stretch"
+                className="bg-accent text-white px-3 sm:px-6 py-3 text-xs uppercase tracking-[0.2em] font-medium disabled:opacity-30 flex items-center gap-2 shrink-0 self-stretch"
               >
                 <span className="hidden sm:inline">Enviar</span>
                 <PaperPlaneRightIcon className="h-4 w-4" />
@@ -198,14 +216,14 @@ function Bubble({
 }) {
   if (role === "user") {
     return (
-      <div className="self-end max-w-[80%] bg-ink text-paper px-4 py-3 font-mono text-sm whitespace-pre-wrap">
+      <div className="self-end max-w-[80%] bg-accent text-white px-4 py-3 rounded-lg rounded-br-md font-mono text-sm whitespace-pre-wrap shadow-sm">
         {children}
       </div>
     );
   }
   const empty = !children;
   return (
-    <div className="self-start max-w-[85%] border-2 border-ink px-4 py-3 text-sm">
+    <div className="self-start max-w-[85%] bg-card border border-line rounded-lg rounded-bl-md px-4 py-3 text-sm shadow-sm">
       {empty && streaming ? (
         <span className="font-mono text-ink/50">pensando…</span>
       ) : (
@@ -234,12 +252,12 @@ function Markdown({ children }: { children: string }) {
           strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
           em: ({ children }) => <em className="italic">{children}</em>,
           code: ({ children }) => (
-            <code className="font-mono text-xs bg-paper-2 border border-ink/20 px-1 py-0.5">
+            <code className="font-mono text-xs bg-paper-2 border border-line/20 px-1 py-0.5">
               {children}
             </code>
           ),
           pre: ({ children }) => (
-            <pre className="font-mono text-xs bg-paper-2 border-2 border-ink p-2 overflow-x-auto mb-2 last:mb-0">
+            <pre className="font-mono text-xs bg-paper-2 border border-line rounded-lg p-2 overflow-x-auto mb-2 last:mb-0">
               {children}
             </pre>
           ),
@@ -249,18 +267,18 @@ function Markdown({ children }: { children: string }) {
             </a>
           ),
           blockquote: ({ children }) => (
-            <blockquote className="border-l-2 border-ink pl-3 italic text-ink/80 mb-2 last:mb-0">
+            <blockquote className="border-l-2 border-accent pl-3 italic text-ink/80 mb-2 last:mb-0">
               {children}
             </blockquote>
           ),
-          hr: () => <hr className="border-ink/30 my-3" />,
+          hr: () => <hr className="border-line my-3" />,
           table: ({ children }) => (
             <div className="overflow-x-auto mb-2 last:mb-0">
-              <table className="border-2 border-ink font-mono text-xs">{children}</table>
+              <table className="border border-line rounded-lg font-mono text-xs">{children}</table>
             </div>
           ),
-          th: ({ children }) => <th className="border border-ink px-2 py-1 text-left">{children}</th>,
-          td: ({ children }) => <td className="border border-ink/40 px-2 py-1">{children}</td>,
+          th: ({ children }) => <th className="border border-line px-2 py-1 text-left">{children}</th>,
+          td: ({ children }) => <td className="border border-line/40 px-2 py-1">{children}</td>,
         }}
       >
         {children}

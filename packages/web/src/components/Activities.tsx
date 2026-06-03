@@ -109,7 +109,7 @@ export default function Activities({
                 key={r}
                 value={r}
                 aria-label={RANGE_LABELS[r]}
-                className="px-2 py-1 text-ink/60 hover:text-ink data-[pressed]:bg-ink data-[pressed]:text-paper"
+                className="px-2.5 py-1 rounded-md text-ink/60 hover:text-ink data-[pressed]:bg-accent data-[pressed]:text-white"
               >
                 {RANGE_LABELS[r]}
               </Toggle>
@@ -119,7 +119,7 @@ export default function Activities({
             <button
               onClick={() => void sync()}
               disabled={syncing}
-              className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border-2 border-ink px-3 py-1 hover:bg-ink hover:text-paper disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
+              className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border border-line rounded-lg px-3 py-1 hover:bg-accent hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
             >
               <ArrowsClockwiseIcon
                 className={"h-3.5 w-3.5 " + (syncing ? "animate-spin" : "")}
@@ -131,7 +131,7 @@ export default function Activities({
       </div>
 
       {syncResult && (
-        <div className="border-2 border-ink p-3 mb-4 bg-paper-2 font-mono text-xs flex gap-4 flex-wrap">
+        <div className="border border-line rounded-lg p-3 mb-4 bg-paper-2 font-mono text-xs flex gap-4 flex-wrap">
           <span>buscadas {syncResult.fetched}</span>
           <span>importadas {syncResult.imported}</span>
           <span>ignoradas {syncResult.skipped}</span>
@@ -145,7 +145,7 @@ export default function Activities({
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-px bg-ink border-2 border-ink mb-10">
+      <div className="grid grid-cols-3 gap-px bg-line border border-line rounded-lg shadow-sm overflow-hidden mb-10">
         <StatBox
           label="Corridas"
           icon={<PersonSimpleRunIcon className="h-4 w-4" />}
@@ -193,7 +193,7 @@ export default function Activities({
       <h2 className="text-xs uppercase tracking-[0.2em] mb-3 text-ink/60">
         Recentes
       </h2>
-      <ul className="border-2 border-ink divide-y-2 divide-ink">
+      <ul className="border border-line rounded-lg divide-y divide-line bg-card shadow-sm overflow-hidden">
         {items.slice(0, 100).map((a) => (
           <ActivityRow
             key={`${a.source}:${a.externalId}`}
@@ -302,7 +302,7 @@ function DeleteActivityButton({
       </AlertDialog.Trigger>
       <AlertDialog.Portal>
         <AlertDialog.Backdrop className="fixed inset-0 bg-ink/40 z-40" />
-        <AlertDialog.Popup className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-paper border-2 border-ink w-[min(92vw,24rem)] p-6 flex flex-col gap-4 outline-none">
+        <AlertDialog.Popup className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-card border border-line rounded-lg shadow-lg w-[min(92vw,24rem)] p-6 flex flex-col gap-4 outline-none">
           <AlertDialog.Title className="text-xs uppercase tracking-[0.2em] text-ink/60 flex items-center gap-2">
             <TrashIcon className="h-4 w-4" />
             Excluir corrida
@@ -327,7 +327,7 @@ function DeleteActivityButton({
               type="button"
               onClick={confirm}
               disabled={busy}
-              className="text-xs uppercase tracking-[0.2em] font-medium bg-ink text-paper px-4 py-2 disabled:opacity-40"
+              className="text-xs uppercase tracking-[0.2em] font-medium bg-accent text-white px-4 py-2 disabled:opacity-40"
             >
               {busy ? "excluindo…" : "excluir"}
             </button>
@@ -348,7 +348,7 @@ function StatBox({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="bg-paper px-5 py-4">
+    <div className="bg-card px-5 py-4">
       <div className="text-[10px] uppercase tracking-[0.2em] text-ink/60 flex items-center gap-1.5">
         {icon}
         {label}
@@ -369,7 +369,7 @@ function Status({
     <p
       className={
         tone === "error"
-          ? "border-2 border-ink p-5 bg-paper-2 font-mono text-sm"
+          ? "border border-line rounded-lg p-5 bg-paper-2 font-mono text-sm"
           : "text-ink/60 font-mono text-sm"
       }
     >

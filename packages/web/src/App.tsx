@@ -92,7 +92,7 @@ export default function App() {
 
   return (
     <div className="min-h-full bg-paper text-ink overflow-x-clip">
-      <header className="border-b-2 border-ink">
+      <header className="border-b border-line">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-5 flex items-center sm:items-end justify-between gap-2 sm:gap-4">
           <Link
             to="/calendario"
@@ -113,10 +113,10 @@ export default function App() {
                     aria-label={label}
                     aria-current={selected ? "page" : undefined}
                     className={
-                      "px-2 sm:px-3 py-2 flex items-center gap-2 " +
+                      "px-2 sm:px-3 py-2 flex items-center gap-2 rounded-md " +
                       (selected
-                        ? "bg-ink text-paper"
-                        : "text-ink/60 hover:text-ink")
+                        ? "bg-accent text-[var(--color-accent-fg)]"
+                        : "text-ink/60 hover:text-ink hover:bg-paper-2")
                     }
                   >
                     <Icon className="h-4 w-4" />
@@ -140,7 +140,7 @@ export default function App() {
                 onClick={() => setUnlockOpen(true)}
                 title="Destrancar ações de escrita"
                 aria-label="Destrancar"
-                className="flex items-center gap-1 text-[10px] uppercase tracking-[0.2em] font-medium border-2 border-ink px-2 sm:px-3 py-1 hover:bg-ink hover:text-paper"
+                className="flex items-center gap-1 text-[10px] uppercase tracking-[0.2em] font-medium border border-line rounded-lg px-2 sm:px-3 py-1 hover:bg-accent hover:text-white"
               >
                 <LockIcon className="h-4 w-4" />
                 <span className="hidden md:inline">destrancar</span>
@@ -249,7 +249,7 @@ function UnlockDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 bg-ink/40 z-40" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-paper border-2 border-ink w-[min(92vw,24rem)] p-6 flex flex-col gap-4 outline-none">
+        <Dialog.Popup className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-card border border-line rounded-lg shadow-lg w-[min(92vw,24rem)] p-6 flex flex-col gap-4 outline-none">
           <Dialog.Title className="text-xs uppercase tracking-[0.2em] text-ink/60 flex items-center gap-2">
             <LockIcon className="h-4 w-4" />
             Destrancar
@@ -261,7 +261,7 @@ function UnlockDialog({
               value={pw}
               onChange={(e) => setPw(e.target.value)}
               placeholder="senha"
-              className="border-2 border-ink px-3 py-2 font-mono text-sm bg-paper outline-none"
+              className="border border-line rounded-lg px-3 py-2 font-mono text-sm bg-card outline-none focus:border-accent"
               disabled={submitting}
             />
             {error && (
@@ -277,7 +277,7 @@ function UnlockDialog({
               <button
                 type="submit"
                 disabled={!pw || submitting}
-                className="text-xs uppercase tracking-[0.2em] font-medium bg-ink text-paper px-4 py-2 disabled:opacity-40"
+                className="text-xs uppercase tracking-[0.2em] font-medium bg-accent text-white px-4 py-2 disabled:opacity-40"
               >
                 {submitting ? "verificando…" : "entrar"}
               </button>

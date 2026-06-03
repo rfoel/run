@@ -12,7 +12,7 @@ export default function RouteMap({
   const marker = hoverKm != null ? positionAtKm(geo, hoverKm) : null;
 
   return (
-    <div className="border-2 border-ink overflow-hidden">
+    <div className="border border-line rounded-lg overflow-hidden bg-card shadow-sm">
       <MapContainer
         bounds={geo.bounds}
         boundsOptions={{ padding: [16, 16] }}

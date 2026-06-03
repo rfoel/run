@@ -133,20 +133,20 @@ export default function Calendar({
           <button
             onClick={() => shift(-1)}
             aria-label="Mês anterior"
-            className="px-3 py-1 border-2 border-ink hover:bg-ink hover:text-paper flex items-center"
+            className="px-3 py-1 border border-line rounded-lg hover:bg-accent hover:text-white flex items-center"
           >
             <CaretLeftIcon className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={jumpToday}
-            className="px-3 py-1 border-2 border-ink hover:bg-ink hover:text-paper"
+            className="px-3 py-1 border border-line rounded-lg hover:bg-accent hover:text-white"
           >
             hoje
           </button>
           <button
             onClick={() => shift(1)}
             aria-label="Próximo mês"
-            className="px-3 py-1 border-2 border-ink hover:bg-ink hover:text-paper flex items-center"
+            className="px-3 py-1 border border-line rounded-lg hover:bg-accent hover:text-white flex items-center"
           >
             <CaretRightIcon className="h-3.5 w-3.5" />
           </button>
@@ -157,21 +157,21 @@ export default function Calendar({
         <p className="text-ink/60 font-mono text-xs mb-3">Carregando…</p>
       )}
       {error && (
-        <p className="border-2 border-ink p-3 bg-paper-2 font-mono text-xs mb-3">
+        <p className="border border-line rounded-lg p-3 bg-paper-2 font-mono text-xs mb-3">
           {error}
         </p>
       )}
 
       <div
-        className="border-2 border-ink touch-pan-y"
+        className="border border-line rounded-lg touch-pan-y bg-card shadow-sm overflow-hidden"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        <div className="grid grid-cols-7 gap-px bg-ink">
+        <div className="grid grid-cols-7 gap-px bg-line">
           {WEEKDAYS.map((d) => (
             <div
               key={d}
-              className="bg-paper px-1 sm:px-2 py-1.5 sm:py-2 text-[9px] sm:text-[10px] uppercase tracking-[0.15em] sm:tracking-[0.2em] text-ink/60 font-medium text-center sm:text-left"
+              className="bg-card px-1 sm:px-2 py-1.5 sm:py-2 text-[9px] sm:text-[10px] uppercase tracking-[0.15em] sm:tracking-[0.2em] text-ink/60 font-medium text-center sm:text-left"
             >
               <span className="sm:hidden">{d.slice(0, 1)}</span>
               <span className="hidden sm:inline">{d}</span>
@@ -185,10 +185,10 @@ export default function Calendar({
             const slot = byDate.get(iso);
 
             const bg = isSelected
-              ? "bg-ink text-paper"
+              ? "bg-accent text-white"
               : !inMonth
                 ? "bg-paper-2 text-ink/45"
-                : "bg-paper";
+                : "bg-card";
 
             return (
               <button
@@ -198,7 +198,7 @@ export default function Calendar({
               >
                 <div className="flex items-baseline justify-between gap-1 min-w-0">
                   {isToday && !isSelected ? (
-                    <span className="font-mono text-[11px] sm:text-xs bg-ink text-paper px-1 sm:px-1.5 py-0.5 font-bold">
+                    <span className="font-mono text-[11px] sm:text-xs bg-accent text-white px-1 sm:px-1.5 py-0.5 font-bold rounded-md">
                       {day.getDate()}
                     </span>
                   ) : (
@@ -246,8 +246,8 @@ function PlanPill({ plan, inverted }: { plan: PlannedRun; inverted: boolean }) {
     <span
       title={planTooltip(plan)}
       className={
-        "font-mono text-[9px] sm:text-[10px] uppercase tracking-wider px-1 sm:px-1.5 py-0.5 truncate " +
-        (inverted ? "bg-paper text-ink" : "bg-ink text-paper")
+        "font-mono text-[9px] sm:text-[10px] uppercase tracking-wider px-1 sm:px-1.5 py-0.5 truncate rounded-md " +
+        (inverted ? "bg-card text-ink" : "bg-accent text-white")
       }
     >
       {TYPE_SHORT[plan.type]}
@@ -264,10 +264,10 @@ function RunPill({ run, inverted }: { run: Activity; inverted: boolean }) {
     <span
       title={run.name}
       className={
-        "font-mono text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 truncate border " +
+        "font-mono text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 truncate border rounded-md " +
         (inverted
-          ? "border-paper/40 text-paper"
-          : "border-ink/30 text-ink/80 bg-paper")
+          ? "border-white/40 text-white"
+          : "border-line text-ink/80 bg-card")
       }
     >
       <span className="sm:hidden">{km(run.distance)}k</span>
@@ -296,7 +296,7 @@ function DayDetail({
   });
   const empty = slot.plans.length === 0 && slot.runs.length === 0;
   return (
-    <div className="mt-6 border-2 border-ink p-5">
+    <div className="mt-6 border border-line rounded-lg p-5 bg-card shadow-sm">
       <div className="text-xs uppercase tracking-[0.2em] text-ink/60 mb-3">
         {label}
       </div>
@@ -310,14 +310,14 @@ function DayDetail({
           <h3 className="text-[10px] uppercase tracking-[0.2em] text-ink/60 mb-2">
             Planejado
           </h3>
-          <ul className="border-2 border-ink divide-y-2 divide-ink">
+          <ul className="border border-line rounded-lg divide-y divide-line bg-card shadow-sm overflow-hidden">
             {slot.plans.map((p) => (
               <li
                 key={p.id}
                 className="px-4 py-3 flex items-start justify-between gap-4"
               >
                 <div>
-                  <span className="font-mono text-xs uppercase tracking-wider bg-ink text-paper px-2 py-0.5 mr-2">
+                  <span className="font-mono text-xs uppercase tracking-wider bg-accent text-white px-2 py-0.5 mr-2">
                     {TYPE_SHORT[p.type]}
                   </span>
                   {p.notes && <span className="text-sm">{p.notes}</span>}
@@ -340,7 +340,7 @@ function DayDetail({
           <h3 className="text-[10px] uppercase tracking-[0.2em] text-ink/60 mb-2">
             Corrida
           </h3>
-          <ul className="border-2 border-ink divide-y-2 divide-ink">
+          <ul className="border border-line rounded-lg divide-y divide-line bg-card shadow-sm overflow-hidden">
             {slot.runs.map((a) => (
               <li
                 key={`${a.source}:${a.externalId}`}

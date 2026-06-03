@@ -24,6 +24,7 @@ import {
   getActivityDetail,
   type ActivityDetail,
   type ChartSeries,
+  type PlannedRun,
   type WorkoutAnalysis,
   type WorkoutSection,
 } from "../lib/api.ts";
@@ -185,7 +186,7 @@ export default function WorkoutDetail({
                 title={
                   detail?.series ? "" : "Sem série — faça re-sync desta corrida"
                 }
-                className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border-2 border-ink px-3 py-1.5 hover:bg-ink hover:text-paper disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink shrink-0"
+                className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border border-line rounded-lg px-3 py-1.5 hover:bg-accent hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink shrink-0"
               >
                 <SparkleIcon
                   className={"h-3.5 w-3.5 " + (analyzing ? "animate-pulse" : "")}
@@ -198,6 +199,8 @@ export default function WorkoutDetail({
               </button>
             )}
           </header>
+
+          {detail?.plan && <PlanCard plan={detail.plan} />}
 
           {analysis && <Cards analysis={analysis} />}
 
@@ -236,6 +239,49 @@ export default function WorkoutDetail({
   );
 }
 
+const PLAN_TYPE_LABEL: Record<PlannedRun["type"], string> = {
+  easy: "Leve",
+  long: "Longão",
+  tempo: "Tempo",
+  interval: "Tiro",
+  race: "Prova",
+  recovery: "Regen",
+};
+
+const PLAN_STATUS_LABEL: Record<PlannedRun["status"], string> = {
+  planned: "planejado",
+  done: "feito",
+  skipped: "pulado",
+};
+
+function PlanCard({ plan }: { plan: PlannedRun }) {
+  const meta: string[] = [];
+  if (plan.distance) meta.push(`${kmFmt(plan.distance)} km`);
+  if (plan.durationSec) meta.push(duration(plan.durationSec));
+  if (plan.paceTargetSec) meta.push(`${paceFromSec(plan.paceTargetSec)}/km`);
+
+  return (
+    <div className="border border-line rounded-lg p-4 bg-paper-2">
+      <div className="flex items-center justify-between gap-3 mb-1.5">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-wider bg-accent text-white px-2 py-0.5 rounded-md">
+            {PLAN_TYPE_LABEL[plan.type]}
+          </span>
+          <span className="text-[10px] uppercase tracking-[0.2em] text-ink/50">
+            planejado · {PLAN_STATUS_LABEL[plan.status]}
+          </span>
+        </div>
+        {meta.length > 0 && (
+          <span className="font-mono text-sm text-ink/70">
+            {meta.join(" · ")}
+          </span>
+        )}
+      </div>
+      {plan.notes && <p className="text-sm">{plan.notes}</p>}
+    </div>
+  );
+}
+
 function Cards({ analysis }: { analysis: WorkoutAnalysis }) {
   const work = workSections(analysis.sections);
   const fastest = work.reduce<WorkoutSection | null>(
@@ -257,7 +303,7 @@ function Cards({ analysis }: { analysis: WorkoutAnalysis }) {
         : undefined;
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-ink border-2 border-ink">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line border border-line rounded-lg shadow-sm overflow-hidden">
       <Card
         icon={<GaugeIcon className="h-4 w-4" />}
         label="Pace médio"
@@ -302,7 +348,7 @@ function Card({
   sub?: string;
 }) {
   return (
-    <div className="bg-paper px-4 py-3">
+    <div className="bg-card px-4 py-3">
       <div className="text-[10px] uppercase tracking-[0.2em] text-ink/60 flex items-center gap-1.5">
         {icon}
         {label}
@@ -369,7 +415,7 @@ function PaceChart({
       : null;
 
   return (
-    <div className="border-2 border-ink p-2 sm:p-4">
+    <div className="border border-line rounded-lg p-2 sm:p-4 bg-card shadow-sm">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-2 pb-2 text-[10px] uppercase tracking-[0.15em] text-ink/60">
         <LegendItem label="Pace">
           <span className="inline-block w-4 h-0.5 bg-ink align-middle" />
@@ -543,10 +589,10 @@ function RepTable({
   const hasTarget = parsePace(tp?.min) != null || parsePace(tp?.max) != null;
 
   return (
-    <div className="border-2 border-ink overflow-x-auto">
+    <div className="border border-line rounded-lg overflow-x-auto bg-card shadow-sm">
       <table className="w-full text-sm font-mono">
         <thead>
-          <tr className="text-[10px] uppercase tracking-[0.15em] text-ink/50 border-b-2 border-ink">
+          <tr className="text-[10px] uppercase tracking-[0.15em] text-ink/50 border-b border-line">
             <Th>#</Th>
             <Th>Início</Th>
             <Th>Trecho (km)</Th>
@@ -611,7 +657,7 @@ function Coach({ analysis }: { analysis: WorkoutAnalysis }) {
   const an = analysis.analysis;
   if (!an) return null;
   return (
-    <div className="border-2 border-ink p-5 flex flex-col gap-4 bg-paper-2">
+    <div className="border border-line rounded-lg p-5 flex flex-col gap-4 bg-paper-2">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.2em] text-ink/60">
         {an.pattern && (
           <span>padrão: {PATTERN_LABEL[an.pattern] ?? an.pattern}</span>
@@ -684,7 +730,7 @@ function Status({
     <p
       className={
         tone === "error"
-          ? "border-2 border-ink p-5 bg-paper-2 font-mono text-sm"
+          ? "border border-line rounded-lg p-5 bg-paper-2 font-mono text-sm"
           : "text-ink/60 font-mono text-sm border-2 border-dashed border-ink/20 p-5"
       }
     >
