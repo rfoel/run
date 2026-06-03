@@ -69,6 +69,24 @@ function parsePace(str?: string): number | null {
   return Number(m[1]) * 60 + Number(m[2]);
 }
 
+type TargetPace = { min?: string; max?: string } | undefined;
+
+/**
+ * Seconds/km vs the prescribed target band, computed from data (the model's own
+ * vs_target is unreliable). Positive = slower than target, negative = faster,
+ * 0 = inside the band. Returns null when there's no usable target.
+ */
+function vsTargetSec(paceSec: number, tp: TargetPace): number | null {
+  const a = parsePace(tp?.min);
+  const b = parsePace(tp?.max);
+  if (a == null && b == null) return null;
+  const lo = Math.min(a ?? b!, b ?? a!);
+  const hi = Math.max(a ?? b!, b ?? a!);
+  if (paceSec > hi) return Math.round(paceSec - hi);
+  if (paceSec < lo) return Math.round(paceSec - lo);
+  return 0;
+}
+
 function elapsedAtKm(series: ChartSeries | null, targetKm?: number): number | null {
   if (!series || targetKm == null) return null;
   let best = 0;
@@ -521,7 +539,8 @@ function RepTable({
 }) {
   const work = workSections(analysis.sections);
   if (work.length === 0) return null;
-  const hasTarget = work.some((s) => s.vs_target_sec_per_km != null);
+  const tp = analysis.prescription?.target_pace_min_per_km;
+  const hasTarget = parsePace(tp?.min) != null || parsePace(tp?.max) != null;
 
   return (
     <div className="border-2 border-ink overflow-x-auto">
@@ -541,6 +560,7 @@ function RepTable({
         <tbody className="divide-y divide-ink/15">
           {work.map((s, i) => {
             const start = elapsedAtKm(series, s.start_km);
+            const vs = hasTarget ? vsTargetSec(s.avg_pace_sec_per_km, tp) : null;
             return (
               <tr key={i} className="hover:bg-paper-2">
                 <Td className="font-semibold">{s.index ?? i + 1}</Td>
@@ -557,15 +577,14 @@ function RepTable({
                 {hasTarget && (
                   <Td
                     className={
-                      s.vs_target_sec_per_km != null &&
-                      s.vs_target_sec_per_km > 0
-                        ? "text-red-700"
-                        : "text-green-700"
+                      vs == null
+                        ? ""
+                        : vs > 0
+                          ? "text-red-700"
+                          : "text-green-700"
                     }
                   >
-                    {s.vs_target_sec_per_km != null
-                      ? `${s.vs_target_sec_per_km > 0 ? "+" : ""}${s.vs_target_sec_per_km}s`
-                      : "—"}
+                    {vs == null ? "—" : vs === 0 ? "no alvo" : `${vs > 0 ? "+" : ""}${vs}s`}
                   </Td>
                 )}
                 <Td>{s.avg_hr ? Math.round(s.avg_hr) : "—"}</Td>
