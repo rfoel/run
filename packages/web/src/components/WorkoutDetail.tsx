@@ -429,7 +429,8 @@ function PaceChart({
           <XAxis
             dataKey="km"
             type="number"
-            domain={[0, "dataMax"]}
+            domain={["dataMin", "dataMax"]}
+            allowDataOverflow
             tickFormatter={(v: number) => `${v.toFixed(0)}`}
             tick={{ fontSize: 11, fill: "currentColor" }}
             stroke="currentColor"
