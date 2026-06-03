@@ -1,8 +1,9 @@
 import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
-import { buildActivity, putActivity } from "@run/core/activity";
-import { linkActivityToPlan, planTitle } from "@run/core/plan";
+import { buildActivity, putActivity, renameActivity } from "@run/core/activity";
+import { linkActivityToPlan, planTitle, updatePlan } from "@run/core/plan";
 import { streamsToTrack } from "@run/core/parsers/streams";
-import { computeMetrics } from "@run/core/track";
+import { buildChartSeries, computeMetrics } from "@run/core/track";
+import { putChartSeries } from "@run/core/workout";
 import {
   fetchActivities,
   fetchStreams,
@@ -73,20 +74,38 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
           sportType: summary.sport_type,
           metrics,
         });
+        // Store the chart series unconditionally so already-imported activities
+        // get backfilled on a re-sync.
+        await putChartSeries(
+          "strava",
+          String(summary.id),
+          buildChartSeries(track),
+        );
         const { created } = await putActivity(activity);
-        if (created) {
-          result.imported++;
-          const linkedPlan = await linkActivityToPlan(activity);
-          if (linkedPlan) {
-            result.linked++;
+        if (created) result.imported++;
+        else result.skipped++;
+
+        // Reconcile the workout title on EVERY sync (not just first import), so
+        // already-imported runs that kept Strava's original name ("Corrida
+        // matinal") get the plan title here too.
+        const linkedPlan = await linkActivityToPlan(activity);
+        if (linkedPlan) {
+          result.linked++;
+          const title = planTitle(linkedPlan);
+          await renameActivity("strava", String(summary.id), title);
+          await updatePlan(linkedPlan.date, linkedPlan.id, {
+            actualName: title,
+          });
+          // Only push to Strava when its name is actually stale.
+          if (summary.name !== title) {
             try {
-              await updateActivityName(summary.id, planTitle(linkedPlan), accessToken);
+              await updateActivityName(summary.id, title, accessToken);
             } catch (e) {
-              result.errors.push(`rename ${summary.id}: ${(e as Error).message}`);
+              result.errors.push(
+                `rename ${summary.id}: ${(e as Error).message}`,
+              );
             }
           }
-        } else {
-          result.skipped++;
         }
       } catch (e) {
         result.errors.push(`${summary.id}: ${(e as Error).message}`);

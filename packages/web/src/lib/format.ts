@@ -16,6 +16,14 @@ export const pace = (meters: number, movingSec: number) => {
   return `${m}:${s.toString().padStart(2, "0")}/km`;
 };
 
+/** Format a pace given directly in seconds per km, e.g. 265 -> "4:25". */
+export const paceFromSec = (secPerKm: number | null | undefined) => {
+  if (secPerKm == null) return "--";
+  const m = Math.floor(secPerKm / 60);
+  const s = Math.round(secPerKm % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+};
+
 export const LOCALE = "pt-BR";
 
 export const date = (iso: string) =>

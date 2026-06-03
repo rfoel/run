@@ -1,8 +1,9 @@
 import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
-import { buildActivity, putActivity } from "@run/core/activity";
-import { linkActivityToPlan, planTitle } from "@run/core/plan";
-import { computeMetrics } from "@run/core/track";
+import { buildActivity, putActivity, renameActivity } from "@run/core/activity";
+import { linkActivityToPlan, planTitle, updatePlan } from "@run/core/plan";
+import { buildChartSeries, computeMetrics } from "@run/core/track";
 import { streamsToTrack } from "@run/core/parsers/streams";
+import { putChartSeries } from "@run/core/workout";
 import {
   fetchActivity,
   fetchStreams,
@@ -63,6 +64,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     sportType: raw.sport_type,
     metrics,
   });
+  await putChartSeries("strava", String(raw.id), buildChartSeries(track));
   const { created } = await putActivity(activity);
   console.log(`put activity ${activity.externalId} created=${created}`);
   let linkedPlanId: string | null = null;
@@ -72,6 +74,10 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     console.log(`linked plan=${linkedPlanId}`);
     if (linkedPlan) {
       const title = planTitle(linkedPlan);
+      // Keep our copy and the plan snapshot on the workout title too, so the
+      // app shows "4km tempo…" rather than Strava's original "Corrida matinal".
+      await renameActivity("strava", String(raw.id), title);
+      await updatePlan(linkedPlan.date, linkedPlan.id, { actualName: title });
       try {
         await updateActivityName(raw.id, title, accessToken);
         console.log(`renamed strava ${raw.id} -> ${title}`);

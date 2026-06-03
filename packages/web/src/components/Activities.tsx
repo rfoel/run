@@ -36,7 +36,13 @@ const RANGE_LABELS: Record<Range, string> = {
   total: "total",
 };
 
-export default function Activities({ unlocked }: { unlocked: boolean }) {
+export default function Activities({
+  unlocked,
+  onOpenActivity,
+}: {
+  unlocked: boolean;
+  onOpenActivity: (source: string, externalId: string) => void;
+}) {
   const [items, setItems] = useState<Activity[]>([]);
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [range, setRange] = useState<Range>("total");
@@ -194,6 +200,7 @@ export default function Activities({ unlocked }: { unlocked: boolean }) {
             activity={a}
             unlocked={unlocked}
             onDeleted={refresh}
+            onSelect={() => onOpenActivity(a.source, a.externalId)}
           />
         ))}
       </ul>
@@ -210,16 +217,23 @@ function ActivityRow({
   activity: a,
   unlocked,
   onDeleted,
+  onSelect,
 }: {
   activity: Activity;
   unlocked: boolean;
   onDeleted: () => void | Promise<void>;
+  onSelect: () => void;
 }) {
   return (
     <li className="px-5 py-4 flex items-baseline justify-between gap-6 hover:bg-paper-2">
       <div className="min-w-0 flex-1">
         <div className="font-semibold truncate flex items-center gap-2">
-          <span className="truncate">{a.name}</span>
+          <button
+            onClick={onSelect}
+            className="truncate text-left hover:underline underline-offset-2"
+          >
+            {a.name}
+          </button>
           <StravaLink source={a.source} externalId={a.externalId} />
         </div>
         <div className="text-xs uppercase tracking-wider text-ink/50 mt-1">
@@ -227,9 +241,9 @@ function ActivityRow({
         </div>
       </div>
       <div className="text-right shrink-0 font-mono text-sm">
-        <div className="font-semibold">
+        <button onClick={onSelect} className="font-semibold hover:underline underline-offset-2">
           {km(a.distance)} <span className="text-ink/40">km</span>
-        </div>
+        </button>
         <div className="text-ink/60 text-xs mt-1 flex items-center justify-end gap-2">
           <span>{duration(a.movingTime)}</span>
           <span>·</span>

@@ -26,7 +26,11 @@ const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
 type DaySlot = { plans: PlannedRun[]; runs: Activity[] };
 
-export default function Calendar() {
+export default function Calendar({
+  onOpenActivity,
+}: {
+  onOpenActivity: (source: string, externalId: string) => void;
+}) {
   const [month, setMonth] = useState(() => {
     const d = new Date();
     return { y: d.getFullYear(), m: d.getMonth() };
@@ -225,7 +229,11 @@ export default function Calendar() {
       </div>
 
       {selected && (
-        <DayDetail iso={selected} slot={selectedSlot ?? { plans: [], runs: [] }} />
+        <DayDetail
+          iso={selected}
+          slot={selectedSlot ?? { plans: [], runs: [] }}
+          onOpenActivity={onOpenActivity}
+        />
       )}
     </section>
   );
@@ -270,7 +278,15 @@ function RunPill({ run, inverted }: { run: Activity; inverted: boolean }) {
   );
 }
 
-function DayDetail({ iso, slot }: { iso: string; slot: DaySlot }) {
+function DayDetail({
+  iso,
+  slot,
+  onOpenActivity,
+}: {
+  iso: string;
+  slot: DaySlot;
+  onOpenActivity: (source: string, externalId: string) => void;
+}) {
   const d = new Date(`${iso}T00:00:00`);
   const label = d.toLocaleDateString("pt-BR", {
     weekday: "long",
@@ -328,13 +344,21 @@ function DayDetail({ iso, slot }: { iso: string; slot: DaySlot }) {
             {slot.runs.map((a) => (
               <li
                 key={`${a.source}:${a.externalId}`}
-                className="px-4 py-3 flex items-start justify-between gap-4"
+                className="px-4 py-3 flex items-start justify-between gap-4 hover:bg-paper-2"
               >
                 <div className="font-semibold truncate flex items-center gap-2 min-w-0">
-                  <span className="truncate">{a.name}</span>
+                  <button
+                    onClick={() => onOpenActivity(a.source, a.externalId)}
+                    className="truncate text-left hover:underline underline-offset-2"
+                  >
+                    {a.name}
+                  </button>
                   <StravaLink source={a.source} externalId={a.externalId} />
                 </div>
-                <div className="text-right font-mono text-sm shrink-0">
+                <button
+                  onClick={() => onOpenActivity(a.source, a.externalId)}
+                  className="text-right font-mono text-sm shrink-0"
+                >
                   <div>
                     {km(a.distance)} km · {duration(a.movingTime)}
                   </div>
@@ -350,7 +374,7 @@ function DayDetail({ iso, slot }: { iso: string; slot: DaySlot }) {
                       </>
                     )}
                   </div>
-                </div>
+                </button>
               </li>
             ))}
           </ul>

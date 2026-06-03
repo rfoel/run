@@ -34,6 +34,11 @@ api.route("GET /activities", {
   link: linked,
 });
 
+api.route("GET /activities/{source}/{externalId}", {
+  handler: "packages/functions/src/activities/detail.handler",
+  link: linked,
+});
+
 api.route("DELETE /activities/{source}/{externalId}", {
   handler: "packages/functions/src/activities/delete.handler",
   link: linked,

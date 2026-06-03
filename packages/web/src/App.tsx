@@ -14,6 +14,7 @@ import Calendar from "./components/Calendar.tsx";
 import Chat from "./components/Chat.tsx";
 import Logo from "./components/Logo.tsx";
 import Plan from "./components/Plan.tsx";
+import WorkoutDetail from "./components/WorkoutDetail.tsx";
 import {
   clearWriteToken,
   getWriteToken,
@@ -40,6 +41,13 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("calendar");
   const [unlocked, setUnlocked] = useState(false);
   const [unlockOpen, setUnlockOpen] = useState(false);
+  const [openActivity, setOpenActivity] = useState<{
+    source: string;
+    externalId: string;
+  } | null>(null);
+
+  const openDetail = (source: string, externalId: string) =>
+    setOpenActivity({ source, externalId });
 
   useEffect(() => {
     const t = getWriteToken();
@@ -113,19 +121,30 @@ export default function App() {
         </div>
       </header>
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-        <Tabs.Panel value="calendar">
-          <Calendar />
-        </Tabs.Panel>
-        <Tabs.Panel value="activities">
-          <Activities unlocked={unlocked} />
-        </Tabs.Panel>
-        <Tabs.Panel value="plan">
-          <Plan unlocked={unlocked} />
-        </Tabs.Panel>
-        {unlocked && (
-          <Tabs.Panel value="chat">
-            <Chat />
-          </Tabs.Panel>
+        {openActivity ? (
+          <WorkoutDetail
+            source={openActivity.source}
+            externalId={openActivity.externalId}
+            unlocked={unlocked}
+            onBack={() => setOpenActivity(null)}
+          />
+        ) : (
+          <>
+            <Tabs.Panel value="calendar">
+              <Calendar onOpenActivity={openDetail} />
+            </Tabs.Panel>
+            <Tabs.Panel value="activities">
+              <Activities unlocked={unlocked} onOpenActivity={openDetail} />
+            </Tabs.Panel>
+            <Tabs.Panel value="plan">
+              <Plan unlocked={unlocked} />
+            </Tabs.Panel>
+            {unlocked && (
+              <Tabs.Panel value="chat">
+                <Chat />
+              </Tabs.Panel>
+            )}
+          </>
         )}
       </main>
       <UnlockDialog

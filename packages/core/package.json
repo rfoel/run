@@ -10,6 +10,7 @@
     "./stats": "./src/stats.ts",
     "./strava": "./src/strava.ts",
     "./track": "./src/track.ts",
+    "./workout": "./src/workout.ts",
     "./parsers/gpx": "./src/parsers/gpx.ts",
     "./parsers/streams": "./src/parsers/streams.ts",
     "./user": "./src/user.ts"

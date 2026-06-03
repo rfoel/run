@@ -3,6 +3,7 @@ import {
   PutCommand,
   QueryCommand,
   TransactWriteCommand,
+  UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { ddb, tableName } from "./db.ts";
 import { userPk, USER_ID } from "./user.ts";
@@ -147,6 +148,27 @@ export async function putActivityRaw(activity: Activity) {
         gsi1pk: activityGsi1pk(pk),
         gsi1sk: activity.startDate,
         ...activity,
+      },
+    }),
+  );
+}
+
+/** Update only the stored display name (e.g. after renaming on Strava). */
+export async function renameActivity(
+  source: ActivitySource,
+  externalId: string,
+  name: string,
+  userId: string = USER_ID,
+) {
+  await ddb.send(
+    new UpdateCommand({
+      TableName: tableName(),
+      Key: { pk: userPk(userId), sk: activitySk(source, externalId) },
+      UpdateExpression: "SET #n = :n, updatedAt = :now",
+      ExpressionAttributeNames: { "#n": "name" },
+      ExpressionAttributeValues: {
+        ":n": name,
+        ":now": new Date().toISOString(),
       },
     }),
   );

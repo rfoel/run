@@ -170,6 +170,122 @@ export async function chatStream(
   }
 }
 
+export type ChartSeries = {
+  km: number[];
+  pace: (number | null)[];
+  hr: (number | null)[];
+  elapsed: number[];
+};
+
+export type WorkoutSection = {
+  kind:
+    | "warmup"
+    | "rep"
+    | "recovery"
+    | "tempo"
+    | "tempo_split"
+    | "easy_split"
+    | "cooldown";
+  index?: number;
+  start_km?: number;
+  end_km?: number;
+  distance_m: number;
+  duration_sec: number;
+  avg_pace_sec_per_km: number;
+  avg_hr?: number;
+  max_hr?: number;
+  vs_target_sec_per_km?: number;
+};
+
+export type WorkoutAnalysis = {
+  workout_id: string;
+  date: string;
+  type: "interval" | "tempo" | "long" | "easy" | "regen" | "race" | "fartlek";
+  subtype?: string;
+  prescription?: {
+    reps?: number;
+    rep_distance_m?: number;
+    recovery_seconds?: number;
+    target_pace_min_per_km?: { min?: string; max?: string };
+    notes?: string;
+  };
+  totals: {
+    distance_km: number;
+    duration_sec: number;
+    avg_pace_sec_per_km: number;
+    avg_hr?: number;
+    max_hr?: number;
+    elevation_gain_m?: number;
+  };
+  sections: WorkoutSection[];
+  analysis?: {
+    pattern?: string;
+    hr_drift_bpm?: number;
+    target_hit?: boolean;
+    rpe_estimate?: number;
+    highlights?: string[];
+    issues?: string[];
+    next_workout_suggestion?: string;
+  };
+  comparisons?: { threshold_pace_estimate?: string };
+};
+
+export type StoredAnalysis = {
+  analysis: WorkoutAnalysis;
+  model: string;
+  createdAt: string;
+};
+
+export type ActivityDetail = {
+  activity: Activity & { splits?: unknown[]; maxHr?: number };
+  series: ChartSeries | null;
+  analysis: StoredAnalysis | null;
+  plan: PlannedRun | null;
+};
+
+export async function getActivityDetail(
+  source: string,
+  externalId: string,
+): Promise<ActivityDetail> {
+  const res = await fetch(
+    `${BASE}/activities/${source}/${encodeURIComponent(externalId)}`,
+  );
+  if (!res.ok) throw new Error(`detail ${res.status}`);
+  return (await res.json()) as ActivityDetail;
+}
+
+/**
+ * Trigger Claude analysis. The endpoint streams heartbeat whitespace then a
+ * final JSON line; we strip the zero-width keep-alive chars and parse the rest.
+ */
+export async function analyzeWorkout(
+  source: string,
+  externalId: string,
+  signal?: AbortSignal,
+): Promise<WorkoutAnalysis> {
+  const res = await fetch(`${BASE}/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ source, externalId }),
+    signal,
+  });
+  if (!res.ok || !res.body) throw new Error(`analyze ${res.status}`);
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) buf += decoder.decode(value, { stream: true });
+  }
+  const clean = buf.replace(/​/g, "").trim();
+  const parsed = JSON.parse(clean) as
+    | { ok: true; analysis: WorkoutAnalysis }
+    | { ok: false; error: string };
+  if (!parsed.ok) throw new Error(parsed.error);
+  return parsed.analysis;
+}
+
 export async function verifyWriteToken(token: string): Promise<boolean> {
   const res = await fetch(`${BASE}/auth/verify`, {
     method: "POST",
