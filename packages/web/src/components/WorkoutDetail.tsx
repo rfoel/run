@@ -8,9 +8,10 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import {
+  Area,
   CartesianGrid,
+  ComposedChart,
   Line,
-  LineChart,
   ReferenceArea,
   ResponsiveContainer,
   Tooltip,
@@ -330,6 +331,12 @@ function PaceChart({
   const lo = Math.max(0, Math.min(minPace, targetMin ?? minPace) - 20);
   const hi = Math.max(maxPace, targetMax ?? maxPace) + 20;
 
+  const hrs = data.map((d) => d.hr).filter((h): h is number => h != null);
+  const hasHr = hrs.length > 0;
+  // Pad the HR band downward so the area sits low and doesn't fight the pace line.
+  const hrLo = hasHr ? Math.max(0, Math.min(...hrs) - 25) : 0;
+  const hrHi = hasHr ? Math.max(...hrs) + 8 : 200;
+
   const reps = workSections(analysis?.sections ?? []).filter(
     (s) => s.start_km != null && s.end_km != null,
   );
@@ -358,9 +365,14 @@ function PaceChart({
             <span className="inline-block w-4 h-2 align-middle border border-dashed border-[#16a34a] bg-[#16a34a]/20" />
           </LegendItem>
         )}
+        {hasHr && (
+          <LegendItem label="FC">
+            <span className="inline-block w-4 h-2 align-middle bg-[#dc2626]/25 border-b border-[#dc2626]/60" />
+          </LegendItem>
+        )}
       </div>
       <ResponsiveContainer width="100%" height={320}>
-        <LineChart
+        <ComposedChart
           data={data}
           margin={{ top: 16, right: 8, bottom: 8, left: 0 }}
           onMouseMove={(state: { activeLabel?: string | number }) => {
@@ -370,8 +382,24 @@ function PaceChart({
           onMouseLeave={() => onHover(null)}
         >
           <CartesianGrid stroke="currentColor" strokeOpacity={0.08} />
+          {hasHr && (
+            <Area
+              yAxisId="hr"
+              type="monotone"
+              dataKey="hr"
+              stroke="#dc2626"
+              strokeOpacity={0.5}
+              strokeWidth={1}
+              fill="#dc2626"
+              fillOpacity={0.14}
+              connectNulls
+              isAnimationActive={false}
+              activeDot={false}
+            />
+          )}
           {targetMin != null && targetMax != null && (
             <ReferenceArea
+              yAxisId="pace"
               y1={targetMin}
               y2={targetMax}
               fill="#16a34a"
@@ -384,6 +412,7 @@ function PaceChart({
           {reps.map((r, i) => (
             <ReferenceArea
               key={i}
+              yAxisId="pace"
               x1={r.start_km}
               x2={r.end_km}
               fill="currentColor"
@@ -407,6 +436,7 @@ function PaceChart({
             unit=" km"
           />
           <YAxis
+            yAxisId="pace"
             reversed
             domain={[lo, hi]}
             tickFormatter={(v: number) => paceFromSec(v)}
@@ -415,11 +445,23 @@ function PaceChart({
             strokeOpacity={0.3}
             width={44}
           />
+          {hasHr && (
+            <YAxis
+              yAxisId="hr"
+              orientation="right"
+              domain={[hrLo, hrHi]}
+              tickFormatter={(v: number) => `${Math.round(v)}`}
+              tick={{ fontSize: 11, fill: "#dc2626" }}
+              stroke="#dc2626"
+              strokeOpacity={0.3}
+              width={32}
+            />
+          )}
           <Tooltip
             formatter={((value: number, name: string) =>
               name === "pace"
                 ? [`${paceFromSec(value)}/km`, "pace"]
-                : [`${value} bpm`, "fc"]) as never}
+                : [`${Math.round(value)} bpm`, "fc"]) as never}
             labelFormatter={((v: number) => `${Number(v).toFixed(2)} km`) as never}
             contentStyle={{
               background: "var(--color-paper, #fff)",
@@ -430,6 +472,7 @@ function PaceChart({
             }}
           />
           <Line
+            yAxisId="pace"
             type="monotone"
             dataKey="pace"
             stroke="currentColor"
@@ -438,7 +481,7 @@ function PaceChart({
             connectNulls
             isAnimationActive={false}
           />
-        </LineChart>
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
