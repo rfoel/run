@@ -8,13 +8,15 @@ import {
   LockOpenIcon,
   PersonSimpleRunIcon,
 } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import Activities from "./components/Activities.tsx";
 import Calendar from "./components/Calendar.tsx";
 import Chat from "./components/Chat.tsx";
 import Logo from "./components/Logo.tsx";
 import Plan from "./components/Plan.tsx";
-import WorkoutDetail from "./components/WorkoutDetail.tsx";
+
+// Pulls in recharts + leaflet only when a workout is opened.
+const WorkoutDetail = lazy(() => import("./components/WorkoutDetail.tsx"));
 import {
   clearWriteToken,
   getWriteToken,
@@ -122,12 +124,18 @@ export default function App() {
       </header>
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         {openActivity ? (
-          <WorkoutDetail
-            source={openActivity.source}
-            externalId={openActivity.externalId}
-            unlocked={unlocked}
-            onBack={() => setOpenActivity(null)}
-          />
+          <Suspense
+            fallback={
+              <p className="text-ink/60 font-mono text-sm">Carregando…</p>
+            }
+          >
+            <WorkoutDetail
+              source={openActivity.source}
+              externalId={openActivity.externalId}
+              unlocked={unlocked}
+              onBack={() => setOpenActivity(null)}
+            />
+          </Suspense>
         ) : (
           <>
             <Tabs.Panel value="calendar">

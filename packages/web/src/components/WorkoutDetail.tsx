@@ -26,6 +26,8 @@ import {
   type WorkoutSection,
 } from "../lib/api.ts";
 import { date, duration, km as kmFmt, paceFromSec } from "../lib/format.ts";
+import { decodePolyline, routeGeometry } from "../lib/polyline.ts";
+import RouteMap from "./RouteMap.tsx";
 import StravaLink from "./StravaLink.tsx";
 
 // Granular work segments we chart/table. The parent `tempo` block is a
@@ -91,6 +93,13 @@ export default function WorkoutDetail({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
+  const [hoverKm, setHoverKm] = useState<number | null>(null);
+
+  const geo = useMemo(() => {
+    const pl = detail?.activity.polyline;
+    if (!pl) return null;
+    return routeGeometry(decodePolyline(pl));
+  }, [detail?.activity.polyline]);
 
   useEffect(() => {
     let alive = true;
@@ -173,13 +182,19 @@ export default function WorkoutDetail({
           {analysis && <Cards analysis={analysis} />}
 
           {detail?.series ? (
-            <PaceChart series={detail.series} analysis={analysis} />
+            <PaceChart
+              series={detail.series}
+              analysis={analysis}
+              onHover={setHoverKm}
+            />
           ) : (
             <Status>
               Sem série de pace para esta corrida. Faça um re-sync no Strava
               para trazer o trace.
             </Status>
           )}
+
+          {geo && <RouteMap geo={geo} hoverKm={hoverKm} />}
 
           {analysis ? (
             <>
@@ -287,9 +302,11 @@ type ChartPoint = { km: number; pace: number | null; hr: number | null };
 function PaceChart({
   series,
   analysis,
+  onHover,
 }: {
   series: ChartSeries;
   analysis: WorkoutAnalysis | null;
+  onHover: (km: number | null) => void;
 }) {
   const data: ChartPoint[] = useMemo(
     () =>
@@ -346,6 +363,11 @@ function PaceChart({
         <LineChart
           data={data}
           margin={{ top: 16, right: 8, bottom: 8, left: 0 }}
+          onMouseMove={(state: { activeLabel?: string | number }) => {
+            const v = state?.activeLabel;
+            if (v != null && v !== "") onHover(Number(v));
+          }}
+          onMouseLeave={() => onHover(null)}
         >
           <CartesianGrid stroke="currentColor" strokeOpacity={0.08} />
           {targetMin != null && targetMax != null && (
