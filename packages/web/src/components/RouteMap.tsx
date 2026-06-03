@@ -27,7 +27,7 @@ export default function RouteMap({
         />
         <Polyline
           positions={geo.points}
-          pathOptions={{ color: "#1d4ed8", weight: 4, opacity: 0.85 }}
+          pathOptions={{ color: "#3b3833", weight: 4, opacity: 0.9 }}
         />
         {marker && (
           <CircleMarker

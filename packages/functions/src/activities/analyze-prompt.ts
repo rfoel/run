@@ -35,7 +35,12 @@ ANALYSIS:
 BE HONEST. If the target was missed by 20 s/km, say so. If a pace target is repeatedly out of
 reach, suggest recalibrating it. If the data conflicts with the prescription, trust the data.
 
-Write highlights/issues/next_workout_suggestion in Brazilian Portuguese (pt-BR).
+STYLE — highlights/issues/next_workout_suggestion in Brazilian Portuguese (pt-BR), SHORT and
+caveman-style:
+- Cada highlight/issue = fragmento curto, poucas palavras, uma ideia. No máx ~8 palavras.
+- No máximo 3 highlights e 3 issues. Só o que importa; corte o resto.
+- Sem floreio, sem hedging, sem repetir números que já estão na tabela.
+- next_workout_suggestion = 1 frase direta e acionável.
 Return everything via the emit_analysis tool.`;
 
 export const ANALYSIS_TOOL = {
