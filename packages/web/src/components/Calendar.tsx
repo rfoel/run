@@ -22,7 +22,7 @@ const TYPE_SHORT: Record<PlannedRun["type"], string> = {
   recovery: "Regen",
 };
 
-const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 type DaySlot = { plans: PlannedRun[]; runs: Activity[] };
 
@@ -382,7 +382,7 @@ function localIso(d: Date) {
 
 function buildMonthGrid(y: number, m: number) {
   const first = new Date(y, m, 1);
-  const offset = (first.getDay() + 6) % 7;
+  const offset = first.getDay();
   const start = new Date(y, m, 1 - offset);
   const days: Date[] = [];
   for (let i = 0; i < 42; i++) {
