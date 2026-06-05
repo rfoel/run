@@ -81,6 +81,31 @@ export function routeGeometry(points: LatLng[]): RouteGeometry | null {
   };
 }
 
+/**
+ * The run of points between two cumulative distances (km), with the start and
+ * end interpolated to the exact distances. Used to highlight a sub-segment
+ * (e.g. a best effort) on the map.
+ */
+export function segmentBetween(
+  geo: RouteGeometry,
+  startKm: number,
+  endKm: number,
+): LatLng[] {
+  const startM = Math.max(0, startKm * 1000);
+  const endM = Math.min(geo.totalM, endKm * 1000);
+  if (endM <= startM) return [];
+  const start = positionAtKm(geo, startKm);
+  const end = positionAtKm(geo, endKm);
+  if (!start || !end) return [];
+  const out: LatLng[] = [start];
+  for (let i = 0; i < geo.cum.length; i++) {
+    const d = geo.cum[i]!;
+    if (d > startM && d < endM) out.push(geo.points[i]!);
+  }
+  out.push(end);
+  return out;
+}
+
 /** Interpolate the lat/lng at a cumulative distance (in km) along the route. */
 export function positionAtKm(geo: RouteGeometry, km: number): LatLng | null {
   const target = km * 1000;

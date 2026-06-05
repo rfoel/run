@@ -34,7 +34,11 @@ import {
 import { Skeleton } from "./Skeleton.tsx";
 import { date, duration, km as kmFmt, paceFromSec } from "../lib/format.ts";
 import { computeBestEfforts } from "../lib/bestEfforts.ts";
-import { decodePolyline, routeGeometry } from "../lib/polyline.ts";
+import {
+  decodePolyline,
+  routeGeometry,
+  segmentBetween,
+} from "../lib/polyline.ts";
 import RouteMap from "./RouteMap.tsx";
 import StravaLink from "./StravaLink.tsx";
 import { PLAN_TYPE_LABELS } from "./TypeBadge.tsx";
@@ -117,6 +121,15 @@ export default function WorkoutDetail({
   onBack: () => void;
 }) {
   const [hoverKm, setHoverKm] = useState<number | null>(null);
+  // A table row selected to highlight its segment on the map. `key` identifies
+  // the row (so clicking it again toggles off); km bounds drive the overlay.
+  const [highlight, setHighlight] = useState<{
+    key: string;
+    startKm: number;
+    endKm: number;
+  } | null>(null);
+  const toggleHighlight = (key: string, startKm: number, endKm: number) =>
+    setHighlight((cur) => (cur?.key === key ? null : { key, startKm, endKm }));
 
   const detailQ = useActivityDetail(source, externalId);
   const analyzeM = useAnalyzeWorkout(source, externalId);
@@ -134,6 +147,11 @@ export default function WorkoutDetail({
     if (!pl) return null;
     return routeGeometry(decodePolyline(pl));
   }, [detail?.activity.polyline]);
+
+  const highlightSeg = useMemo(() => {
+    if (!geo || !highlight) return null;
+    return segmentBetween(geo, highlight.startKm, highlight.endKm);
+  }, [geo, highlight]);
 
   const runAnalysis = () => analyzeM.mutate();
 
@@ -243,13 +261,28 @@ export default function WorkoutDetail({
             </Status>
           )}
 
-          {geo && <RouteMap geo={geo} hoverKm={hoverKm} />}
+          {geo && (
+            <RouteMap geo={geo} hoverKm={hoverKm} highlight={highlightSeg} />
+          )}
 
-          {detail?.series && <BestEfforts series={detail.series} />}
+          {detail?.series && (
+            <BestEfforts
+              series={detail.series}
+              selectable={geo != null}
+              selectedKey={highlight?.key ?? null}
+              onToggle={toggleHighlight}
+            />
+          )}
 
           {analysis ? (
             <>
-              <RepTable analysis={analysis} series={detail?.series ?? null} />
+              <RepTable
+                analysis={analysis}
+                series={detail?.series ?? null}
+                selectable={geo != null}
+                selectedKey={highlight?.key ?? null}
+                onToggle={toggleHighlight}
+              />
               <Coach analysis={analysis} />
             </>
           ) : (
@@ -599,9 +632,15 @@ function LegendItem({
 function RepTable({
   analysis,
   series,
+  selectable,
+  selectedKey,
+  onToggle,
 }: {
   analysis: WorkoutAnalysis;
   series: ChartSeries | null;
+  selectable: boolean;
+  selectedKey: string | null;
+  onToggle: (key: string, startKm: number, endKm: number) => void;
 }) {
   const work = workSections(analysis.sections);
   if (work.length === 0) return null;
@@ -658,8 +697,19 @@ function RepTable({
                 // mixed workout it's meaningless for the (much faster) strides.
                 const showVs = hasTarget && !(multi && s.kind === "rep");
                 const vs = showVs ? vsTargetSec(s.avg_pace_sec_per_km, tp) : null;
+                const key = `rep:${gi}:${s.index ?? i}`;
+                const canSelect =
+                  selectable && s.start_km != null && s.end_km != null;
                 return (
-                  <tr key={`${g.kind}-${s.index ?? i}`} className="hover:bg-paper-2">
+                  <tr
+                    key={`${g.kind}-${s.index ?? i}`}
+                    onClick={
+                      canSelect
+                        ? () => onToggle(key, s.start_km!, s.end_km!)
+                        : undefined
+                    }
+                    className={rowClass(canSelect, selectedKey === key)}
+                  >
                     <Td className="font-semibold">{s.index ?? i + 1}</Td>
                     <Td>{start != null ? duration(start) : "—"}</Td>
                     <Td>
@@ -763,7 +813,17 @@ function Coach({ analysis }: { analysis: WorkoutAnalysis }) {
   );
 }
 
-function BestEfforts({ series }: { series: ChartSeries }) {
+function BestEfforts({
+  series,
+  selectable,
+  selectedKey,
+  onToggle,
+}: {
+  series: ChartSeries;
+  selectable: boolean;
+  selectedKey: string | null;
+  onToggle: (key: string, startKm: number, endKm: number) => void;
+}) {
   const efforts = useMemo(() => computeBestEfforts(series), [series]);
   if (efforts.length === 0) return null;
   const hasHr = efforts.some((e) => e.avgHr != null);
@@ -783,21 +843,39 @@ function BestEfforts({ series }: { series: ChartSeries }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-ink/15">
-            {efforts.map((e) => (
-              <tr key={e.meters} className="hover:bg-paper-2">
-                <Td>{e.label}</Td>
-                <Td>{duration(e.timeSec)}</Td>
-                <Td>{paceFromSec(e.paceSecPerKm)}/km</Td>
-                {hasHr && (
-                  <Td>{e.avgHr != null ? `${e.avgHr} bpm` : "—"}</Td>
-                )}
-              </tr>
-            ))}
+            {efforts.map((e) => {
+              const key = `be:${e.meters}`;
+              return (
+                <tr
+                  key={e.meters}
+                  onClick={
+                    selectable
+                      ? () =>
+                          onToggle(key, e.startKm, e.startKm + e.meters / 1000)
+                      : undefined
+                  }
+                  className={rowClass(selectable, selectedKey === key)}
+                >
+                  <Td>{e.label}</Td>
+                  <Td>{duration(e.timeSec)}</Td>
+                  <Td>{paceFromSec(e.paceSecPerKm)}/km</Td>
+                  {hasHr && (
+                    <Td>{e.avgHr != null ? `${e.avgHr} bpm` : "—"}</Td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
     </div>
   );
+}
+
+/** Shared row styling for selectable, highlightable table rows. */
+function rowClass(selectable: boolean, selected: boolean) {
+  if (selected) return "bg-orange-100 cursor-pointer";
+  return selectable ? "hover:bg-paper-2 cursor-pointer" : "";
 }
 
 function Th({ children }: { children: React.ReactNode }) {

@@ -1,13 +1,20 @@
 import "leaflet/dist/leaflet.css";
 import { CircleMarker, MapContainer, Polyline, TileLayer } from "react-leaflet";
-import { positionAtKm, type RouteGeometry } from "../lib/polyline.ts";
+import {
+  positionAtKm,
+  type LatLng,
+  type RouteGeometry,
+} from "../lib/polyline.ts";
 
 export default function RouteMap({
   geo,
   hoverKm,
+  highlight,
 }: {
   geo: RouteGeometry;
   hoverKm: number | null;
+  /** A sub-segment to emphasise (e.g. a best effort or a rep). */
+  highlight?: LatLng[] | null;
 }) {
   const marker = hoverKm != null ? positionAtKm(geo, hoverKm) : null;
 
@@ -29,6 +36,12 @@ export default function RouteMap({
           positions={geo.points}
           pathOptions={{ color: "#3b3833", weight: 4, opacity: 0.9 }}
         />
+        {highlight && highlight.length >= 2 && (
+          <Polyline
+            positions={highlight}
+            pathOptions={{ color: "#f97316", weight: 6, opacity: 0.95 }}
+          />
+        )}
         {marker && (
           <CircleMarker
             center={marker}
