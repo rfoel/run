@@ -102,7 +102,7 @@ function PlanRow({
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-3 mb-1 flex-wrap">
-          <span className="font-mono text-xs uppercase tracking-wider bg-accent text-white px-2 py-0.5">
+          <span className="font-mono text-xs uppercase tracking-wider bg-accent text-white px-2 py-0.5 rounded">
             {TYPE_LABELS[plan.type]}
           </span>
           <span className="font-mono text-sm font-semibold">
@@ -253,10 +253,9 @@ function groupByWeek(plans: PlannedRun[]) {
   const out = new Map<string, PlannedRun[]>();
   for (const p of plans) {
     const d = new Date(`${p.date}T00:00:00`);
-    const monday = new Date(d);
-    const day = d.getDay() || 7;
-    monday.setDate(d.getDate() - (day - 1));
-    const label = `Semana de ${monday.toLocaleDateString("pt-BR", {
+    const sunday = new Date(d);
+    sunday.setDate(d.getDate() - d.getDay());
+    const label = `Semana de ${sunday.toLocaleDateString("pt-BR", {
       month: "short",
       day: "numeric",
     })}`;
