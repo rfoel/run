@@ -25,7 +25,9 @@ import Plan from "./components/Plan.tsx";
 // Pulls in recharts + leaflet only when a workout is opened.
 const WorkoutDetail = lazy(() => import("./components/WorkoutDetail.tsx"));
 // Pulls in react-markdown + remark-gfm only when the (gated) chat is opened.
-const Chat = lazy(() => import("./components/Chat.tsx"));
+// The factory is reused to prefetch the chunk on unlock (see effect below).
+const importChat = () => import("./components/Chat.tsx");
+const Chat = lazy(importChat);
 import {
   clearWriteToken,
   getWriteToken,
@@ -81,6 +83,12 @@ export default function App() {
       else clearWriteToken();
     });
   }, []);
+
+  // Warm the chat chunk as soon as it's reachable, so opening the tab is
+  // instant (the screen has no data to load — only its JS to download).
+  useEffect(() => {
+    if (unlocked) void importChat();
+  }, [unlocked]);
 
   const visibleTabs = TAB_ORDER.filter((t) => unlocked || !TABS[t].private);
   const activeTab = activeTabFor(location.pathname);
@@ -170,11 +178,7 @@ export default function App() {
             path="/treinador"
             element={
               unlocked ? (
-                <Suspense
-                  fallback={
-                    <p className="text-ink/60 font-mono text-sm">Carregando…</p>
-                  }
-                >
+                <Suspense fallback={null}>
                   <Chat />
                 </Suspense>
               ) : (
