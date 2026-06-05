@@ -11,6 +11,7 @@ export const api = new sst.aws.ApiGatewayV2("Api", {
     // Individual routes can still override.
     route: {
       handler: (args) => {
+        args.runtime ??= "nodejs24.x";
         args.architecture ??= "arm64";
         args.memory ??= "2048 MB";
       },

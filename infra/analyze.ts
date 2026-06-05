@@ -7,6 +7,8 @@ import { allSecrets } from "./secrets";
 export const analyze = new sst.aws.Function("Analyze", {
   handler: "packages/functions/src/activities/analyze.handler",
   link: [table, ...allSecrets],
+  runtime: "nodejs24.x",
+  architecture: "arm64",
   timeout: "120 seconds",
   streaming: true,
   url: {
