@@ -225,6 +225,7 @@ export default function WorkoutDetail({
               series={detail.series}
               analysis={analysis}
               onHover={setHoverKm}
+              highlight={highlight}
             />
           ) : isTreadmill(a) ? (
             <Status>
@@ -422,10 +423,12 @@ function PaceChart({
   series,
   analysis,
   onHover,
+  highlight,
 }: {
   series: ChartSeries;
   analysis: WorkoutAnalysis | null;
   onHover: (km: number | null) => void;
+  highlight?: { startKm: number; endKm: number } | null;
 }) {
   const data: ChartPoint[] = useMemo(
     () =>
@@ -543,6 +546,17 @@ function PaceChart({
               }}
             />
           ))}
+          {highlight && (
+            <ReferenceArea
+              yAxisId="pace"
+              x1={highlight.startKm}
+              x2={highlight.endKm}
+              fill="#f97316"
+              fillOpacity={0.18}
+              stroke="#f97316"
+              strokeOpacity={0.6}
+            />
+          )}
           <XAxis
             dataKey="km"
             type="number"
