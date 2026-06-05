@@ -25,6 +25,28 @@ export function ActivitiesSkeleton() {
   );
 }
 
+// Mirrors WorkoutDetail: back link, header, the 4-stat card row, and the chart.
+export function WorkoutDetailSkeleton() {
+  return (
+    <section className="flex flex-col gap-6">
+      <Skeleton className="h-3 w-16" />
+      <div>
+        <Skeleton className="h-6 w-1/2 mb-2" />
+        <Skeleton className="h-3 w-1/3" />
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line border border-line rounded-lg overflow-hidden">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="bg-card px-4 py-3">
+            <Skeleton className="h-3 w-16 mb-2" />
+            <Skeleton className="h-6 w-12" />
+          </div>
+        ))}
+      </div>
+      <Skeleton className="h-64 w-full" />
+    </section>
+  );
+}
+
 export function ListSkeleton({ rows = 5 }: { rows?: number }) {
   return (
     <ul className="border border-line rounded-lg divide-y divide-line bg-card overflow-hidden">

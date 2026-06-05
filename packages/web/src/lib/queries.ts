@@ -15,6 +15,7 @@ import {
   type ActivityDetail,
   type WorkoutAnalysis,
 } from "./api.ts";
+import { importWorkoutDetail } from "./lazyDetail.ts";
 
 type PlanOpts = { from?: string; to?: string };
 type ActivityOpts = { from?: string; to?: string; limit?: number };
@@ -53,16 +54,19 @@ export function useActivityDetail(source: string, externalId: string) {
   });
 }
 
-// Warm the detail cache on hover/focus so opening a run is instant. Returns a
-// stable callback to attach to onMouseEnter/onFocus/onTouchStart.
+// Warm both the detail data AND its lazy chunk (recharts + leaflet) on
+// hover/focus so opening a run is instant. Returns a stable callback to attach
+// to onMouseEnter/onFocus/onTouchStart.
 export function usePrefetchActivityDetail() {
   const qc = useQueryClient();
-  return (source: string, externalId: string) =>
+  return (source: string, externalId: string) => {
+    void importWorkoutDetail();
     void qc.prefetchQuery({
       queryKey: qk.activityDetail(source, externalId),
       queryFn: () => getActivityDetail(source, externalId),
       staleTime: 5 * 60_000,
     });
+  };
 }
 
 export function useSyncStrava() {

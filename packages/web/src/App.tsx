@@ -22,8 +22,12 @@ import Calendar from "./components/Calendar.tsx";
 import Logo from "./components/Logo.tsx";
 import Plan from "./components/Plan.tsx";
 
-// Pulls in recharts + leaflet only when a workout is opened.
-const WorkoutDetail = lazy(() => import("./components/WorkoutDetail.tsx"));
+import { importWorkoutDetail } from "./lib/lazyDetail.ts";
+import { WorkoutDetailSkeleton } from "./components/Skeleton.tsx";
+
+// Pulls in recharts + leaflet only when a workout is opened. The factory is
+// shared with the hover prefetch in the queries layer.
+const WorkoutDetail = lazy(importWorkoutDetail);
 // Pulls in react-markdown + remark-gfm only when the (gated) chat is opened.
 // The factory is reused to prefetch the chunk on unlock (see effect below).
 const importChat = () => import("./components/Chat.tsx");
@@ -206,9 +210,7 @@ function WorkoutDetailRoute({ unlocked }: { unlocked: boolean }) {
   const navigate = useNavigate();
   if (!source || !externalId) return <Navigate to="/corridas" replace />;
   return (
-    <Suspense
-      fallback={<p className="text-ink/60 font-mono text-sm">Carregando…</p>}
-    >
+    <Suspense fallback={<WorkoutDetailSkeleton />}>
       <WorkoutDetail
         source={source}
         externalId={decodeURIComponent(externalId)}
