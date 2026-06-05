@@ -13,17 +13,14 @@ import {
   TrashIcon,
   WarningIcon,
 } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { type Activity, type Stat } from "../lib/api.ts";
 import {
-  deleteActivity as apiDeleteActivity,
-  getStats,
-  listActivities,
-  syncStrava,
-  type Activity,
-  type Stat,
-  type StatsResponse,
-  type SyncResult,
-} from "../lib/api.ts";
+  useActivities,
+  useDeleteActivity,
+  useStats,
+  useSyncStrava,
+} from "../lib/queries.ts";
 import { date, duration, km, pace } from "../lib/format.ts";
 import StravaLink from "./StravaLink.tsx";
 
@@ -43,43 +40,18 @@ export default function Activities({
   unlocked: boolean;
   onOpenActivity: (source: string, externalId: string) => void;
 }) {
-  const [items, setItems] = useState<Activity[]>([]);
-  const [stats, setStats] = useState<StatsResponse | null>(null);
   const [range, setRange] = useState<Range>("total");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+  const activitiesQ = useActivities({ limit: 1000 });
+  const statsQ = useStats();
+  const sync = useSyncStrava();
 
-  async function refresh() {
-    try {
-      const [list, s] = await Promise.all([listActivities(1000), getStats()]);
-      setItems(list);
-      setStats(s);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function sync() {
-    setSyncing(true);
-    setSyncResult(null);
-    try {
-      const res = await syncStrava(30);
-      setSyncResult(res);
-      await refresh();
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setSyncing(false);
-    }
-  }
-
-  useEffect(() => {
-    void refresh();
-  }, []);
+  const items = activitiesQ.data ?? [];
+  const stats = statsQ.data ?? null;
+  const loading = activitiesQ.isLoading || statsQ.isLoading;
+  const queryError = activitiesQ.error ?? statsQ.error ?? sync.error;
+  const error = queryError ? String(queryError) : null;
+  const syncResult = sync.data ?? null;
+  const syncing = sync.isPending;
 
   if (loading) return <Status>Carregando…</Status>;
   if (error) return <Status tone="error">{error}</Status>;
@@ -117,7 +89,7 @@ export default function Activities({
           </ToggleGroup>
           {unlocked && (
             <button
-              onClick={() => void sync()}
+              onClick={() => sync.mutate(30)}
               disabled={syncing}
               className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border border-line rounded-lg px-3 py-1 hover:bg-accent hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
             >
@@ -199,7 +171,6 @@ export default function Activities({
             key={`${a.source}:${a.externalId}`}
             activity={a}
             unlocked={unlocked}
-            onDeleted={refresh}
             onSelect={() => onOpenActivity(a.source, a.externalId)}
           />
         ))}
@@ -216,12 +187,10 @@ export default function Activities({
 function ActivityRow({
   activity: a,
   unlocked,
-  onDeleted,
   onSelect,
 }: {
   activity: Activity;
   unlocked: boolean;
-  onDeleted: () => void | Promise<void>;
   onSelect: () => void;
 }) {
   return (
@@ -258,36 +227,27 @@ function ActivityRow({
             </>
           )}
         </div>
-        {unlocked && (
-          <DeleteActivityButton activity={a} onDeleted={onDeleted} />
-        )}
+        {unlocked && <DeleteActivityButton activity={a} />}
       </div>
     </li>
   );
 }
 
-function DeleteActivityButton({
-  activity,
-  onDeleted,
-}: {
-  activity: Activity;
-  onDeleted: () => void | Promise<void>;
-}) {
+function DeleteActivityButton({ activity }: { activity: Activity }) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const del = useDeleteActivity();
+  const busy = del.isPending;
+  const error = del.error ? String(del.error) : null;
 
   async function confirm() {
-    setBusy(true);
-    setError(null);
     try {
-      await apiDeleteActivity(activity.source, activity.externalId);
-      await onDeleted();
+      await del.mutateAsync({
+        source: activity.source,
+        externalId: activity.externalId,
+      });
       setOpen(false);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setBusy(false);
+    } catch {
+      // error surfaced via del.error
     }
   }
 

@@ -4,12 +4,9 @@ import {
   MinusCircleIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
-import {
-  deletePlan as apiDeletePlan,
-  listPlans,
-  type PlannedRun,
-} from "../lib/api.ts";
+import { useState } from "react";
+import { type PlannedRun } from "../lib/api.ts";
+import { useDeletePlan, usePlans } from "../lib/queries.ts";
 import { duration, km } from "../lib/format.ts";
 
 const TYPE_LABELS: Record<PlannedRun["type"], string> = {
@@ -22,25 +19,11 @@ const TYPE_LABELS: Record<PlannedRun["type"], string> = {
 };
 
 export default function Plan({ unlocked }: { unlocked: boolean }) {
-  const [items, setItems] = useState<PlannedRun[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  async function refresh() {
-    try {
-      const from = isoDateDaysFromNow(-14);
-      const list = await listPlans({ from });
-      setItems(list);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    void refresh();
-  }, []);
+  const from = isoDateDaysFromNow(-14);
+  const plansQ = usePlans({ from });
+  const items = plansQ.data ?? [];
+  const loading = plansQ.isLoading;
+  const error = plansQ.error ? String(plansQ.error) : null;
 
   if (loading) {
     return <p className="text-ink/60 font-mono text-sm">Carregando…</p>;
@@ -82,7 +65,6 @@ export default function Plan({ unlocked }: { unlocked: boolean }) {
                 key={`${p.date}/${p.id}`}
                 plan={p}
                 unlocked={unlocked}
-                onDelete={refresh}
               />
             ))}
           </ul>
@@ -95,11 +77,9 @@ export default function Plan({ unlocked }: { unlocked: boolean }) {
 function PlanRow({
   plan,
   unlocked,
-  onDelete,
 }: {
   plan: PlannedRun;
   unlocked: boolean;
-  onDelete: () => void | Promise<void>;
 }) {
   const done = plan.status === "done";
   const skipped = plan.status === "skipped";
@@ -151,35 +131,23 @@ function PlanRow({
             {paceString(plan.paceTargetSec)}
           </div>
         )}
-        {!done && unlocked && (
-          <DeletePlanButton
-            plan={plan}
-            onDeleted={onDelete}
-          />
-        )}
+        {!done && unlocked && <DeletePlanButton plan={plan} />}
       </div>
     </li>
   );
 }
 
-function DeletePlanButton({
-  plan,
-  onDeleted,
-}: {
-  plan: PlannedRun;
-  onDeleted: () => void | Promise<void>;
-}) {
+function DeletePlanButton({ plan }: { plan: PlannedRun }) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const del = useDeletePlan();
+  const busy = del.isPending;
 
   async function confirm() {
-    setBusy(true);
     try {
-      await apiDeletePlan(plan.date, plan.id);
-      await onDeleted();
+      await del.mutateAsync({ date: plan.date, id: plan.id });
       setOpen(false);
-    } finally {
-      setBusy(false);
+    } catch {
+      // error surfaced via del.error
     }
   }
 

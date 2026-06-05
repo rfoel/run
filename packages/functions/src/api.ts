@@ -40,6 +40,13 @@ import {
 } from "@run/core/strava";
 import { isAuthorized } from "./lib/auth.ts";
 
+// Read endpoints: let the browser (and any private cache) serve repeats for a
+// short window. `private` keeps personal data out of shared/CDN caches; the
+// front-end's TanStack Query is the primary cache, this just covers hard
+// reloads and complements it. stale-while-revalidate serves stale instantly
+// while refreshing in the background.
+const READ_CACHE = "private, max-age=30, stale-while-revalidate=300";
+
 const RUN_TYPES = new Set(["Run", "TrailRun", "VirtualRun"]);
 const SOURCES = new Set<ActivitySource>([
   "strava",
@@ -285,6 +292,7 @@ app.get("/activities", async (c) => {
   const from = c.req.query("from") || undefined;
   const to = c.req.query("to") || undefined;
   const items = await listActivities({ limit, from, to });
+  c.header("Cache-Control", READ_CACHE);
   return c.json({ items: items.map(strip) });
 });
 
@@ -351,6 +359,7 @@ app.get("/stats", async (c) => {
     `WEEK#${isoWeek(now)}`,
   ];
   const map = await getStatsMany(scopes);
+  c.header("Cache-Control", READ_CACHE);
   return c.json({
     total: map["TOTAL"],
     year: map[`YEAR#${yyyy}`],
@@ -364,6 +373,7 @@ app.get("/plans", async (c) => {
   const from = c.req.query("from");
   const to = c.req.query("to");
   const items = await listPlans({ from, to });
+  c.header("Cache-Control", READ_CACHE);
   return c.json({ items });
 });
 

@@ -3,13 +3,9 @@ import {
   CaretRightIcon,
   HeartbeatIcon,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  listActivities,
-  listPlans,
-  type Activity,
-  type PlannedRun,
-} from "../lib/api.ts";
+import { useMemo, useRef, useState } from "react";
+import { type Activity, type PlannedRun } from "../lib/api.ts";
+import { useActivities, usePlans } from "../lib/queries.ts";
 import { duration, km, pace } from "../lib/format.ts";
 import StravaLink from "./StravaLink.tsx";
 
@@ -35,37 +31,19 @@ export default function Calendar({
     const d = new Date();
     return { y: d.getFullYear(), m: d.getMonth() };
   });
-  const [plans, setPlans] = useState<PlannedRun[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    (async () => {
-      try {
-        const from = localIso(new Date(month.y, month.m - 1, 1));
-        const to = localIso(new Date(month.y, month.m + 2, 0));
-        const [p, a] = await Promise.all([
-          listPlans({ from, to }),
-          listActivities({ from, to, limit: 1000 }),
-        ]);
-        if (cancelled) return;
-        setPlans(p);
-        setActivities(a);
-      } catch (e) {
-        if (!cancelled) setError(String(e));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [month.y, month.m]);
+  // Fetch a 3-month window around the current month; keyed by the range so each
+  // month is cached separately and revisiting one is instant.
+  const from = localIso(new Date(month.y, month.m - 1, 1));
+  const to = localIso(new Date(month.y, month.m + 2, 0));
+  const plansQ = usePlans({ from, to });
+  const activitiesQ = useActivities({ from, to, limit: 1000 });
+  const plans: PlannedRun[] = plansQ.data ?? [];
+  const activities: Activity[] = activitiesQ.data ?? [];
+  const loading = plansQ.isLoading || activitiesQ.isLoading;
+  const queryError = plansQ.error ?? activitiesQ.error;
+  const error = queryError ? String(queryError) : null;
 
   const grid = useMemo(
     () => buildMonthGrid(month.y, month.m),

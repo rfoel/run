@@ -6,7 +6,7 @@ import {
   SparkleIcon,
   WarningIcon,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Area,
   Brush,
@@ -20,14 +20,12 @@ import {
   YAxis,
 } from "recharts";
 import {
-  analyzeWorkout,
-  getActivityDetail,
-  type ActivityDetail,
   type ChartSeries,
   type PlannedRun,
   type WorkoutAnalysis,
   type WorkoutSection,
 } from "../lib/api.ts";
+import { useActivityDetail, useAnalyzeWorkout } from "../lib/queries.ts";
 import { date, duration, km as kmFmt, paceFromSec } from "../lib/format.ts";
 import { decodePolyline, routeGeometry } from "../lib/polyline.ts";
 import RouteMap from "./RouteMap.tsx";
@@ -109,12 +107,17 @@ export default function WorkoutDetail({
   unlocked: boolean;
   onBack: () => void;
 }) {
-  const [detail, setDetail] = useState<ActivityDetail | null>(null);
-  const [analysis, setAnalysis] = useState<WorkoutAnalysis | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [analyzing, setAnalyzing] = useState(false);
   const [hoverKm, setHoverKm] = useState<number | null>(null);
+
+  const detailQ = useActivityDetail(source, externalId);
+  const analyzeM = useAnalyzeWorkout(source, externalId);
+  const detail = detailQ.data ?? null;
+  const loading = detailQ.isLoading;
+  // Prefer a just-run analysis; otherwise the one stored with the detail.
+  const analysis = analyzeM.data ?? detail?.analysis?.analysis ?? null;
+  const analyzing = analyzeM.isPending;
+  const queryError = detailQ.error ?? analyzeM.error;
+  const error = queryError ? String(queryError) : null;
 
   const geo = useMemo(() => {
     const pl = detail?.activity.polyline;
@@ -122,34 +125,7 @@ export default function WorkoutDetail({
     return routeGeometry(decodePolyline(pl));
   }, [detail?.activity.polyline]);
 
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    getActivityDetail(source, externalId)
-      .then((d) => {
-        if (!alive) return;
-        setDetail(d);
-        setAnalysis(d.analysis?.analysis ?? null);
-      })
-      .catch((e) => alive && setError(String(e)))
-      .finally(() => alive && setLoading(false));
-    return () => {
-      alive = false;
-    };
-  }, [source, externalId]);
-
-  async function runAnalysis() {
-    setAnalyzing(true);
-    setError(null);
-    try {
-      const a = await analyzeWorkout(source, externalId);
-      setAnalysis(a);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setAnalyzing(false);
-    }
-  }
+  const runAnalysis = () => analyzeM.mutate();
 
   const a = detail?.activity;
 
