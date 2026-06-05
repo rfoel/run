@@ -20,17 +20,52 @@ function paceStr(secPerKm: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-/** Compact CSV of the trace for the model to segment. Re-downsampled to keep tokens sane. */
-function traceCsv(series: ChartSeries, maxRows = 280): string {
+/**
+ * Compact CSV of the trace for the model to segment. Re-downsampled to keep
+ * tokens sane, but pace spikes (fast local minima — strides, rep starts) are
+ * always preserved with their bracketing samples so short bursts don't get
+ * smoothed away between two uniform samples.
+ */
+function traceCsv(series: ChartSeries, maxRows = 360): string {
   const n = series.km.length;
   const stride = Math.max(1, Math.ceil(n / maxRows));
+  const keep = new Set<number>();
+  // Uniform baseline.
+  for (let i = 0; i < n; i += stride) keep.add(i);
+  keep.add(n - 1);
+
+  // Preserve fast spikes: a local pace minimum (lower = faster) over a window,
+  // clearly faster than the run's median pace. Bracket it so the band's edges
+  // are visible to the model, not just its peak.
+  const valid = series.pace.filter((p): p is number => p != null);
+  if (valid.length) {
+    const sorted = [...valid].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
+    const w = Math.max(2, Math.ceil(stride / 2));
+    for (let i = 1; i < n - 1; i++) {
+      const p = series.pace[i];
+      if (p == null || p >= median * 0.9) continue;
+      let isMin = true;
+      for (let j = Math.max(0, i - w); j <= Math.min(n - 1, i + w); j++) {
+        const q = series.pace[j];
+        if (q != null && q < p) {
+          isMin = false;
+          break;
+        }
+      }
+      if (isMin) {
+        keep.add(Math.max(0, i - w));
+        keep.add(i);
+        keep.add(Math.min(n - 1, i + w));
+      }
+    }
+  }
+
   const rows: string[] = ["elapsed_s,cum_km,pace_s_per_km,hr"];
-  for (let i = 0; i < n; i += stride) {
+  for (const i of [...keep].sort((a, b) => a - b)) {
     const pace = series.pace[i];
     const hr = series.hr[i];
-    rows.push(
-      `${series.elapsed[i]},${series.km[i]},${pace ?? ""},${hr ?? ""}`,
-    );
+    rows.push(`${series.elapsed[i]},${series.km[i]},${pace ?? ""},${hr ?? ""}`);
   }
   return rows.join("\n");
 }

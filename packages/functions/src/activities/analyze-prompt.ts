@@ -15,7 +15,14 @@ SEGMENT THE WORKOUT:
   the prescribed rep distance from each rep START (do NOT end a rep where pace slows — runners
   ease off the last meters). Validate the rep count against the prescription. Recoveries are the
   jog/walk between reps. Warmup precedes rep 1; cooldown follows the last rep. Trim spurious
-  "reps" during cooldown (slow pace, dropping HR).
+  "reps" during cooldown (slow pace, dropping HR). The "don't end where pace slows" rule is for
+  these prescribed sustained reps ONLY — NOT for strides (see below).
+- strides (accelerations / "educativos", e.g. "4x100m" at the END of an easy/long run):
+  short bursts, ≈80-150 m / 10-25 s, usually 4-8 back-to-back. Mark each as a rep, but bound it
+  TIGHTLY to its OWN pace spike: start_km at the leading edge where pace starts dropping sharply
+  (faster), end_km at the trailing edge where pace turns back toward easy. The band MUST straddle
+  the pace PEAK (the fastest point near the middle of the band) — it must NOT sit after the peak.
+  Ignore the prescribed stride distance for the boundaries; the width of the spike IS the rep.
 - tempo: warmup, then the sustained hard block split into tempo_splits that tile the
   block in whole 1 km steps from the tempo START (e.g. start 1.00 -> 1.00-2.00, 2.00-3.00 …);
   the final split is the leftover distance. Then cooldown.
