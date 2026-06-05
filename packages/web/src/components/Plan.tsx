@@ -8,16 +8,8 @@ import { useState } from "react";
 import { type PlannedRun } from "../lib/api.ts";
 import { useDeletePlan, usePlans } from "../lib/queries.ts";
 import { ListSkeleton, Skeleton } from "./Skeleton.tsx";
+import { TypeBadge } from "./TypeBadge.tsx";
 import { duration, km } from "../lib/format.ts";
-
-const TYPE_LABELS: Record<PlannedRun["type"], string> = {
-  easy: "Leve",
-  long: "Longão",
-  tempo: "Tempo",
-  interval: "Tiro",
-  race: "Prova",
-  recovery: "Regen",
-};
 
 export default function Plan({ unlocked }: { unlocked: boolean }) {
   const from = isoDateDaysFromNow(-14);
@@ -102,9 +94,7 @@ function PlanRow({
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-3 mb-1 flex-wrap">
-          <span className="font-mono text-xs uppercase tracking-wider bg-accent text-white px-2 py-0.5 rounded">
-            {TYPE_LABELS[plan.type]}
-          </span>
+          <TypeBadge type={plan.type} />
           <span className="font-mono text-sm font-semibold">
             {formatDate(plan.date)}
           </span>

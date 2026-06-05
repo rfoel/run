@@ -11,16 +11,9 @@ import {
   usePrefetchActivityDetail,
 } from "../lib/queries.ts";
 import { duration, km, pace } from "../lib/format.ts";
+import { PLAN_TYPE_LABELS, TypeBadge } from "./TypeBadge.tsx";
 import StravaLink from "./StravaLink.tsx";
 
-const TYPE_SHORT: Record<PlannedRun["type"], string> = {
-  easy: "Leve",
-  long: "Longão",
-  tempo: "Tempo",
-  interval: "Tiro",
-  race: "Prova",
-  recovery: "Regen",
-};
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
@@ -234,7 +227,7 @@ function PlanPill({ plan, inverted }: { plan: PlannedRun; inverted: boolean }) {
         (inverted ? "bg-card text-ink" : "bg-accent text-white")
       }
     >
-      {TYPE_SHORT[plan.type]}
+      {PLAN_TYPE_LABELS[plan.type]}
       {plan.distance ? (
         <span className="hidden sm:inline"> {km(plan.distance)}k</span>
       ) : null}
@@ -303,9 +296,7 @@ function DayDetail({
                 className="px-4 py-3 flex items-start justify-between gap-4"
               >
                 <div>
-                  <span className="font-mono text-xs uppercase tracking-wider bg-accent text-white px-2 py-0.5 mr-2">
-                    {TYPE_SHORT[p.type]}
-                  </span>
+                  <TypeBadge type={p.type} className="mr-2" />
                   {p.notes && <span className="text-sm">{p.notes}</span>}
                 </div>
                 <div className="text-right font-mono text-sm">
@@ -409,7 +400,7 @@ function paceLabel(secPerKm: number) {
 }
 
 function planTooltip(p: PlannedRun) {
-  const parts: string[] = [TYPE_SHORT[p.type]];
+  const parts: string[] = [PLAN_TYPE_LABELS[p.type]];
   if (p.distance) parts.push(`${km(p.distance)} km`);
   if (p.paceTargetSec) parts.push(paceLabel(p.paceTargetSec));
   if (p.notes) parts.push(p.notes);

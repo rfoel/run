@@ -31,6 +31,7 @@ import { date, duration, km as kmFmt, paceFromSec } from "../lib/format.ts";
 import { decodePolyline, routeGeometry } from "../lib/polyline.ts";
 import RouteMap from "./RouteMap.tsx";
 import StravaLink from "./StravaLink.tsx";
+import { PLAN_TYPE_LABELS } from "./TypeBadge.tsx";
 
 // Granular work segments we chart/table. The parent `tempo` block is a
 // container around its tempo_splits — including it would double-count (one
@@ -225,14 +226,6 @@ export default function WorkoutDetail({
   );
 }
 
-const PLAN_TYPE_LABEL: Record<PlannedRun["type"], string> = {
-  easy: "Leve",
-  long: "Longão",
-  tempo: "Tempo",
-  interval: "Tiro",
-  race: "Prova",
-  recovery: "Regen",
-};
 
 const PLAN_STATUS_LABEL: Record<PlannedRun["status"], string> = {
   planned: "planejado",
@@ -251,7 +244,7 @@ function PlanCard({ plan }: { plan: PlannedRun }) {
       <div className="flex items-center justify-between gap-3 mb-1.5">
         <div className="flex items-center gap-2">
           <span className="font-mono text-[10px] uppercase tracking-wider bg-accent text-white px-2 py-0.5 rounded-md">
-            {PLAN_TYPE_LABEL[plan.type]}
+            {PLAN_TYPE_LABELS[plan.type]}
           </span>
           <span className="text-[10px] uppercase tracking-[0.2em] text-ink/50">
             planejado · {PLAN_STATUS_LABEL[plan.status]}
