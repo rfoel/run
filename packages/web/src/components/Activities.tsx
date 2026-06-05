@@ -25,6 +25,7 @@ import {
 import { ActivitiesSkeleton } from "./Skeleton.tsx";
 import { date, duration, km, pace } from "../lib/format.ts";
 import StravaLink from "./StravaLink.tsx";
+import { TreadmillIcon, isTreadmill } from "./TreadmillIcon.tsx";
 
 type Range = "week" | "month" | "year" | "total";
 const RANGES: Range[] = ["week", "month", "year", "total"];
@@ -214,6 +215,7 @@ function ActivityRow({
           >
             {a.name}
           </button>
+          {isTreadmill(a) && <TreadmillIcon />}
           <StravaLink source={a.source} externalId={a.externalId} />
         </div>
         <div className="text-xs uppercase tracking-wider text-ink/50 mt-1">

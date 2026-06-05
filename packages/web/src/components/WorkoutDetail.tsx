@@ -32,6 +32,7 @@ import { decodePolyline, routeGeometry } from "../lib/polyline.ts";
 import RouteMap from "./RouteMap.tsx";
 import StravaLink from "./StravaLink.tsx";
 import { PLAN_TYPE_LABELS } from "./TypeBadge.tsx";
+import { TreadmillIcon, isTreadmill } from "./TreadmillIcon.tsx";
 
 // Granular work segments we chart/table. The parent `tempo` block is a
 // container around its tempo_splits — including it would double-count (one
@@ -159,6 +160,9 @@ export default function WorkoutDetail({
             <div className="min-w-0">
               <h1 className="text-xl font-bold flex items-center gap-2">
                 <span className="truncate">{a.name}</span>
+                {isTreadmill(a) && (
+                  <TreadmillIcon className="h-4 w-4 text-ink/40 shrink-0" />
+                )}
                 <StravaLink source={a.source} externalId={a.externalId} />
               </h1>
               <p className="text-xs uppercase tracking-wider text-ink/50 mt-1">
@@ -197,6 +201,11 @@ export default function WorkoutDetail({
               analysis={analysis}
               onHover={setHoverKm}
             />
+          ) : isTreadmill(a) ? (
+            <Status>
+              Corrida na esteira — sem trace de GPS, então não há gráfico de
+              pace nem mapa.
+            </Status>
           ) : (
             <Status>
               Sem série de pace para esta corrida. Faça um re-sync no Strava

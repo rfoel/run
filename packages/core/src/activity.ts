@@ -33,6 +33,8 @@ export type Activity = {
   hasHr: boolean;
   splits: Split[];
   polyline?: string;
+  /** True for runs with no GPS track (treadmill / manual). */
+  indoor?: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -70,6 +72,7 @@ export function buildActivity(args: {
     hasHr: args.metrics.hasHr,
     splits: args.metrics.splits,
     polyline: args.metrics.polyline,
+    indoor: args.metrics.polyline ? undefined : true,
     createdAt: now,
     updatedAt: now,
   };
@@ -287,6 +290,7 @@ const SUMMARY_FIELDS = [
   "maxHr",
   "avgCadence",
   "hasHr",
+  "indoor",
   "createdAt",
   "updatedAt",
 ] as const;

@@ -12,6 +12,7 @@ import {
 } from "../lib/queries.ts";
 import { duration, km, pace } from "../lib/format.ts";
 import { PLAN_TYPE_LABELS, TypeBadge } from "./TypeBadge.tsx";
+import { TreadmillIcon, isTreadmill } from "./TreadmillIcon.tsx";
 import StravaLink from "./StravaLink.tsx";
 
 
@@ -247,6 +248,9 @@ function RunPill({ run, inverted }: { run: Activity; inverted: boolean }) {
           : "border-line text-ink/80 bg-card")
       }
     >
+      {isTreadmill(run) && (
+        <TreadmillIcon className="inline h-2.5 w-2.5 mr-0.5 align-text-bottom" />
+      )}
       <span className="sm:hidden">{km(run.distance)}k</span>
       <span className="hidden sm:inline">
         {km(run.distance)}k · {pace(run.distance, run.movingTime)}
@@ -333,6 +337,7 @@ function DayDetail({
                   >
                     {a.name}
                   </button>
+                  {isTreadmill(a) && <TreadmillIcon />}
                   <StravaLink source={a.source} externalId={a.externalId} />
                 </div>
                 <button

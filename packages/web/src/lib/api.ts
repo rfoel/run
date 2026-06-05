@@ -45,6 +45,7 @@ export type Activity = {
   maxHr?: number;
   avgCadence?: number;
   polyline?: string;
+  indoor?: boolean;
 };
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
