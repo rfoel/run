@@ -326,6 +326,34 @@ app.get("/activities/:source/:externalId", async (c) => {
   });
 });
 
+// Re-fetch one activity's streams from Strava and (re)store its chart series.
+// Older runs imported without streams show a map but no pace chart — this
+// backfills the series for that single activity. Stats are untouched.
+app.post("/activities/:source/:externalId/resync", async (c) => {
+  if (!isAuthorized(c.req.header())) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const source = c.req.param("source") as ActivitySource;
+  const externalId = c.req.param("externalId");
+  if (source !== "strava") {
+    return c.json({ error: "resync only supported for strava" }, 400);
+  }
+  const existing = await getActivity(source, externalId);
+  if (!existing) return c.json({ error: "not found" }, 404);
+
+  const accessToken = await getValidAccessToken();
+  const startEpochSec = Math.floor(
+    new Date(existing.startDate).getTime() / 1000,
+  );
+  const streams = await fetchStreams(Number(externalId), accessToken);
+  const track = streamsToTrack(streams, startEpochSec);
+  if (track.points.length < 2) {
+    return c.json({ error: "no GPS stream for this activity" }, 422);
+  }
+  await putChartSeries(source, externalId, buildChartSeries(track));
+  return c.json({ ok: true, points: track.points.length });
+});
+
 app.delete("/activities/:source/:externalId", async (c) => {
   if (!isAuthorized(c.req.header())) {
     return c.json({ error: "unauthorized" }, 401);

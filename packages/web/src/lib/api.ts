@@ -125,6 +125,24 @@ export async function syncStrava(days = 30): Promise<SyncResult> {
   return (await res.json()) as SyncResult;
 }
 
+export async function resyncActivity(
+  source: string,
+  externalId: string,
+): Promise<{ ok: boolean; points: number }> {
+  const res = await fetch(
+    `${BASE}/activities/${source}/${encodeURIComponent(externalId)}/resync`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+    },
+  );
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `resync ${res.status}`);
+  }
+  return (await res.json()) as { ok: boolean; points: number };
+}
+
 export async function deleteActivity(source: string, externalId: string) {
   const res = await fetch(
     `${BASE}/activities/${source}/${encodeURIComponent(externalId)}`,

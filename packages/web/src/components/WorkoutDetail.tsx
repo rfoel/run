@@ -1,5 +1,6 @@
 import {
   ArrowLeftIcon,
+  ArrowsClockwiseIcon,
   GaugeIcon,
   HeartbeatIcon,
   LightningIcon,
@@ -25,9 +26,14 @@ import {
   type WorkoutAnalysis,
   type WorkoutSection,
 } from "../lib/api.ts";
-import { useActivityDetail, useAnalyzeWorkout } from "../lib/queries.ts";
+import {
+  useActivityDetail,
+  useAnalyzeWorkout,
+  useResyncActivity,
+} from "../lib/queries.ts";
 import { Skeleton } from "./Skeleton.tsx";
 import { date, duration, km as kmFmt, paceFromSec } from "../lib/format.ts";
+import { computeBestEfforts } from "../lib/bestEfforts.ts";
 import { decodePolyline, routeGeometry } from "../lib/polyline.ts";
 import RouteMap from "./RouteMap.tsx";
 import StravaLink from "./StravaLink.tsx";
@@ -114,6 +120,7 @@ export default function WorkoutDetail({
 
   const detailQ = useActivityDetail(source, externalId);
   const analyzeM = useAnalyzeWorkout(source, externalId);
+  const resyncM = useResyncActivity(source, externalId);
   const detail = detailQ.data ?? null;
   const loading = detailQ.isLoading;
   // Prefer a just-run analysis; otherwise the one stored with the detail.
@@ -208,12 +215,37 @@ export default function WorkoutDetail({
             </Status>
           ) : (
             <Status>
-              Sem série de pace para esta corrida. Faça um re-sync no Strava
-              para trazer o trace.
+              <span className="flex flex-col items-start gap-3">
+                <span>
+                  Sem série de pace para esta corrida. Faça um re-sync no Strava
+                  para trazer o trace.
+                </span>
+                {unlocked && (
+                  <button
+                    onClick={() => resyncM.mutate()}
+                    disabled={resyncM.isPending}
+                    className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border border-line rounded-lg px-3 py-1.5 hover:bg-accent hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
+                  >
+                    <ArrowsClockwiseIcon
+                      className={
+                        "h-3.5 w-3.5 " + (resyncM.isPending ? "animate-spin" : "")
+                      }
+                    />
+                    {resyncM.isPending ? "re-sincronizando…" : "re-sync"}
+                  </button>
+                )}
+                {resyncM.isError && (
+                  <span className="text-red-700 text-xs normal-case tracking-normal">
+                    {String(resyncM.error)}
+                  </span>
+                )}
+              </span>
             </Status>
           )}
 
           {geo && <RouteMap geo={geo} hoverKm={hoverKm} />}
+
+          {detail?.series && <BestEfforts series={detail.series} />}
 
           {analysis ? (
             <>
@@ -727,6 +759,43 @@ function Coach({ analysis }: { analysis: WorkoutAnalysis }) {
           <p className="text-sm">{an.next_workout_suggestion}</p>
         </div>
       )}
+    </div>
+  );
+}
+
+function BestEfforts({ series }: { series: ChartSeries }) {
+  const efforts = useMemo(() => computeBestEfforts(series), [series]);
+  if (efforts.length === 0) return null;
+  const hasHr = efforts.some((e) => e.avgHr != null);
+  return (
+    <div>
+      <h3 className="text-[10px] uppercase tracking-[0.2em] text-ink/60 mb-2">
+        Melhores marcas
+      </h3>
+      <div className="border border-line rounded-lg overflow-x-auto bg-card shadow-sm">
+        <table className="w-full text-sm font-mono">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-[0.15em] text-ink/50 border-b border-line">
+              <Th>Distância</Th>
+              <Th>Tempo</Th>
+              <Th>Pace</Th>
+              {hasHr && <Th>FC méd</Th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-ink/15">
+            {efforts.map((e) => (
+              <tr key={e.meters} className="hover:bg-paper-2">
+                <Td>{e.label}</Td>
+                <Td>{duration(e.timeSec)}</Td>
+                <Td>{paceFromSec(e.paceSecPerKm)}/km</Td>
+                {hasHr && (
+                  <Td>{e.avgHr != null ? `${e.avgHr} bpm` : "—"}</Td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

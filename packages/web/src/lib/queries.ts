@@ -11,6 +11,7 @@ import {
   getStats,
   listActivities,
   listPlans,
+  resyncActivity,
   syncStrava,
   type ActivityDetail,
   type WorkoutAnalysis,
@@ -93,6 +94,18 @@ export function useDeleteActivity() {
       void qc.invalidateQueries({ queryKey: ["stats"] });
       void qc.invalidateQueries({ queryKey: ["plans"] });
     },
+  });
+}
+
+export function useResyncActivity(source: string, externalId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => resyncActivity(source, externalId),
+    // The series is persisted server-side; refetch the detail to pull it in.
+    onSuccess: () =>
+      void qc.invalidateQueries({
+        queryKey: qk.activityDetail(source, externalId),
+      }),
   });
 }
 
