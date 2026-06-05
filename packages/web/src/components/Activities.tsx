@@ -18,9 +18,11 @@ import { type Activity, type Stat } from "../lib/api.ts";
 import {
   useActivities,
   useDeleteActivity,
+  usePrefetchActivityDetail,
   useStats,
   useSyncStrava,
 } from "../lib/queries.ts";
+import { ActivitiesSkeleton } from "./Skeleton.tsx";
 import { date, duration, km, pace } from "../lib/format.ts";
 import StravaLink from "./StravaLink.tsx";
 
@@ -44,17 +46,18 @@ export default function Activities({
   const activitiesQ = useActivities({ limit: 1000 });
   const statsQ = useStats();
   const sync = useSyncStrava();
+  const prefetch = usePrefetchActivityDetail();
 
   const items = activitiesQ.data ?? [];
   const stats = statsQ.data ?? null;
   const loading = activitiesQ.isLoading || statsQ.isLoading;
-  const queryError = activitiesQ.error ?? statsQ.error ?? sync.error;
-  const error = queryError ? String(queryError) : null;
+  // Only load failures take over the page; sync failures surface as a toast.
+  const loadError = activitiesQ.error ?? statsQ.error;
   const syncResult = sync.data ?? null;
   const syncing = sync.isPending;
 
-  if (loading) return <Status>Carregando…</Status>;
-  if (error) return <Status tone="error">{error}</Status>;
+  if (loading) return <ActivitiesSkeleton />;
+  if (loadError) return <Status tone="error">{String(loadError)}</Status>;
   if (items.length === 0) {
     return <Status>Nenhuma corrida ainda. Faça um sync ou aguarde o webhook.</Status>;
   }
@@ -172,6 +175,7 @@ export default function Activities({
             activity={a}
             unlocked={unlocked}
             onSelect={() => onOpenActivity(a.source, a.externalId)}
+            onPrefetch={() => prefetch(a.source, a.externalId)}
           />
         ))}
       </ul>
@@ -188,13 +192,20 @@ function ActivityRow({
   activity: a,
   unlocked,
   onSelect,
+  onPrefetch,
 }: {
   activity: Activity;
   unlocked: boolean;
   onSelect: () => void;
+  onPrefetch: () => void;
 }) {
   return (
-    <li className="px-5 py-4 flex items-baseline justify-between gap-6 hover:bg-paper-2">
+    <li
+      className="px-5 py-4 flex items-baseline justify-between gap-6 hover:bg-paper-2"
+      onMouseEnter={onPrefetch}
+      onFocus={onPrefetch}
+      onTouchStart={onPrefetch}
+    >
       <div className="min-w-0 flex-1">
         <div className="font-semibold truncate flex items-center gap-2">
           <button
@@ -237,7 +248,6 @@ function DeleteActivityButton({ activity }: { activity: Activity }) {
   const [open, setOpen] = useState(false);
   const del = useDeleteActivity();
   const busy = del.isPending;
-  const error = del.error ? String(del.error) : null;
 
   async function confirm() {
     try {
@@ -247,7 +257,7 @@ function DeleteActivityButton({ activity }: { activity: Activity }) {
       });
       setOpen(false);
     } catch {
-      // error surfaced via del.error
+      // error surfaced as a toast (global mutation handler)
     }
   }
 
@@ -273,9 +283,6 @@ function DeleteActivityButton({ activity }: { activity: Activity }) {
           <p className="font-mono text-xs text-ink/60">
             Stats serão recalculados. Treino vinculado volta para "planejado". Re-sync vai trazer a corrida de novo.
           </p>
-          {error && (
-            <p className="font-mono text-xs text-red-700">{error}</p>
-          )}
           <div className="flex gap-2 justify-end">
             <AlertDialog.Close
               className="text-xs uppercase tracking-[0.2em] font-medium px-3 py-2 text-ink/60 hover:text-ink"

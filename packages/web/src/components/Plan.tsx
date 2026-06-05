@@ -7,6 +7,7 @@ import {
 import { useState } from "react";
 import { type PlannedRun } from "../lib/api.ts";
 import { useDeletePlan, usePlans } from "../lib/queries.ts";
+import { ListSkeleton, Skeleton } from "./Skeleton.tsx";
 import { duration, km } from "../lib/format.ts";
 
 const TYPE_LABELS: Record<PlannedRun["type"], string> = {
@@ -26,7 +27,16 @@ export default function Plan({ unlocked }: { unlocked: boolean }) {
   const error = plansQ.error ? String(plansQ.error) : null;
 
   if (loading) {
-    return <p className="text-ink/60 font-mono text-sm">Carregando…</p>;
+    return (
+      <section className="flex flex-col gap-8">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i}>
+            <Skeleton className="h-4 w-32 mb-3" />
+            <ListSkeleton rows={3} />
+          </div>
+        ))}
+      </section>
+    );
   }
   if (error) {
     return (

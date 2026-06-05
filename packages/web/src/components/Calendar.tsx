@@ -5,7 +5,11 @@ import {
 } from "@phosphor-icons/react";
 import { useMemo, useRef, useState } from "react";
 import { type Activity, type PlannedRun } from "../lib/api.ts";
-import { useActivities, usePlans } from "../lib/queries.ts";
+import {
+  useActivities,
+  usePlans,
+  usePrefetchActivityDetail,
+} from "../lib/queries.ts";
 import { duration, km, pace } from "../lib/format.ts";
 import StravaLink from "./StravaLink.tsx";
 
@@ -32,6 +36,7 @@ export default function Calendar({
     return { y: d.getFullYear(), m: d.getMonth() };
   });
   const [selected, setSelected] = useState<string | null>(null);
+  const prefetch = usePrefetchActivityDetail();
 
   // Fetch a 3-month window around the current month; keyed by the range so each
   // month is cached separately and revisiting one is instant.
@@ -211,6 +216,7 @@ export default function Calendar({
           iso={selected}
           slot={selectedSlot ?? { plans: [], runs: [] }}
           onOpenActivity={onOpenActivity}
+          onPrefetch={prefetch}
         />
       )}
     </section>
@@ -260,10 +266,12 @@ function DayDetail({
   iso,
   slot,
   onOpenActivity,
+  onPrefetch,
 }: {
   iso: string;
   slot: DaySlot;
   onOpenActivity: (source: string, externalId: string) => void;
+  onPrefetch: (source: string, externalId: string) => void;
 }) {
   const d = new Date(`${iso}T00:00:00`);
   const label = d.toLocaleDateString("pt-BR", {
@@ -323,6 +331,9 @@ function DayDetail({
               <li
                 key={`${a.source}:${a.externalId}`}
                 className="px-4 py-3 flex items-start justify-between gap-4 hover:bg-paper-2"
+                onMouseEnter={() => onPrefetch(a.source, a.externalId)}
+                onFocus={() => onPrefetch(a.source, a.externalId)}
+                onTouchStart={() => onPrefetch(a.source, a.externalId)}
               >
                 <div className="font-semibold truncate flex items-center gap-2 min-w-0">
                   <button

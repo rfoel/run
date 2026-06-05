@@ -53,6 +53,18 @@ export function useActivityDetail(source: string, externalId: string) {
   });
 }
 
+// Warm the detail cache on hover/focus so opening a run is instant. Returns a
+// stable callback to attach to onMouseEnter/onFocus/onTouchStart.
+export function usePrefetchActivityDetail() {
+  const qc = useQueryClient();
+  return (source: string, externalId: string) =>
+    void qc.prefetchQuery({
+      queryKey: qk.activityDetail(source, externalId),
+      queryFn: () => getActivityDetail(source, externalId),
+      staleTime: 5 * 60_000,
+    });
+}
+
 export function useSyncStrava() {
   const qc = useQueryClient();
   return useMutation({

@@ -26,6 +26,7 @@ import {
   type WorkoutSection,
 } from "../lib/api.ts";
 import { useActivityDetail, useAnalyzeWorkout } from "../lib/queries.ts";
+import { Skeleton } from "./Skeleton.tsx";
 import { date, duration, km as kmFmt, paceFromSec } from "../lib/format.ts";
 import { decodePolyline, routeGeometry } from "../lib/polyline.ts";
 import RouteMap from "./RouteMap.tsx";
@@ -139,7 +140,16 @@ export default function WorkoutDetail({
         voltar
       </button>
 
-      {loading && <Status>Carregando…</Status>}
+      {loading && (
+        <>
+          <div>
+            <Skeleton className="h-7 w-1/2 mb-2" />
+            <Skeleton className="h-3 w-1/3" />
+          </div>
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </>
+      )}
       {error && <Status tone="error">{error}</Status>}
 
       {a && (
