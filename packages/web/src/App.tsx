@@ -19,12 +19,13 @@ import {
 } from "react-router-dom";
 import Activities from "./components/Activities.tsx";
 import Calendar from "./components/Calendar.tsx";
-import Chat from "./components/Chat.tsx";
 import Logo from "./components/Logo.tsx";
 import Plan from "./components/Plan.tsx";
 
 // Pulls in recharts + leaflet only when a workout is opened.
 const WorkoutDetail = lazy(() => import("./components/WorkoutDetail.tsx"));
+// Pulls in react-markdown + remark-gfm only when the (gated) chat is opened.
+const Chat = lazy(() => import("./components/Chat.tsx"));
 import {
   clearWriteToken,
   getWriteToken,
@@ -168,7 +169,17 @@ export default function App() {
           <Route
             path="/treinador"
             element={
-              unlocked ? <Chat /> : <Navigate to="/calendario" replace />
+              unlocked ? (
+                <Suspense
+                  fallback={
+                    <p className="text-ink/60 font-mono text-sm">Carregando…</p>
+                  }
+                >
+                  <Chat />
+                </Suspense>
+              ) : (
+                <Navigate to="/calendario" replace />
+              )
             }
           />
           <Route path="*" element={<Navigate to="/calendario" replace />} />

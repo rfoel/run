@@ -4,6 +4,7 @@ import {
   StopIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -24,6 +25,7 @@ function loadHistory(): ChatMessage[] {
 }
 
 export default function Chat() {
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<ChatMessage[]>(loadHistory);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -95,6 +97,10 @@ export default function Chat() {
     } finally {
       abortRef.current = null;
       setStreaming(false);
+      // The coach may have created/edited planned runs (and linked past
+      // activities) via tools. Refresh those views so Calendar/Plan aren't stale.
+      void queryClient.invalidateQueries({ queryKey: ["plans"] });
+      void queryClient.invalidateQueries({ queryKey: ["activities"] });
     }
   }
 
