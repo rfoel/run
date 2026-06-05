@@ -6,7 +6,7 @@ import {
   SparkleIcon,
   WarningIcon,
 } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   Area,
   Brush,
@@ -573,6 +573,19 @@ function RepTable({
   if (work.length === 0) return null;
   const tp = analysis.prescription?.target_pace_min_per_km;
   const hasTarget = parsePace(tp?.min) != null || parsePace(tp?.max) != null;
+  const repDistanceM = analysis.prescription?.rep_distance_m;
+
+  // Group consecutive sections by kind (e.g. the 5k's per-km "easy_split"s vs
+  // the "rep" strides) so mixed workouts don't blur into one list with the
+  // index restarting mid-table.
+  const groups: { kind: WorkoutSection["kind"]; rows: WorkoutSection[] }[] = [];
+  for (const s of work) {
+    const last = groups[groups.length - 1];
+    if (last && last.kind === s.kind) last.rows.push(s);
+    else groups.push({ kind: s.kind, rows: [s] });
+  }
+  const multi = groups.length > 1;
+  const colCount = hasTarget ? 8 : 7;
 
   return (
     <div className="border border-line rounded-lg overflow-x-auto bg-card shadow-sm">
@@ -590,40 +603,64 @@ function RepTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-ink/15">
-          {work.map((s, i) => {
-            const start = elapsedAtKm(series, s.start_km);
-            const vs = hasTarget ? vsTargetSec(s.avg_pace_sec_per_km, tp) : null;
-            return (
-              <tr key={i} className="hover:bg-paper-2">
-                <Td className="font-semibold">{s.index ?? i + 1}</Td>
-                <Td>{start != null ? duration(start) : "—"}</Td>
-                <Td>
-                  {s.start_km != null && s.end_km != null
-                    ? `${s.start_km.toFixed(2)} → ${s.end_km.toFixed(2)}`
-                    : "—"}
-                </Td>
-                <Td>{duration(s.duration_sec)}</Td>
-                <Td className="font-semibold">
-                  {paceFromSec(s.avg_pace_sec_per_km)}/km
-                </Td>
-                {hasTarget && (
-                  <Td
-                    className={
-                      vs == null
-                        ? ""
-                        : vs > 0
-                          ? "text-red-700"
-                          : "text-green-700"
-                    }
+          {groups.map((g, gi) => (
+            <Fragment key={gi}>
+              {multi && (
+                <tr className="bg-paper-2 border-t border-line">
+                  <td
+                    colSpan={colCount}
+                    className="px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-ink/60 font-semibold"
                   >
-                    {vs == null ? "—" : vs === 0 ? "no alvo" : `${vs > 0 ? "+" : ""}${vs}s`}
-                  </Td>
-                )}
-                <Td>{s.avg_hr ? Math.round(s.avg_hr) : "—"}</Td>
-                <Td>{s.max_hr ? Math.round(s.max_hr) : "—"}</Td>
-              </tr>
-            );
-          })}
+                    {workBandLabel(
+                      g.kind,
+                      g.kind === "rep" ? repDistanceM : undefined,
+                    )}
+                  </td>
+                </tr>
+              )}
+              {g.rows.map((s, i) => {
+                const start = elapsedAtKm(series, s.start_km);
+                // The single target band describes the easy/tempo portion; in a
+                // mixed workout it's meaningless for the (much faster) strides.
+                const showVs = hasTarget && !(multi && s.kind === "rep");
+                const vs = showVs ? vsTargetSec(s.avg_pace_sec_per_km, tp) : null;
+                return (
+                  <tr key={`${g.kind}-${s.index ?? i}`} className="hover:bg-paper-2">
+                    <Td className="font-semibold">{s.index ?? i + 1}</Td>
+                    <Td>{start != null ? duration(start) : "—"}</Td>
+                    <Td>
+                      {s.start_km != null && s.end_km != null
+                        ? `${s.start_km.toFixed(2)} → ${s.end_km.toFixed(2)}`
+                        : "—"}
+                    </Td>
+                    <Td>{duration(s.duration_sec)}</Td>
+                    <Td className="font-semibold">
+                      {paceFromSec(s.avg_pace_sec_per_km)}/km
+                    </Td>
+                    {hasTarget && (
+                      <Td
+                        className={
+                          vs == null
+                            ? ""
+                            : vs > 0
+                              ? "text-red-700"
+                              : "text-green-700"
+                        }
+                      >
+                        {vs == null
+                          ? "—"
+                          : vs === 0
+                            ? "no alvo"
+                            : `${vs > 0 ? "+" : ""}${vs}s`}
+                      </Td>
+                    )}
+                    <Td>{s.avg_hr ? Math.round(s.avg_hr) : "—"}</Td>
+                    <Td>{s.max_hr ? Math.round(s.max_hr) : "—"}</Td>
+                  </tr>
+                );
+              })}
+            </Fragment>
+          ))}
         </tbody>
       </table>
     </div>
