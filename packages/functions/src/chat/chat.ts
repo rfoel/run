@@ -1,7 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 import { Resource } from "sst";
 import { listActivities, type Activity } from "@run/core/activity";
-import { isAuthorized } from "../lib/auth.ts";
 import { runTool, tools } from "./tools.ts";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -75,34 +74,16 @@ type ContentBlock =
   | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
   | { type: "tool_result"; tool_use_id: string; content: string };
 
-export const handler = awslambda.streamifyResponse(async (event, stream) => {
-  const headers = (event as { headers?: Record<string, string | undefined> })
-    .headers;
-  if (!isAuthorized(headers)) {
-    const unauthorizedStream = awslambda.HttpResponseStream.from(stream, {
-      statusCode: 401,
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
-    unauthorizedStream.write("unauthorized");
-    unauthorizedStream.end();
-    return;
-  }
-
-  const body = (event as { body?: string }).body;
-  if (!body) {
-    stream.write("missing body");
-    stream.end();
-    return;
-  }
+// Streams the coach reply to `write`. Auth, the HTTP stream, and the
+// CloudFront keep-alive heartbeat are handled by the /chat route in api.ts.
+// Anthropic is imported lazily so it lands in its own esbuild chunk and never
+// loads on the cold-start path of the non-chat routes.
+export async function runChat(
+  body: string,
+  write: (chunk: string) => Promise<unknown>,
+): Promise<void> {
   const { messages } = JSON.parse(body) as ChatRequest;
-
-  const responseStream = awslambda.HttpResponseStream.from(stream, {
-    statusCode: 200,
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-cache",
-    },
-  });
+  const { default: AnthropicClient } = await import("@anthropic-ai/sdk");
 
   const activities = await listActivities({ limit: 200 });
   const activityContext = activities.map(summarizeActivity).join("\n");
@@ -118,22 +99,12 @@ export const handler = awslambda.streamifyResponse(async (event, stream) => {
     timeZone: "UTC",
   });
 
-  const client = new Anthropic({ apiKey: Resource.AnthropicApiKey.value });
+  const client = new AnthropicClient({ apiKey: Resource.AnthropicApiKey.value });
 
   const conversation: Array<{
     role: "user" | "assistant";
     content: string | ContentBlock[];
   }> = messages.map((m) => ({ role: m.role, content: m.content }));
-
-  // Keep-alive: CloudFront drops the origin connection after ~55s of silence.
-  // Write a zero-width space periodically so something is always flowing.
-  const heartbeat = setInterval(() => {
-    try {
-      responseStream.write("​");
-    } catch {
-      // stream closed
-    }
-  }, 8000);
 
   try {
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -165,7 +136,7 @@ export const handler = awslambda.streamifyResponse(async (event, stream) => {
           ev.type === "content_block_delta" &&
           ev.delta.type === "text_delta"
         ) {
-          responseStream.write(ev.delta.text);
+          await write(ev.delta.text);
         }
       }
 
@@ -183,13 +154,13 @@ export const handler = awslambda.streamifyResponse(async (event, stream) => {
       // to continue with a fresh round.
       if (toolUseBlocks.length === 0) {
         if (final.stop_reason === "max_tokens") {
-          responseStream.write(`\n[continuando…]\n`);
+          await write(`\n[continuando…]\n`);
           conversation.push({ role: "user", content: "Continue." });
           continue;
         }
         break;
       }
-      responseStream.write(
+      await write(
         `\n[${toolUseBlocks.length} ${toolUseBlocks.length === 1 ? "chamada" : "chamadas"} de ferramenta]\n`,
       );
       const toolResults = await Promise.all(
@@ -200,14 +171,14 @@ export const handler = awslambda.streamifyResponse(async (event, stream) => {
               block.name,
               block.input as Record<string, unknown>,
             );
-            responseStream.write(`  ✓ ${block.name}\n`);
+            await write(`  ✓ ${block.name}\n`);
             return {
               type: "tool_result" as const,
               tool_use_id: block.id,
               content: JSON.stringify(result),
             };
           } catch (err) {
-            responseStream.write(
+            await write(
               `  ✗ ${block.name}: ${(err as Error).message}\n`,
             );
             return {
@@ -223,9 +194,6 @@ export const handler = awslambda.streamifyResponse(async (event, stream) => {
       conversation.push({ role: "user", content: validResults });
     }
   } catch (err) {
-    responseStream.write(`\n\n[erro: ${(err as Error).message}]`);
-  } finally {
-    clearInterval(heartbeat);
-    responseStream.end();
+    await write(`\n\n[erro: ${(err as Error).message}]`);
   }
-});
+}

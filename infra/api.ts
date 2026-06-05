@@ -4,79 +4,29 @@ import { router } from "./router";
 import { table } from "./storage";
 import { allSecrets } from "./secrets";
 
-export const api = new sst.aws.ApiGatewayV2("Api", {
-  transform: {
-    // Defaults for every route's handler: arm64 (faster + ~20% cheaper) and
-    // more memory (= more CPU during init, so the AWS SDK cold-starts faster).
-    // Individual routes can still override.
-    route: {
-      handler: (args) => {
-        args.runtime ??= "nodejs24.x";
-        args.architecture ??= "arm64";
-        args.memory ??= "2048 MB";
-      },
-    },
-  },
+// Single "lambdalith": one Lambda serves EVERY HTTP route — including the
+// streaming /chat and /analyze — via a Hono router (packages/functions/src/api.ts).
+// All API traffic hits this one function, so it stays warm far more of the time
+// than 13 separate per-route functions would. That's the cold-start win.
+//
+// - streaming: RESPONSE_STREAM invoke mode; Hono's streamHandle serves both the
+//   buffered routes (plain JSON) and the streamed ones (chat/analyze).
+// - splitting: dynamically-imported modules (the Anthropic SDK, pulled in lazily
+//   by runChat/runAnalyze) land in their own esbuild chunk, so they never load
+//   on the cold-start path of the fast routes.
+export const api = new sst.aws.Function("Api", {
+  handler: "packages/functions/src/api.handler",
+  link: [table, ...allSecrets],
+  runtime: "nodejs24.x",
+  architecture: "arm64",
+  memory: "2048 MB",
+  timeout: "120 seconds", // accommodates /strava/sync and the LLM routes
+  streaming: true,
+  nodejs: { splitting: true },
+  url: true,
 });
 
-const linked = [table, ...allSecrets];
-
-api.route("GET /strava/webhook", {
-  handler: "packages/functions/src/strava/verify.handler",
-  link: linked,
-});
-
-api.route("POST /strava/webhook", {
-  handler: "packages/functions/src/strava/webhook.handler",
-  link: linked,
-});
-
-api.route("GET /strava/oauth/callback", {
-  handler: "packages/functions/src/strava/oauth.handler",
-  link: linked,
-});
-
-api.route("POST /strava/sync", {
-  handler: "packages/functions/src/strava/sync.handler",
-  link: linked,
-  timeout: "60 seconds",
-});
-
-api.route("GET /activities", {
-  handler: "packages/functions/src/activities/list.handler",
-  link: linked,
-});
-
-api.route("GET /activities/{source}/{externalId}", {
-  handler: "packages/functions/src/activities/detail.handler",
-  link: linked,
-});
-
-api.route("DELETE /activities/{source}/{externalId}", {
-  handler: "packages/functions/src/activities/delete.handler",
-  link: linked,
-});
-
-api.route("GET /stats", {
-  handler: "packages/functions/src/activities/stats.handler",
-  link: linked,
-});
-
-api.route("GET /plans", {
-  handler: "packages/functions/src/plans/list.handler",
-  link: linked,
-});
-
-api.route("DELETE /plans/{date}/{id}", {
-  handler: "packages/functions/src/plans/delete.handler",
-  link: linked,
-});
-
-api.route("POST /auth/verify", {
-  handler: "packages/functions/src/auth/verify.handler",
-  link: linked,
-});
-
+// Router strips the `/api` prefix; Hono mounts routes without it.
 router.route("/api", api.url, {
   rewrite: { regex: "^/api/(.*)$", to: "/$1" },
 });

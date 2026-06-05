@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 import { Resource } from "sst";
 import { getActivity, type Activity, type ActivitySource } from "@run/core/activity";
 import {
@@ -8,7 +8,6 @@ import {
 } from "@run/core/workout";
 import { listPlans, type PlannedRun } from "@run/core/plan";
 import type { ChartSeries } from "@run/core/track";
-import { isAuthorized } from "../lib/auth.ts";
 import { ANALYSIS_SYSTEM, ANALYSIS_TOOL } from "./analyze-prompt.ts";
 
 const MODEL = "claude-sonnet-4-6";
@@ -72,42 +71,16 @@ function buildUserMessage(
   ].join("\n\n");
 }
 
-export const handler = awslambda.streamifyResponse(async (event, stream) => {
-  const headers = (event as { headers?: Record<string, string | undefined> })
-    .headers;
-  const respond = (statusCode: number) =>
-    awslambda.HttpResponseStream.from(stream, {
-      statusCode,
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Cache-Control": "no-cache",
-      },
-    });
-
-  if (!isAuthorized(headers)) {
-    const s = respond(401);
-    s.write("unauthorized");
-    s.end();
-    return;
-  }
-
-  const body = (event as { body?: string }).body;
-  if (!body) {
-    const s = respond(400);
-    s.write("missing body");
-    s.end();
-    return;
-  }
+// Runs the analysis and writes the JSON result to `write`. Auth, the HTTP
+// stream, and the keep-alive heartbeat live in the /analyze route in api.ts.
+// Anthropic is imported lazily so it lands in its own esbuild chunk, off the
+// cold-start path of the non-analyze routes.
+export async function runAnalyze(
+  body: string,
+  write: (chunk: string) => Promise<unknown>,
+): Promise<void> {
   const { source, externalId } = JSON.parse(body) as AnalyzeRequest;
-
-  const out = respond(200);
-  const heartbeat = setInterval(() => {
-    try {
-      out.write("​");
-    } catch {
-      /* stream closed */
-    }
-  }, 8000);
+  const { default: AnthropicClient } = await import("@anthropic-ai/sdk");
 
   try {
     const activity = await getActivity(source as ActivitySource, externalId);
@@ -122,7 +95,9 @@ export const handler = awslambda.streamifyResponse(async (event, stream) => {
       (p) => p.actualSource === source && p.actualExternalId === externalId,
     );
 
-    const client = new Anthropic({ apiKey: Resource.AnthropicApiKey.value });
+    const client = new AnthropicClient({
+      apiKey: Resource.AnthropicApiKey.value,
+    });
     const msg = await client.messages.create({
       model: MODEL,
       max_tokens: 4096,
@@ -145,11 +120,8 @@ export const handler = awslambda.streamifyResponse(async (event, stream) => {
       createdAt: new Date().toISOString(),
     });
 
-    out.write(JSON.stringify({ ok: true, analysis }));
+    await write(JSON.stringify({ ok: true, analysis }));
   } catch (err) {
-    out.write(JSON.stringify({ ok: false, error: (err as Error).message }));
-  } finally {
-    clearInterval(heartbeat);
-    out.end();
+    await write(JSON.stringify({ ok: false, error: (err as Error).message }));
   }
-});
+}

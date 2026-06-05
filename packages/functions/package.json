@@ -16,6 +16,7 @@
     "csv-parse": "^6.2.1",
     "fast-xml-parser": "^5.8.0",
     "fit-file-parser": "^3.0.0",
+    "hono": "^4.9.0",
     "sst": "4.14.1"
   },
   "devDependencies": {
