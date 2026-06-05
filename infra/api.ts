@@ -4,7 +4,19 @@ import { router } from "./router";
 import { table } from "./storage";
 import { allSecrets } from "./secrets";
 
-export const api = new sst.aws.ApiGatewayV2("Api", {});
+export const api = new sst.aws.ApiGatewayV2("Api", {
+  transform: {
+    // Defaults for every route's handler: arm64 (faster + ~20% cheaper) and
+    // more memory (= more CPU during init, so the AWS SDK cold-starts faster).
+    // Individual routes can still override.
+    route: {
+      handler: (args) => {
+        args.architecture ??= "arm64";
+        args.memory ??= "2048 MB";
+      },
+    },
+  },
+});
 
 const linked = [table, ...allSecrets];
 

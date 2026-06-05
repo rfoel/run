@@ -266,11 +266,43 @@ export async function deleteActivity(
   }
 }
 
+// Summary view of an activity: everything except the heavy `polyline` and
+// `splits` fields. Listing endpoints (and the chat/stats callers) never read
+// those, so we project them out at the DynamoDB level — this avoids reading and
+// shipping kilobytes per item across potentially hundreds of activities.
+const SUMMARY_FIELDS = [
+  "source",
+  "externalId",
+  "userId",
+  "startDate",
+  "name",
+  "sportType",
+  "distance",
+  "movingTime",
+  "elapsedTime",
+  "elevationGain",
+  "avgSpeed",
+  "maxSpeed",
+  "avgHr",
+  "maxHr",
+  "avgCadence",
+  "hasHr",
+  "createdAt",
+  "updatedAt",
+] as const;
+
+const summaryNames = Object.fromEntries(
+  SUMMARY_FIELDS.map((f, i) => [`#p${i}`, f]),
+);
+const summaryProjection = Object.keys(summaryNames).join(", ");
+
 export async function listActivities(opts: {
   userId?: string;
   limit?: number;
   from?: string;
   to?: string;
+  /** Include the heavy `polyline` and `splits` fields. Defaults to false. */
+  full?: boolean;
 } = {}) {
   const userId = opts.userId ?? USER_ID;
   const limit = opts.limit ?? 1000;
@@ -301,6 +333,12 @@ export async function listActivities(opts: {
         ExpressionAttributeValues: values,
         ScanIndexForward: false,
         ExclusiveStartKey: lastKey,
+        ...(opts.full
+          ? {}
+          : {
+              ProjectionExpression: summaryProjection,
+              ExpressionAttributeNames: summaryNames,
+            }),
       }),
     );
     items.push(...((res.Items ?? []) as Activity[]));
