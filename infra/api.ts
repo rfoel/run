@@ -22,7 +22,9 @@ export const api = new sst.aws.Function("Api", {
   memory: "2048 MB",
   timeout: "120 seconds", // accommodates /strava/sync and the LLM routes
   streaming: true,
-  nodejs: { splitting: true },
+  // splitting: lazily-imported heavy modules (Anthropic SDK) get their own chunk.
+  // loader: the coach's system prompt lives in chat/prompt.md and is imported as text.
+  nodejs: { splitting: true, loader: { ".md": "text" } },
   url: true,
 });
 
