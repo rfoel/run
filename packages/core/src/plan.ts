@@ -30,6 +30,9 @@ export type PlannedRun = {
   notes?: string;
   shortTitle?: string;
   status: PlannedRunStatus;
+  // Set once the plan has been pushed to Garmin Connect as a workout, so the
+  // push is idempotent (re-pushing skips plans that already have an id).
+  garminWorkoutId?: number;
   // Snapshot of the matching Activity, denormalized so the Plan page never
   // needs a second roundtrip. If the source activity is later updated, the
   // snapshot may drift — we accept that for personal-use simplicity.
@@ -131,6 +134,7 @@ export async function updatePlan(
       | "notes"
       | "shortTitle"
       | "status"
+      | "garminWorkoutId"
       | "actualSource"
       | "actualExternalId"
       | "actualStartDate"
@@ -273,6 +277,10 @@ const TYPE_LABEL: Record<PlannedRunType, string> = {
 
 function shortenNotes(notes: string): string {
   let s = notes.trim();
+  // Drop a leading "Semana N — " / "Semana N (taper): " week/phase prefix that
+  // otherwise becomes the whole title (e.g. notes starting "Semana 11 (taper) —
+  // Tiros…" would truncate to just "Semana 11").
+  s = s.replace(/^semana\s+\d+\s*(\([^)]*\))?\s*[—\-:.]?\s*/iu, "");
   const cut = s.search(/[:(]/u);
   if (cut > 0) s = s.slice(0, cut);
   return s.replace(/[\s.…\-—]+$/u, "").trim();

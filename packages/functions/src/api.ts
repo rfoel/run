@@ -38,6 +38,13 @@ import {
   saveTokens,
   updateActivityName,
 } from "@run/core/strava";
+import {
+  createWorkout,
+  getValidAccessToken as getGarminAccessToken,
+  planToWorkout,
+  scheduleWorkout,
+  updateWorkout,
+} from "@run/core/garmin";
 import { isAuthorized } from "./lib/auth.ts";
 
 // Read endpoints: let the browser (and any private cache) serve repeats for a
@@ -275,6 +282,51 @@ app.post("/strava/sync", async (c) => {
       }
     }
     page++;
+  }
+
+  return c.json(result);
+});
+
+// ---- Garmin push ----------------------------------------------------------
+// Upsert each still-planned run into Garmin Connect: create + schedule the ones
+// not yet pushed, and overwrite (PUT) the ones already pushed so title/step
+// edits re-sync. Safe to press repeatedly. The first push triggers the SSO
+// login (fails on 2FA accounts — surfaced per-plan in `errors`).
+type GarminPushResult = { created: number; updated: number; errors: string[] };
+
+app.post("/garmin/push", async (c) => {
+  if (!isAuthorized(c.req.header())) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const from = c.req.query("from") || undefined;
+  const to = c.req.query("to") || undefined;
+  const plans = (await listPlans({ from, to })).filter(
+    (p) => p.status === "planned",
+  );
+
+  const result: GarminPushResult = { created: 0, updated: 0, errors: [] };
+  if (plans.length === 0) return c.json(result);
+
+  let token: string;
+  try {
+    token = await getGarminAccessToken();
+  } catch (e) {
+    return c.json({ error: `garmin auth: ${(e as Error).message}` }, 502);
+  }
+  for (const p of plans) {
+    try {
+      if (p.garminWorkoutId) {
+        await updateWorkout(p.garminWorkoutId, planToWorkout(p), token);
+        result.updated++;
+      } else {
+        const w = await createWorkout(planToWorkout(p), token);
+        await scheduleWorkout(w.workoutId, p.date, token);
+        await updatePlan(p.date, p.id, { garminWorkoutId: w.workoutId });
+        result.created++;
+      }
+    } catch (e) {
+      result.errors.push(`${p.date}: ${(e as Error).message}`);
+    }
   }
 
   return c.json(result);

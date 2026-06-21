@@ -1,12 +1,16 @@
 import { AlertDialog } from "@base-ui-components/react/alert-dialog";
 import {
+  ArrowSquareOutIcon,
   CheckCircleIcon,
+  CloudArrowUpIcon,
   MinusCircleIcon,
   TrashIcon,
+  WarningIcon,
+  WatchIcon,
 } from "@phosphor-icons/react";
 import { useState } from "react";
 import { type PlannedRun } from "../lib/api.ts";
-import { useDeletePlan, usePlans } from "../lib/queries.ts";
+import { useDeletePlan, useGarminPush, usePlans } from "../lib/queries.ts";
 import { ListSkeleton, Skeleton } from "./Skeleton.tsx";
 import { TypeBadge } from "./TypeBadge.tsx";
 import { duration, km } from "../lib/format.ts";
@@ -17,6 +21,15 @@ export default function Plan({ unlocked }: { unlocked: boolean }) {
   const items = plansQ.data ?? [];
   const loading = plansQ.isLoading;
   const error = plansQ.error ? String(plansQ.error) : null;
+
+  const garminPush = useGarminPush();
+  const pushResult = garminPush.data ?? null;
+  const pushing = garminPush.isPending;
+  // Push today-and-future planned runs; past planned runs aren't worth a
+  // calendar workout.
+  const toPush = items.filter(
+    (p) => p.status === "planned" && p.date >= isoDateDaysFromNow(0),
+  ).length;
 
   if (loading) {
     return (
@@ -56,6 +69,45 @@ export default function Plan({ unlocked }: { unlocked: boolean }) {
 
   return (
     <section className="flex flex-col gap-8">
+      {unlocked && (
+        <div className="flex flex-col gap-3">
+          <div className="flex justify-end">
+            <button
+              onClick={() => garminPush.mutate({ from: isoDateDaysFromNow(0) })}
+              disabled={pushing || toPush === 0}
+              title={
+                toPush === 0
+                  ? "Nada para enviar (sem treinos planejados futuros)"
+                  : `Enviar ${toPush} treino(s) ao Garmin Connect`
+              }
+              className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border border-line rounded-lg px-3 py-1 hover:bg-accent hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
+            >
+              <CloudArrowUpIcon
+                className={"h-3.5 w-3.5 " + (pushing ? "animate-pulse" : "")}
+              />
+              <span>{pushing ? "enviando…" : "enviar ao garmin"}</span>
+            </button>
+          </div>
+          {garminPush.isError && (
+            <div className="border border-line rounded-lg p-3 bg-paper-2 font-mono text-xs text-red-700 flex items-center gap-1">
+              <WarningIcon className="h-3.5 w-3.5" />
+              {String(garminPush.error)}
+            </div>
+          )}
+          {pushResult && (
+            <div className="border border-line rounded-lg p-3 bg-paper-2 font-mono text-xs flex gap-4 flex-wrap">
+              <span>criados {pushResult.created}</span>
+              <span>atualizados {pushResult.updated}</span>
+              {pushResult.errors.length > 0 && (
+                <span className="text-red-700 flex items-center gap-1">
+                  <WarningIcon className="h-3.5 w-3.5" />
+                  erros {pushResult.errors.length}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       {[...byWeek.entries()].map(([weekLabel, runs]) => (
         <div key={weekLabel}>
           <h2 className="text-xs uppercase tracking-[0.2em] mb-3 text-ink/60">
@@ -109,6 +161,20 @@ function PlanRow({
               <MinusCircleIcon className="h-3.5 w-3.5" />
               pulado
             </span>
+          )}
+          {plan.garminWorkoutId && !done && (
+            <a
+              href={`https://connect.garmin.com/modern/workout/${plan.garminWorkoutId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-[10px] uppercase tracking-[0.2em] text-ink/50 hover:text-ink flex items-center gap-1"
+              title="Abrir este treino no Garmin Connect"
+            >
+              <WatchIcon className="h-3.5 w-3.5" />
+              garmin
+              <ArrowSquareOutIcon className="h-3 w-3" />
+            </a>
           )}
         </div>
         {plan.notes && (

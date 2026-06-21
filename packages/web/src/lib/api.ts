@@ -81,6 +81,7 @@ export type PlannedRun = {
   paceTargetSec?: number;
   notes?: string;
   status: "planned" | "done" | "skipped";
+  garminWorkoutId?: number;
   actualSource?: string;
   actualExternalId?: string;
   actualStartDate?: string;
@@ -123,6 +124,29 @@ export async function syncStrava(days = 30): Promise<SyncResult> {
   });
   if (!res.ok) throw new Error(`sync ${res.status}`);
   return (await res.json()) as SyncResult;
+}
+
+export type GarminPushResult = {
+  created: number;
+  updated: number;
+  errors: string[];
+};
+
+export async function pushGarmin(
+  opts: { from?: string; to?: string } = {},
+): Promise<GarminPushResult> {
+  const qs = new URLSearchParams();
+  if (opts.from) qs.set("from", opts.from);
+  if (opts.to) qs.set("to", opts.to);
+  const res = await fetch(`${BASE}/garmin/push?${qs}`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `garmin push ${res.status}`);
+  }
+  return (await res.json()) as GarminPushResult;
 }
 
 export async function resyncActivity(

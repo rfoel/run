@@ -1,10 +1,12 @@
 import {
   getValidAccessToken,
   createWorkout,
+  updateWorkout,
   scheduleWorkout,
   planToWorkout,
 } from "@run/core/garmin";
 import { listPlans } from "@run/core/plan";
+import { updatePlan } from "@run/core/plan";
 
 /**
  * Push planned runs to Garmin Connect as scheduled workouts.
@@ -61,16 +63,22 @@ async function main() {
   console.log("authenticated with Garmin.");
 
   let created = 0;
-  let scheduled = 0;
+  let updated = 0;
   const errors: string[] = [];
   for (const p of plans) {
     try {
-      const w = await createWorkout(planToWorkout(p), token);
-      created++;
-      console.log(`  + ${p.date}  #${w.workoutId}  ${w.workoutName}`);
-      if (!noSchedule) {
-        await scheduleWorkout(w.workoutId, p.date, token);
-        scheduled++;
+      if (p.garminWorkoutId) {
+        // Already on Garmin — overwrite in place so title/step edits re-sync.
+        const w = await updateWorkout(p.garminWorkoutId, planToWorkout(p), token);
+        updated++;
+        console.log(`  ~ ${p.date}  #${p.garminWorkoutId}  ${w.workoutName}`);
+      } else {
+        const w = await createWorkout(planToWorkout(p), token);
+        // Stamp the id so future pushes update instead of duplicating.
+        await updatePlan(p.date, p.id, { garminWorkoutId: w.workoutId });
+        created++;
+        console.log(`  + ${p.date}  #${w.workoutId}  ${w.workoutName}`);
+        if (!noSchedule) await scheduleWorkout(w.workoutId, p.date, token);
       }
     } catch (e) {
       errors.push(`${p.date}: ${(e as Error).message}`);
@@ -78,7 +86,7 @@ async function main() {
   }
 
   console.log(
-    `\ndone. created=${created} scheduled=${scheduled} errors=${errors.length}`,
+    `\ndone. created=${created} updated=${updated} errors=${errors.length}`,
   );
   for (const e of errors) console.log(`  ${e}`);
 }

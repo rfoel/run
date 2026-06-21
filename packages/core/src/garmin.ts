@@ -55,6 +55,31 @@ const UA_MOBILE = "com.garmin.android.apps.connectmobile";
 const CSRF_RE = /name="_csrf"\s+value="(.+?)"/;
 const TICKET_RE = /ticket=([^"]+)"/;
 
+/**
+ * fetch with backoff on Garmin's rate limiting. Garmin throttles this
+ * unofficial flow hard from datacenter IPs (429), and occasionally 503s.
+ * Honours Retry-After when present, else exponential backoff. This smooths
+ * transient bursts; it cannot defeat a sustained per-IP block (run the push
+ * from a residential IP for that).
+ */
+async function fetchRetry(
+  url: string,
+  init: RequestInit = {},
+  tries = 4,
+): Promise<Response> {
+  let res!: Response;
+  for (let i = 0; i < tries; i++) {
+    res = await fetch(url, init);
+    if (res.status !== 429 && res.status < 500) return res;
+    if (i === tries - 1) break;
+    const ra = Number(res.headers.get("retry-after"));
+    const waitMs =
+      Number.isFinite(ra) && ra > 0 ? ra * 1000 : Math.min(8000, 500 * 2 ** i);
+    await new Promise((r) => setTimeout(r, waitMs));
+  }
+  return res;
+}
+
 // --- token types & persistence ---------------------------------------------
 
 export type GarminOauth1 = {
@@ -191,7 +216,7 @@ async function getLoginTicket(
     locale: "en",
     service: GC_MODERN,
   });
-  const r1 = await fetch(`${SSO_EMBED}?${step1}`, {
+  const r1 = await fetchRetry(`${SSO_EMBED}?${step1}`, {
     headers: { "User-Agent": UA_BROWSER },
   });
   jar.store(r1);
@@ -203,7 +228,7 @@ async function getLoginTicket(
     locale: "en",
     gauthHost: SSO_EMBED,
   });
-  const r2 = await fetch(`${SIGNIN_URL}?${step2}`, {
+  const r2 = await fetchRetry(`${SIGNIN_URL}?${step2}`, {
     headers: { "User-Agent": UA_BROWSER, Cookie: jar.header() },
   });
   jar.store(r2);
@@ -229,7 +254,7 @@ async function getLoginTicket(
     embed: "true",
     _csrf: csrf,
   });
-  const r3 = await fetch(`${SIGNIN_URL}?${step3}`, {
+  const r3 = await fetchRetry(`${SIGNIN_URL}?${step3}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -266,7 +291,7 @@ async function getOauth1Token(ticket: string): Promise<GarminOauth1> {
   };
   const oauth = signOauth1("GET", base, query, undefined);
   const url = `${base}?${new URLSearchParams(query)}`;
-  const res = await fetch(url, {
+  const res = await fetchRetry(url, {
     headers: { Authorization: authHeader(oauth), "User-Agent": UA_MOBILE },
   });
   if (!res.ok) {
@@ -288,7 +313,7 @@ async function exchange(oauth1: GarminOauth1): Promise<GarminOauth2> {
     secret: oauth1.oauth_token_secret,
   });
   const url = `${base}?${new URLSearchParams(oauth)}`;
-  const res = await fetch(url, {
+  const res = await fetchRetry(url, {
     method: "POST",
     headers: {
       "User-Agent": UA_MOBILE,
@@ -352,7 +377,7 @@ async function garminFetch<T>(
   accessToken: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const res = await fetch(url, {
+  const res = await fetchRetry(url, {
     ...init,
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -553,6 +578,23 @@ export async function createWorkout(
   return garminFetch<CreatedWorkout>(WORKOUT_URL(), accessToken, {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Overwrite an existing workout in place (PUT), keeping its id and any calendar
+ * schedule. Used to re-sync the name/steps after the plan's title changes.
+ */
+export async function updateWorkout(
+  workoutId: number,
+  workout: WorkoutInput | Json,
+  accessToken: string,
+): Promise<CreatedWorkout> {
+  const payload =
+    "steps" in workout ? buildWorkout(workout as WorkoutInput) : workout;
+  return garminFetch<CreatedWorkout>(WORKOUT_URL(workoutId), accessToken, {
+    method: "PUT",
+    body: JSON.stringify({ ...payload, workoutId }),
   });
 }
 

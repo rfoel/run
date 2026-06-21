@@ -11,6 +11,7 @@ import {
   getStats,
   listActivities,
   listPlans,
+  pushGarmin,
   resyncActivity,
   syncStrava,
   type ActivityDetail,
@@ -80,6 +81,16 @@ export function useSyncStrava() {
       void qc.invalidateQueries({ queryKey: ["stats"] });
       void qc.invalidateQueries({ queryKey: ["plans"] });
     },
+  });
+}
+
+export function useGarminPush() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (opts: { from?: string; to?: string }) => pushGarmin(opts),
+    // Pushed plans get a garminWorkoutId stamped server-side; refetch plans so
+    // the "no Garmin" badge appears.
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["plans"] }),
   });
 }
 
