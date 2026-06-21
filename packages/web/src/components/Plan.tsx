@@ -164,7 +164,7 @@ function PlanRow({
           )}
           {plan.garminWorkoutId && !done && (
             <a
-              href={`https://connect.garmin.com/modern/workout/${plan.garminWorkoutId}`}
+              href={`https://connect.garmin.com/app/workout/${plan.garminWorkoutId}?workoutType=running`}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
