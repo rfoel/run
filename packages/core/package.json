@@ -6,6 +6,7 @@
   "exports": {
     "./activity": "./src/activity.ts",
     "./db": "./src/db.ts",
+    "./garmin": "./src/garmin.ts",
     "./plan": "./src/plan.ts",
     "./stats": "./src/stats.ts",
     "./strava": "./src/strava.ts",
