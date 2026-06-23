@@ -11,7 +11,7 @@ import {
   usePrefetchActivityDetail,
 } from "../lib/queries.ts";
 import { duration, km, pace } from "../lib/format.ts";
-import { PLAN_TYPE_LABELS, TypeBadge } from "./TypeBadge.tsx";
+import { PLAN_TYPE_COLORS, PLAN_TYPE_LABELS, TypeBadge } from "./TypeBadge.tsx";
 import { TreadmillIcon, isTreadmill } from "./TreadmillIcon.tsx";
 import StravaLink from "./StravaLink.tsx";
 
@@ -223,9 +223,10 @@ function PlanPill({ plan, inverted }: { plan: PlannedRun; inverted: boolean }) {
   return (
     <span
       title={planTooltip(plan)}
+      style={inverted ? undefined : { backgroundColor: PLAN_TYPE_COLORS[plan.type] }}
       className={
         "font-mono text-[9px] sm:text-[10px] uppercase tracking-wider px-1 sm:px-1.5 py-0.5 truncate rounded-md " +
-        (inverted ? "bg-card text-ink" : "bg-accent text-white")
+        (inverted ? "bg-white/20 text-white" : "text-white")
       }
     >
       {PLAN_TYPE_LABELS[plan.type]}

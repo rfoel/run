@@ -3,6 +3,8 @@ import {
   ArrowSquareOutIcon,
   CheckCircleIcon,
   CloudArrowUpIcon,
+  EyeIcon,
+  EyeSlashIcon,
   MinusCircleIcon,
   TrashIcon,
   WarningIcon,
@@ -21,12 +23,11 @@ export default function Plan({ unlocked }: { unlocked: boolean }) {
   const items = plansQ.data ?? [];
   const loading = plansQ.isLoading;
   const error = plansQ.error ? String(plansQ.error) : null;
+  const [hideDone, setHideDone] = useState(true);
 
   const garminPush = useGarminPush();
   const pushResult = garminPush.data ?? null;
   const pushing = garminPush.isPending;
-  // Push today-and-future planned runs; past planned runs aren't worth a
-  // calendar workout.
   const toPush = items.filter(
     (p) => p.status === "planned" && p.date >= isoDateDaysFromNow(0),
   ).length;
@@ -65,13 +66,28 @@ export default function Plan({ unlocked }: { unlocked: boolean }) {
     );
   }
 
-  const byWeek = groupByWeek(items);
+  const visible = hideDone ? items.filter((p) => p.status !== "done") : items;
+  const byWeek = groupByWeek(visible);
+  const doneCount = items.filter((p) => p.status === "done").length;
 
   return (
     <section className="flex flex-col gap-8">
-      {unlocked && (
-        <div className="flex flex-col gap-3">
-          <div className="flex justify-end">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <button
+            onClick={() => setHideDone((h) => !h)}
+            className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium text-ink/50 hover:text-ink"
+          >
+            {hideDone ? (
+              <EyeIcon className="h-3.5 w-3.5" />
+            ) : (
+              <EyeSlashIcon className="h-3.5 w-3.5" />
+            )}
+            {hideDone
+              ? `mostrar feitos${doneCount > 0 ? ` (${doneCount})` : ""}`
+              : "ocultar feitos"}
+          </button>
+          {unlocked && (
             <button
               onClick={() => garminPush.mutate({ from: isoDateDaysFromNow(0) })}
               disabled={pushing || toPush === 0}
@@ -87,26 +103,37 @@ export default function Plan({ unlocked }: { unlocked: boolean }) {
               />
               <span>{pushing ? "enviando…" : "enviar ao garmin"}</span>
             </button>
-          </div>
-          {garminPush.isError && (
-            <div className="border border-line rounded-lg p-3 bg-paper-2 font-mono text-xs text-red-700 flex items-center gap-1">
-              <WarningIcon className="h-3.5 w-3.5" />
-              {String(garminPush.error)}
-            </div>
-          )}
-          {pushResult && (
-            <div className="border border-line rounded-lg p-3 bg-paper-2 font-mono text-xs flex gap-4 flex-wrap">
-              <span>criados {pushResult.created}</span>
-              <span>atualizados {pushResult.updated}</span>
-              {pushResult.errors.length > 0 && (
-                <span className="text-red-700 flex items-center gap-1">
-                  <WarningIcon className="h-3.5 w-3.5" />
-                  erros {pushResult.errors.length}
-                </span>
-              )}
-            </div>
           )}
         </div>
+        {unlocked && garminPush.isError && (
+          <div className="border border-line rounded-lg p-3 bg-paper-2 font-mono text-xs text-red-700 flex items-center gap-1">
+            <WarningIcon className="h-3.5 w-3.5" />
+            {String(garminPush.error)}
+          </div>
+        )}
+        {unlocked && pushResult && (
+          <div className="border border-line rounded-lg p-3 bg-paper-2 font-mono text-xs flex gap-4 flex-wrap">
+            <span>criados {pushResult.created}</span>
+            <span>atualizados {pushResult.updated}</span>
+            {pushResult.errors.length > 0 && (
+              <span className="text-red-700 flex items-center gap-1">
+                <WarningIcon className="h-3.5 w-3.5" />
+                erros {pushResult.errors.length}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+      {byWeek.size === 0 && (
+        <p className="font-mono text-sm text-ink/60">
+          Nenhum treino pendente.{" "}
+          <button
+            onClick={() => setHideDone(false)}
+            className="underline underline-offset-2 hover:text-ink"
+          >
+            Mostrar feitos
+          </button>
+        </p>
       )}
       {[...byWeek.entries()].map(([weekLabel, runs]) => (
         <div key={weekLabel}>
@@ -140,65 +167,73 @@ function PlanRow({
   return (
     <li
       className={
-        "px-5 py-4 flex items-start justify-between gap-6 hover:bg-paper-2 " +
-        (skipped ? "opacity-50" : "")
+        "px-4 py-3 hover:bg-paper-2 " + (skipped ? "opacity-50" : "")
       }
     >
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-3 mb-1 flex-wrap">
-          <TypeBadge type={plan.type} />
-          <span className="font-mono text-sm font-semibold">
-            {formatDate(plan.date)}
-          </span>
-          {done && (
-            <span className="text-[10px] uppercase tracking-[0.2em] text-emerald-700 flex items-center gap-1">
-              <CheckCircleIcon weight="fill" className="h-3.5 w-3.5" />
-              feito
-            </span>
-          )}
-          {skipped && (
-            <span className="text-[10px] uppercase tracking-[0.2em] text-ink/50 flex items-center gap-1">
-              <MinusCircleIcon className="h-3.5 w-3.5" />
-              pulado
-            </span>
-          )}
-          {plan.garminWorkoutId && !done && (
-            <a
-              href={`https://connect.garmin.com/app/workout/${plan.garminWorkoutId}?workoutType=running`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-[10px] uppercase tracking-[0.2em] text-ink/50 hover:text-ink flex items-center gap-1"
-              title="Abrir este treino no Garmin Connect"
-            >
-              <WatchIcon className="h-3.5 w-3.5" />
-              garmin
-              <ArrowSquareOutIcon className="h-3 w-3" />
-            </a>
-          )}
-        </div>
-        {plan.notes && (
-          <p className="text-sm text-ink/80 whitespace-pre-wrap">
-            {plan.notes}
-          </p>
-        )}
-      </div>
-      <div className="text-right shrink-0 font-mono text-sm">
-        <div className={done ? "text-ink/50 line-through" : "font-semibold"}>
-          {plannedTarget(plan)}
-        </div>
+      {/* Badge + date + status */}
+      <div className="flex items-center gap-2 flex-wrap mb-1.5">
+        <TypeBadge type={plan.type} />
+        <span className="font-mono text-sm font-semibold">
+          {formatDate(plan.date)}
+        </span>
         {done && (
-          <div className="text-ink font-semibold mt-0.5">
-            {actualSummary(plan)}
-          </div>
+          <span className="text-[10px] uppercase tracking-[0.2em] text-emerald-700 flex items-center gap-1">
+            <CheckCircleIcon weight="fill" className="h-3.5 w-3.5" />
+            feito
+          </span>
         )}
-        {plan.paceTargetSec && !done && (
-          <div className="text-ink/60 text-xs mt-1">
-            {paceString(plan.paceTargetSec)}
-          </div>
+        {skipped && (
+          <span className="text-[10px] uppercase tracking-[0.2em] text-ink/50 flex items-center gap-1">
+            <MinusCircleIcon className="h-3.5 w-3.5" />
+            pulado
+          </span>
         )}
-        {!done && unlocked && <DeletePlanButton plan={plan} />}
+        {plan.garminWorkoutId && !done && (
+          <a
+            href={`https://connect.garmin.com/app/workout/${plan.garminWorkoutId}?workoutType=running`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-[10px] uppercase tracking-[0.2em] text-ink/50 hover:text-ink flex items-center gap-1"
+            title="Abrir este treino no Garmin Connect"
+          >
+            <WatchIcon className="h-3.5 w-3.5" />
+            garmin
+            <ArrowSquareOutIcon className="h-3 w-3" />
+          </a>
+        )}
       </div>
+
+      {/* Stats */}
+      <div className="font-mono text-sm mb-1 flex items-baseline gap-2 flex-wrap">
+        {done ? (
+          <>
+            <span className="text-ink/40 line-through text-xs">
+              {plannedTarget(plan)}
+            </span>
+            <span className="font-semibold">{actualSummary(plan)}</span>
+          </>
+        ) : (
+          <>
+            <span className="font-semibold">{plannedTarget(plan)}</span>
+            {plan.paceTargetSec && (
+              <span className="text-ink/60 text-xs">
+                {paceString(plan.paceTargetSec)}
+              </span>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Notes */}
+      {plan.notes && (
+        <p className="text-sm text-ink/70 whitespace-pre-wrap">
+          {plan.notes}
+        </p>
+      )}
+
+      {/* Delete */}
+      {!done && unlocked && <DeletePlanButton plan={plan} />}
     </li>
   );
 }

@@ -67,25 +67,25 @@ export default function Activities({
 
   return (
     <section>
-      <div className="mb-2 flex items-center justify-between gap-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-xs uppercase tracking-[0.2em] text-ink/60">
           Totais
         </h2>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <ToggleGroup
             value={[range]}
             onValueChange={(v) => {
               const next = v[0] as Range | undefined;
               if (next) setRange(next);
             }}
-            className="flex gap-1 text-[10px] uppercase tracking-[0.2em] font-medium"
+            className="flex gap-0.5 text-[10px] uppercase tracking-[0.2em] font-medium"
           >
             {RANGES.map((r) => (
               <Toggle
                 key={r}
                 value={r}
                 aria-label={RANGE_LABELS[r]}
-                className="px-2.5 py-1 rounded-md text-ink/60 hover:text-ink data-[pressed]:bg-accent data-[pressed]:text-white"
+                className="px-2 py-1 rounded-md text-ink/60 hover:text-ink data-[pressed]:bg-accent data-[pressed]:text-white"
               >
                 {RANGE_LABELS[r]}
               </Toggle>
@@ -202,46 +202,54 @@ function ActivityRow({
 }) {
   return (
     <li
-      className="px-5 py-4 flex items-baseline justify-between gap-6 hover:bg-paper-2"
+      className="px-4 py-3 hover:bg-paper-2"
       onMouseEnter={onPrefetch}
       onFocus={onPrefetch}
       onTouchStart={onPrefetch}
     >
-      <div className="min-w-0 flex-1">
-        <div className="font-semibold truncate flex items-center gap-2">
-          <button
-            onClick={onSelect}
-            className="truncate text-left hover:underline underline-offset-2"
-          >
-            {a.name}
-          </button>
+      {/* Name + icons */}
+      <div className="flex items-start gap-2 mb-0.5">
+        <button
+          onClick={onSelect}
+          className="font-semibold text-left hover:underline underline-offset-2 flex-1"
+        >
+          {a.name}
+        </button>
+        <div className="flex items-center gap-1 shrink-0 pt-0.5">
           {isTreadmill(a) && <TreadmillIcon />}
           <StravaLink source={a.source} externalId={a.externalId} />
         </div>
-        <div className="text-xs uppercase tracking-wider text-ink/50 mt-1">
-          {date(a.startDate)} · {a.sportType}
-        </div>
       </div>
-      <div className="text-right shrink-0 font-mono text-sm">
-        <button onClick={onSelect} className="font-semibold hover:underline underline-offset-2">
+
+      {/* Date + sport */}
+      <div className="text-xs uppercase tracking-wider text-ink/50 mb-1">
+        {date(a.startDate)} · {a.sportType}
+      </div>
+
+      {/* Stats */}
+      <div className="font-mono text-sm flex items-center gap-x-2 flex-wrap">
+        <button
+          onClick={onSelect}
+          className="font-semibold hover:underline underline-offset-2"
+        >
           {km(a.distance)} <span className="text-ink/40">km</span>
         </button>
-        <div className="text-ink/60 text-xs mt-1 flex items-center justify-end gap-2">
-          <span>{duration(a.movingTime)}</span>
-          <span>·</span>
-          <span>{pace(a.distance, a.movingTime)}</span>
-          {a.avgHr && (
-            <>
-              <span>·</span>
-              <span className="flex items-center gap-0.5">
-                <HeartbeatIcon className="h-3 w-3" />
-                {Math.round(a.avgHr)} bpm
-              </span>
-            </>
-          )}
-        </div>
-        {unlocked && <DeleteActivityButton activity={a} />}
+        <span className="text-ink/30">·</span>
+        <span className="text-ink/60 text-xs">{duration(a.movingTime)}</span>
+        <span className="text-ink/30">·</span>
+        <span className="text-ink/60 text-xs">{pace(a.distance, a.movingTime)}</span>
+        {a.avgHr && (
+          <>
+            <span className="text-ink/30">·</span>
+            <span className="text-ink/60 text-xs flex items-center gap-0.5">
+              <HeartbeatIcon className="h-3 w-3" />
+              {Math.round(a.avgHr)} bpm
+            </span>
+          </>
+        )}
       </div>
+
+      {unlocked && <DeleteActivityButton activity={a} />}
     </li>
   );
 }
@@ -317,12 +325,12 @@ function StatBox({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="bg-card px-5 py-4">
-      <div className="text-[10px] uppercase tracking-[0.2em] text-ink/60 flex items-center gap-1.5">
+    <div className="bg-card px-3 py-3">
+      <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.15em] sm:tracking-[0.2em] text-ink/60 flex items-center gap-1 leading-tight">
         {icon}
-        {label}
+        <span>{label}</span>
       </div>
-      <div className="text-2xl font-bold font-mono mt-1">{value}</div>
+      <div className="text-xl sm:text-2xl font-bold font-mono mt-1 leading-none">{value}</div>
     </div>
   );
 }
