@@ -390,7 +390,9 @@ async function garminFetch<T>(
     const body = await res.text().catch(() => "");
     throw new Error(`Garmin ${url} -> ${res.status} ${body}`);
   }
-  return (await res.json()) as T;
+  // Some endpoints (DELETE, schedule) reply with an empty body — don't choke.
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 // --- workout building --------------------------------------------------------
@@ -476,6 +478,27 @@ function paceTarget(secPerKm: number, marginSecPerKm: number): Json {
   };
 }
 
+/**
+ * Pace target from an explicit band (faster + slower bound, both sec/km). Used
+ * when the prescription gives a range like "4:30–4:45/km" directly, so we don't
+ * widen it with a margin the way {@link paceTarget} does for a single pace.
+ */
+function paceTargetRange(fasterSecPerKm: number, slowerSecPerKm: number): Json {
+  // Guard against a swapped band: faster must be the smaller sec/km.
+  const fast = Math.min(fasterSecPerKm, slowerSecPerKm);
+  const slow = Math.max(fasterSecPerKm, slowerSecPerKm);
+  return {
+    targetType: {
+      workoutTargetTypeId: 6,
+      workoutTargetTypeKey: "pace.zone",
+      displayOrder: 6,
+    },
+    targetValueOne: 1000 / slow, // slowest speed (m/s)
+    targetValueTwo: 1000 / fast, // fastest speed (m/s)
+    targetValueUnit: null,
+  };
+}
+
 const NO_TARGET: Json = {
   targetType: {
     workoutTargetTypeId: 1,
@@ -533,13 +556,155 @@ export function buildWorkout(input: WorkoutInput): Json {
   };
 }
 
+// --- structured workouts -----------------------------------------------------
+//
+// A richer model than WorkoutInput: a flat sequence of *elements*, where each
+// element is either a single step or a repeat block (Garmin "5x …"). This is
+// what the LLM interpreter emits from a plan's free-text prescription, and what
+// gets cached on the PlannedRun. Pace can be given as an explicit band
+// (paceFastSec/paceSlowSec, sec/km) or a single center pace (paceTargetSec).
+
+export type StepSpec = {
+  kind: StepKind;
+  duration: Duration;
+  /** Single center pace, sec/km. A ± margin is applied at build time. */
+  paceTargetSec?: number;
+  /** Explicit faster bound of a pace band, sec/km (the smaller number). */
+  paceFastSec?: number;
+  /** Explicit slower bound of a pace band, sec/km (the larger number). */
+  paceSlowSec?: number;
+  notes?: string;
+};
+
+/**
+ * One element of a structured workout: a single step, OR a repeat block when
+ * `repeat`/`steps` are set (e.g. 5x [run 1000m, recovery 2min]). The two forms
+ * are mutually exclusive — a repeat element ignores the top-level step fields.
+ */
+export type WorkoutElement = Partial<StepSpec> & {
+  repeat?: number;
+  steps?: StepSpec[];
+};
+
+export type StructuredWorkout = {
+  name: string;
+  description?: string;
+  elements: WorkoutElement[];
+};
+
+function specTarget(s: StepSpec, margin: number): Json {
+  if (
+    s.paceFastSec &&
+    s.paceFastSec > 0 &&
+    s.paceSlowSec &&
+    s.paceSlowSec > 0
+  ) {
+    return paceTargetRange(s.paceFastSec, s.paceSlowSec);
+  }
+  if (s.paceTargetSec && s.paceTargetSec > 0) {
+    return paceTarget(s.paceTargetSec, margin);
+  }
+  return NO_TARGET;
+}
+
+/**
+ * Build the Garmin IWorkoutDetail payload from a structured workout, emitting
+ * RepeatGroupDTO blocks so reps render as "5x …" on the watch. stepId/stepOrder
+ * are a single running counter across the whole workout (the repeat group itself
+ * consumes one); each repeat block gets a distinct childStepId that its nested
+ * steps share. `paceMargin` widens a single center pace (sec/km).
+ */
+export function buildStructuredWorkout(
+  w: StructuredWorkout,
+  opts: { paceMargin?: number } = {},
+): Json {
+  const margin = opts.paceMargin ?? 8;
+  let stepId = 0;
+  let groupId = 0;
+
+  const executable = (s: StepSpec, childStepId: number | null): Json => {
+    stepId++;
+    return {
+      type: "ExecutableStepDTO",
+      stepId,
+      stepOrder: stepId,
+      stepType: STEP_TYPE[s.kind],
+      childStepId,
+      description: s.notes ?? null,
+      ...endCondition(s.duration),
+      ...specTarget(s, margin),
+    };
+  };
+
+  const steps: Json[] = [];
+  for (const el of w.elements) {
+    if (el.repeat && el.repeat > 1 && el.steps && el.steps.length > 0) {
+      stepId++;
+      const repeatStepId = stepId;
+      groupId++;
+      const childStepId = groupId;
+      const children = el.steps.map((s) => executable(s, childStepId));
+      // "5x1000m com 2min de trote" means rest *between* reps, so drop the
+      // trailing recovery/rest after the final rep when the block ends on one.
+      const last = el.steps[el.steps.length - 1];
+      const skipLastRestStep =
+        last?.kind === "recovery" || last?.kind === "rest";
+      steps.push({
+        type: "RepeatGroupDTO",
+        stepId: repeatStepId,
+        stepOrder: repeatStepId,
+        stepType: { stepTypeId: 6, stepTypeKey: "repeat", displayOrder: 6 },
+        childStepId,
+        numberOfIterations: el.repeat,
+        smartRepeat: false,
+        skipLastRestStep,
+        endCondition: {
+          conditionTypeId: 7,
+          conditionTypeKey: "iterations",
+          displayOrder: 7,
+          displayable: false,
+        },
+        endConditionValue: el.repeat,
+        preferredEndConditionUnit: null,
+        workoutSteps: children,
+      });
+    } else if (el.kind && el.duration) {
+      steps.push(executable(el as StepSpec, null));
+    }
+    // Elements that are neither a valid repeat nor a valid step are skipped.
+  }
+
+  return {
+    sportType: RUNNING_SPORT,
+    subSportType: null,
+    workoutName: w.name,
+    description: w.description ?? null,
+    estimatedDistanceUnit: { unitKey: null },
+    avgTrainingSpeed: null,
+    estimatedDurationInSecs: 0,
+    estimatedDistanceInMeters: 0,
+    estimateType: null,
+    isWheelchair: false,
+    workoutSegments: [
+      {
+        segmentOrder: 1,
+        sportType: RUNNING_SPORT,
+        workoutSteps: steps,
+      },
+    ],
+  };
+}
+
 /**
  * Map one of this app's PlannedRun rows to a Garmin running workout.
  *
- * The plan model is a single prescribed run (no structured reps), so we emit a
- * single run step: ended by distance if set, else by time, else lap-button.
- * A pace target is attached when the plan carries one. `paceMargin` widens the
- * pace band (sec/km) so the watch alert isn't impossibly tight.
+ * The base plan model is a single prescribed run (no structured reps), so we
+ * emit a single run step: ended by distance if set, else by time, else
+ * lap-button. A pace target is attached when the plan carries one. `paceMargin`
+ * widens the pace band (sec/km) so the watch alert isn't impossibly tight.
+ *
+ * This is the fallback path; structured interval workouts are built from a
+ * {@link StructuredWorkout} via {@link buildStructuredWorkout} instead.
  */
 export function planToWorkout(
   plan: PlannedRun,
@@ -569,15 +734,28 @@ export function planToWorkout(
 
 export type CreatedWorkout = { workoutId: number; workoutName: string };
 
+/**
+ * Normalise the three accepted forms into the raw Garmin payload:
+ *   - StructuredWorkout (has `elements`) -> buildStructuredWorkout
+ *   - WorkoutInput (has `steps`)         -> buildWorkout
+ *   - already-built Json                 -> passed through
+ */
+function toWorkoutPayload(
+  workout: WorkoutInput | StructuredWorkout | Json,
+): Json {
+  if ("elements" in workout)
+    return buildStructuredWorkout(workout as StructuredWorkout);
+  if ("steps" in workout) return buildWorkout(workout as WorkoutInput);
+  return workout as Json;
+}
+
 export async function createWorkout(
-  workout: WorkoutInput | Json,
+  workout: WorkoutInput | StructuredWorkout | Json,
   accessToken: string,
 ): Promise<CreatedWorkout> {
-  const payload =
-    "steps" in workout ? buildWorkout(workout as WorkoutInput) : workout;
   return garminFetch<CreatedWorkout>(WORKOUT_URL(), accessToken, {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(toWorkoutPayload(workout)),
   });
 }
 
@@ -587,14 +765,40 @@ export async function createWorkout(
  */
 export async function updateWorkout(
   workoutId: number,
-  workout: WorkoutInput | Json,
+  workout: WorkoutInput | StructuredWorkout | Json,
   accessToken: string,
 ): Promise<CreatedWorkout> {
-  const payload =
-    "steps" in workout ? buildWorkout(workout as WorkoutInput) : workout;
-  return garminFetch<CreatedWorkout>(WORKOUT_URL(workoutId), accessToken, {
-    method: "PUT",
-    body: JSON.stringify({ ...payload, workoutId }),
+  const payload = toWorkoutPayload(workout);
+  const res = await garminFetch<CreatedWorkout | undefined>(
+    WORKOUT_URL(workoutId),
+    accessToken,
+    {
+      method: "PUT",
+      body: JSON.stringify({ ...payload, workoutId }),
+    },
+  );
+  // A successful PUT replies 204 with no body — synthesise a result from what
+  // we sent so callers always get a usable { workoutId, workoutName }.
+  return res ?? { workoutId, workoutName: String(payload.workoutName ?? "") };
+}
+
+/** Fetch a workout's full detail payload (used to inspect what Garmin stored). */
+export async function getWorkout(
+  workoutId: number,
+  accessToken: string,
+): Promise<Json> {
+  return garminFetch<Json>(WORKOUT_URL(workoutId), accessToken, {
+    method: "GET",
+  });
+}
+
+/** Delete a workout (and any calendar schedule for it). */
+export async function deleteWorkout(
+  workoutId: number,
+  accessToken: string,
+): Promise<unknown> {
+  return garminFetch(WORKOUT_URL(workoutId), accessToken, {
+    method: "DELETE",
   });
 }
 

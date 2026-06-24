@@ -41,10 +41,10 @@ import {
 import {
   createWorkout,
   getValidAccessToken as getGarminAccessToken,
-  planToWorkout,
   scheduleWorkout,
   updateWorkout,
 } from "@run/core/garmin";
+import { resolvePlanWorkouts } from "./garmin/resolve.ts";
 import { isAuthorized } from "./lib/auth.ts";
 
 // Read endpoints: let the browser (and any private cache) serve repeats for a
@@ -313,13 +313,17 @@ app.post("/garmin/push", async (c) => {
   } catch (e) {
     return c.json({ error: `garmin auth: ${(e as Error).message}` }, 502);
   }
-  for (const p of plans) {
+  // Interpret all prescriptions up front (bounded concurrency), then write to
+  // Garmin sequentially to avoid hammering the unofficial API.
+  const workouts = await resolvePlanWorkouts(plans);
+  for (let i = 0; i < plans.length; i++) {
+    const p = plans[i]!;
     try {
       if (p.garminWorkoutId) {
-        await updateWorkout(p.garminWorkoutId, planToWorkout(p), token);
+        await updateWorkout(p.garminWorkoutId, workouts[i]!, token);
         result.updated++;
       } else {
-        const w = await createWorkout(planToWorkout(p), token);
+        const w = await createWorkout(workouts[i]!, token);
         await scheduleWorkout(w.workoutId, p.date, token);
         await updatePlan(p.date, p.id, { garminWorkoutId: w.workoutId });
         result.created++;

@@ -3,10 +3,10 @@ import {
   createWorkout,
   updateWorkout,
   scheduleWorkout,
-  planToWorkout,
 } from "@run/core/garmin";
 import { listPlans } from "@run/core/plan";
 import { updatePlan } from "@run/core/plan";
+import { resolvePlanWorkout } from "../garmin/resolve.ts";
 
 /**
  * Push planned runs to Garmin Connect as scheduled workouts.
@@ -53,9 +53,10 @@ async function main() {
 
   if (dry) {
     for (const p of plans) {
-      console.log(`  ${p.date}  ${JSON.stringify(planToWorkout(p))}`);
+      const w = await resolvePlanWorkout(p);
+      console.log(`  ${p.date}  ${JSON.stringify(w)}`);
     }
-    console.log("dry run — nothing sent.");
+    console.log("dry run — interpreter ran (and cached); nothing sent to Garmin.");
     return;
   }
 
@@ -67,13 +68,14 @@ async function main() {
   const errors: string[] = [];
   for (const p of plans) {
     try {
+      const workout = await resolvePlanWorkout(p);
       if (p.garminWorkoutId) {
         // Already on Garmin — overwrite in place so title/step edits re-sync.
-        const w = await updateWorkout(p.garminWorkoutId, planToWorkout(p), token);
+        const w = await updateWorkout(p.garminWorkoutId, workout, token);
         updated++;
         console.log(`  ~ ${p.date}  #${p.garminWorkoutId}  ${w.workoutName}`);
       } else {
-        const w = await createWorkout(planToWorkout(p), token);
+        const w = await createWorkout(workout, token);
         // Stamp the id so future pushes update instead of duplicating.
         await updatePlan(p.date, p.id, { garminWorkoutId: w.workoutId });
         created++;

@@ -8,6 +8,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { ddb, tableName } from "./db.ts";
 import { userPk, USER_ID } from "./user.ts";
+import type { StructuredWorkout } from "./garmin.ts";
 
 export type PlannedRunType =
   | "easy"
@@ -33,6 +34,12 @@ export type PlannedRun = {
   // Set once the plan has been pushed to Garmin Connect as a workout, so the
   // push is idempotent (re-pushing skips plans that already have an id).
   garminWorkoutId?: number;
+  // Structured Garmin workout (warmup/repeats/recovery/cooldown) interpreted
+  // from the free-text prescription by the LLM, cached so we don't re-interpret
+  // on every push. `workoutHash` fingerprints the source fields it was built
+  // from; when they change the cache is stale and we re-interpret.
+  workout?: StructuredWorkout;
+  workoutHash?: string;
   // Snapshot of the matching Activity, denormalized so the Plan page never
   // needs a second roundtrip. If the source activity is later updated, the
   // snapshot may drift — we accept that for personal-use simplicity.
@@ -135,6 +142,8 @@ export async function updatePlan(
       | "shortTitle"
       | "status"
       | "garminWorkoutId"
+      | "workout"
+      | "workoutHash"
       | "actualSource"
       | "actualExternalId"
       | "actualStartDate"
