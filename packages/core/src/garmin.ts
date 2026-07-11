@@ -813,3 +813,92 @@ export async function scheduleWorkout(
     body: JSON.stringify({ date }),
   });
 }
+
+// --- activity reads ----------------------------------------------------------
+//
+// Garmin has no push/webhook on this unofficial API, so activities are pulled:
+// list recent activities, then fetch per-activity sample streams for the ones
+// we don't have yet. Endpoints mirror what Garmin Connect Mobile calls.
+
+const ACTIVITYLIST_URL = (start: number, limit: number) =>
+  `${GC_API}/activitylist-service/activities/search/activities?start=${start}&limit=${limit}`;
+const ACTIVITY_DETAILS_URL = (id: number | string, maxChart: number) =>
+  `${GC_API}/activity-service/activity/${id}/details?maxChartSize=${maxChart}&maxPolylineSize=${maxChart}`;
+
+/**
+ * Activity summary as returned by the list endpoint. Only the fields we consume
+ * are typed; the payload carries many more. Times are Garmin's naive strings
+ * (`"2024-06-01 09:30:00"`), distance/speed in metric base units (m, m/s).
+ */
+export type GarminActivitySummary = {
+  activityId: number;
+  activityName: string | null;
+  activityType: { typeKey: string };
+  startTimeGMT: string; // "YYYY-MM-DD HH:mm:ss" in UTC, no zone suffix
+  startTimeLocal: string;
+  distance: number; // meters
+  duration: number; // elapsed seconds
+  movingDuration: number | null;
+  elapsedDuration: number | null;
+  elevationGain: number | null;
+  averageSpeed: number | null; // m/s
+  maxSpeed: number | null;
+  averageHR: number | null;
+  maxHR: number | null;
+  averageRunningCadenceInStepsPerMinute: number | null;
+  hasPolyline?: boolean;
+};
+
+export type GarminActivityDetails = {
+  activityId: number;
+  metricDescriptors: { metricsIndex: number; key: string }[];
+  activityDetailMetrics: { metrics: (number | null)[] }[];
+};
+
+/** List activities newest-first. `start` is an offset for paging. */
+export async function fetchActivities(
+  accessToken: string,
+  opts: { start?: number; limit?: number } = {},
+): Promise<GarminActivitySummary[]> {
+  const start = opts.start ?? 0;
+  const limit = opts.limit ?? 20;
+  return garminFetch<GarminActivitySummary[]>(
+    ACTIVITYLIST_URL(start, limit),
+    accessToken,
+    { method: "GET" },
+  );
+}
+
+/** Fetch one activity's per-sample metric streams (for the pace/HR chart). */
+export async function fetchActivityDetails(
+  activityId: number | string,
+  accessToken: string,
+  maxChart = 2000,
+): Promise<GarminActivityDetails> {
+  return garminFetch<GarminActivityDetails>(
+    ACTIVITY_DETAILS_URL(activityId, maxChart),
+    accessToken,
+    { method: "GET" },
+  );
+}
+
+/** Parse Garmin's naive-UTC start string to epoch seconds. */
+export function garminStartEpochSec(startTimeGMT: string): number {
+  // "2024-06-01 09:30:00" -> ISO with explicit UTC zone.
+  return Math.floor(new Date(startTimeGMT.replace(" ", "T") + "Z").getTime() / 1000);
+}
+
+const GARMIN_RUN_TYPE_KEYS = new Set([
+  "running",
+  "treadmill_running",
+  "indoor_running",
+  "trail_running",
+  "track_running",
+  "virtual_run",
+  "obstacle_run",
+]);
+
+/** True when a Garmin activity type is a run we want to import. */
+export function isGarminRun(typeKey: string): boolean {
+  return GARMIN_RUN_TYPE_KEYS.has(typeKey);
+}

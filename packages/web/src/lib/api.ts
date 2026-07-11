@@ -126,6 +126,18 @@ export async function syncStrava(days = 30): Promise<SyncResult> {
   return (await res.json()) as SyncResult;
 }
 
+export async function syncGarmin(days = 30): Promise<SyncResult> {
+  const res = await fetch(`${BASE}/garmin/sync?days=${days}`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `garmin sync ${res.status}`);
+  }
+  return (await res.json()) as SyncResult;
+}
+
 export type GarminPushResult = {
   created: number;
   updated: number;

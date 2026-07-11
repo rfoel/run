@@ -13,6 +13,7 @@ import {
   listPlans,
   pushGarmin,
   resyncActivity,
+  syncGarmin,
   syncStrava,
   type ActivityDetail,
   type WorkoutAnalysis,
@@ -76,6 +77,18 @@ export function useSyncStrava() {
   return useMutation({
     mutationFn: (days: number) => syncStrava(days),
     // Sync imports activities, recomputes stats, and links plans.
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["activities"] });
+      void qc.invalidateQueries({ queryKey: ["stats"] });
+      void qc.invalidateQueries({ queryKey: ["plans"] });
+    },
+  });
+}
+
+export function useSyncGarmin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (days: number) => syncGarmin(days),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["activities"] });
       void qc.invalidateQueries({ queryKey: ["stats"] });

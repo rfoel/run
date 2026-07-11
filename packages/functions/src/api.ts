@@ -40,10 +40,15 @@ import {
 } from "@run/core/strava";
 import {
   createWorkout,
+  fetchActivities as fetchGarminActivities,
+  fetchActivityDetails as fetchGarminActivityDetails,
+  garminStartEpochSec,
   getValidAccessToken as getGarminAccessToken,
+  isGarminRun,
   scheduleWorkout,
   updateWorkout,
 } from "@run/core/garmin";
+import { detailsToTrack, garminMetrics } from "@run/core/parsers/garmin";
 import { resolvePlanWorkouts } from "./garmin/resolve.ts";
 import { isAuthorized } from "./lib/auth.ts";
 
@@ -287,6 +292,90 @@ app.post("/strava/sync", async (c) => {
   return c.json(result);
 });
 
+// ---- Garmin sync ----------------------------------------------------------
+// Pull recent runs from Garmin Connect (no webhook on the unofficial API, so
+// this is polled). Newest-first paging stops once we pass the lookback window.
+// Treadmill/indoor runs import too: their detail samples have no GPS but carry
+// a distance stream, and buildActivity flags a missing polyline as indoor.
+app.post("/garmin/sync", async (c) => {
+  if (!isAuthorized(c.req.header())) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const days = Number(c.req.query("days") ?? 30);
+  const cutoff = Math.floor(Date.now() / 1000) - days * 86400;
+
+  let token: string;
+  try {
+    token = await getGarminAccessToken();
+  } catch (e) {
+    return c.json({ error: `garmin auth: ${(e as Error).message}` }, 502);
+  }
+
+  const result: SyncResult = {
+    fetched: 0,
+    imported: 0,
+    skipped: 0,
+    linked: 0,
+    errors: [],
+  };
+
+  const perPage = 20;
+  let start = 0;
+  outer: while (true) {
+    const batch = await fetchGarminActivities(token, { start, limit: perPage });
+    if (batch.length === 0) break;
+    result.fetched += batch.length;
+
+    for (const summary of batch) {
+      const startEpochSec = garminStartEpochSec(summary.startTimeGMT);
+      // List is newest-first, so once we cross the window we're done.
+      if (startEpochSec < cutoff) break outer;
+      if (!isGarminRun(summary.activityType.typeKey)) {
+        result.skipped++;
+        continue;
+      }
+      const externalId = String(summary.activityId);
+      try {
+        // Detail samples power the pace chart + splits; best-effort, since the
+        // endpoint is heavily throttled. Fall back to summary-only metrics.
+        let details;
+        try {
+          details = await fetchGarminActivityDetails(summary.activityId, token);
+        } catch {
+          details = undefined;
+        }
+        const { metrics, track } = garminMetrics(summary, details);
+        const activity = buildActivity({
+          source: "garmin",
+          externalId,
+          name: summary.activityName ?? "Corrida",
+          sportType: summary.activityType.typeKey,
+          metrics,
+        });
+        if (track) {
+          await putChartSeries("garmin", externalId, buildChartSeries(track));
+        }
+        const { created } = await putActivity(activity);
+        if (created) result.imported++;
+        else result.skipped++;
+
+        const linkedPlan = await linkActivityToPlan(activity);
+        if (linkedPlan) {
+          result.linked++;
+          const title = planTitle(linkedPlan);
+          await renameActivity("garmin", externalId, title);
+          await updatePlan(linkedPlan.date, linkedPlan.id, { actualName: title });
+        }
+      } catch (e) {
+        result.errors.push(`${externalId}: ${(e as Error).message}`);
+      }
+    }
+    start += perPage;
+  }
+
+  return c.json(result);
+});
+
 // ---- Garmin push ----------------------------------------------------------
 // Upsert each still-planned run into Garmin Connect: create + schedule the ones
 // not yet pushed, and overwrite (PUT) the ones already pushed so title/step
@@ -391,20 +480,30 @@ app.post("/activities/:source/:externalId/resync", async (c) => {
   }
   const source = c.req.param("source") as ActivitySource;
   const externalId = c.req.param("externalId");
-  if (source !== "strava") {
-    return c.json({ error: "resync only supported for strava" }, 400);
+  if (source !== "strava" && source !== "garmin") {
+    return c.json({ error: "resync only supported for strava/garmin" }, 400);
   }
   const existing = await getActivity(source, externalId);
   if (!existing) return c.json({ error: "not found" }, 404);
 
-  const accessToken = await getValidAccessToken();
-  const startEpochSec = Math.floor(
-    new Date(existing.startDate).getTime() / 1000,
-  );
-  const streams = await fetchStreams(Number(externalId), accessToken);
-  const track = streamsToTrack(streams, startEpochSec);
+  let track;
+  if (source === "strava") {
+    const accessToken = await getValidAccessToken();
+    const startEpochSec = Math.floor(
+      new Date(existing.startDate).getTime() / 1000,
+    );
+    const streams = await fetchStreams(Number(externalId), accessToken);
+    track = streamsToTrack(streams, startEpochSec);
+  } else {
+    const token = await getGarminAccessToken();
+    const startEpochSec = Math.floor(
+      new Date(existing.startDate).getTime() / 1000,
+    );
+    const details = await fetchGarminActivityDetails(externalId, token);
+    track = detailsToTrack(details, startEpochSec);
+  }
   if (track.points.length < 2) {
-    return c.json({ error: "no GPS stream for this activity" }, 422);
+    return c.json({ error: "no sample stream for this activity" }, 422);
   }
   await putChartSeries(source, externalId, buildChartSeries(track));
   return c.json({ ok: true, points: track.points.length });

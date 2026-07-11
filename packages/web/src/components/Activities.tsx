@@ -20,7 +20,7 @@ import {
   useDeleteActivity,
   usePrefetchActivityDetail,
   useStats,
-  useSyncStrava,
+  useSyncGarmin,
 } from "../lib/queries.ts";
 import { ActivitiesSkeleton } from "./Skeleton.tsx";
 import { date, duration, km, pace } from "../lib/format.ts";
@@ -46,7 +46,7 @@ export default function Activities({
   const [range, setRange] = useState<Range>("total");
   const activitiesQ = useActivities({ limit: 1000 });
   const statsQ = useStats();
-  const sync = useSyncStrava();
+  const sync = useSyncGarmin();
   const prefetch = usePrefetchActivityDetail();
 
   const items = activitiesQ.data ?? [];

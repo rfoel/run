@@ -236,8 +236,8 @@ export default function WorkoutDetail({
             <Status>
               <span className="flex flex-col items-start gap-3">
                 <span>
-                  Sem série de pace para esta corrida. Faça um re-sync no Strava
-                  para trazer o trace.
+                  Sem série de pace para esta corrida. Faça um re-sync para
+                  trazer o trace.
                 </span>
                 {unlocked && (
                   <button

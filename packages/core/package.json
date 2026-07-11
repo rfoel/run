@@ -12,6 +12,7 @@
     "./strava": "./src/strava.ts",
     "./track": "./src/track.ts",
     "./workout": "./src/workout.ts",
+    "./parsers/garmin": "./src/parsers/garmin.ts",
     "./parsers/gpx": "./src/parsers/gpx.ts",
     "./parsers/streams": "./src/parsers/streams.ts",
     "./user": "./src/user.ts"

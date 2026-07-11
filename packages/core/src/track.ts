@@ -2,8 +2,9 @@ import polyline from "@mapbox/polyline";
 
 export type TrackPoint = {
   time: number; // unix seconds
-  lat: number;
-  lon: number;
+  lat?: number; // absent for indoor/treadmill runs (no GPS)
+  lon?: number;
+  dist?: number; // cumulative meters; used when GPS is absent
   ele?: number;
   hr?: number;
   cadence?: number;
@@ -75,7 +76,7 @@ export function buildChartSeries(
   const cum: number[] = new Array(pts.length);
   cum[0] = 0;
   for (let i = 1; i < pts.length; i++) {
-    cum[i] = cum[i - 1]! + haversine(pts[i - 1]!, pts[i]!);
+    cum[i] = cum[i - 1]! + segDist(pts[i - 1]!, pts[i]!);
   }
 
   // Smoothed pace at each point from a trailing window.
@@ -122,14 +123,28 @@ export function buildChartSeries(
 
 function haversine(a: TrackPoint, b: TrackPoint) {
   const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLon = toRad(b.lon - a.lon);
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
+  const dLat = toRad(b.lat! - a.lat!);
+  const dLon = toRad(b.lon! - a.lon!);
+  const lat1 = toRad(a.lat!);
+  const lat2 = toRad(b.lat!);
   const x =
     Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
   return 2 * EARTH_RADIUS * Math.asin(Math.sqrt(x));
+}
+
+/**
+ * Distance between two samples. Prefers GPS haversine; falls back to the delta
+ * of the cumulative `dist` stream for indoor/treadmill runs with no latlng.
+ */
+function segDist(a: TrackPoint, b: TrackPoint) {
+  if (a.lat != null && a.lon != null && b.lat != null && b.lon != null) {
+    return haversine(a, b);
+  }
+  if (a.dist != null && b.dist != null) {
+    return Math.max(0, b.dist - a.dist);
+  }
+  return 0;
 }
 
 export function computeMetrics(track: Track): Metrics {
@@ -163,7 +178,7 @@ export function computeMetrics(track: Track): Metrics {
     const prev = pts[i - 1]!;
     const cur = pts[i]!;
     const dt = cur.time - prev.time;
-    const dd = haversine(prev, cur);
+    const dd = segDist(prev, cur);
     distance += dd;
 
     const moving = dt > 0 && dt <= MOVING_GAP_THRESHOLD && dd > 0;
@@ -222,7 +237,12 @@ export function computeMetrics(track: Track): Metrics {
   }
 
   const elapsedTime = last.time - first.time;
-  const encoded = polyline.encode(pts.map((p) => [p.lat, p.lon]));
+  // Only encode a polyline when the track has GPS; indoor runs have none, and
+  // a missing polyline is how the app flags an activity as indoor.
+  const hasGps = pts.some((p) => p.lat != null && p.lon != null);
+  const encoded = hasGps
+    ? polyline.encode(pts.map((p) => [p.lat!, p.lon!]))
+    : undefined;
 
   return {
     distance,

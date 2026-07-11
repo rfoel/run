@@ -126,11 +126,14 @@ export async function fetchActivities(
     `https://www.strava.com/api/v3/athlete/activities?${params}`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
   );
-  if (!res.ok) throw new Error(`Strava list failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Strava list failed: ${res.status} ${body}`);
+  }
   return (await res.json()) as StravaActivityRaw[];
 }
 
-const STREAM_KEYS = "time,latlng,altitude,heartrate,cadence";
+const STREAM_KEYS = "time,latlng,distance,altitude,heartrate,cadence";
 
 export async function fetchStreams(
   stravaId: number,
