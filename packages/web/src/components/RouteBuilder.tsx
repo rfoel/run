@@ -18,9 +18,12 @@ import { useCreateCourse } from "../lib/queries.ts";
 import { km } from "../lib/format.ts";
 import type { LatLng } from "../lib/polyline.ts";
 
-// OSRM public demo server. Free, no key; rate-limited and best-effort — fine
-// for personal routes. Swapping providers is a change to this one function.
-const OSRM = "https://router.project-osrm.org/route/v1/foot";
+// FOSSGIS-hosted OSRM with a real pedestrian profile (`routed-foot`). Unlike
+// the project-osrm.org demo (car-only — it respects one-way streets even on a
+// /foot/ URL), this ignores driving direction, which is what we want for a
+// running route. Free, no key, best-effort; swapping providers is a change to
+// this one constant.
+const OSRM = "https://routing.openstreetmap.de/routed-foot/route/v1/foot";
 
 type Snapped = { points: LatLng[]; distanceMeter: number };
 
