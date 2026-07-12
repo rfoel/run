@@ -18,12 +18,12 @@ import { useCreateCourse } from "../lib/queries.ts";
 import { km } from "../lib/format.ts";
 import type { LatLng } from "../lib/polyline.ts";
 
-// FOSSGIS-hosted OSRM with a real pedestrian profile (`routed-foot`). Unlike
-// the project-osrm.org demo (car-only — it respects one-way streets even on a
-// /foot/ URL), this ignores driving direction, which is what we want for a
+// FOSSGIS-hosted OSRM, bicycle profile. Sticks to real roads (unlike the foot
+// profile, which zig-zags onto footpaths/trails), but relaxes one-way
+// restrictions the way the car profile won't — the sweet spot for laying out a
 // running route. Free, no key, best-effort; swapping providers is a change to
 // this one constant.
-const OSRM = "https://routing.openstreetmap.de/routed-foot/route/v1/foot";
+const OSRM = "https://routing.openstreetmap.de/routed-bike/route/v1/bike";
 
 type Snapped = { points: LatLng[]; distanceMeter: number };
 
