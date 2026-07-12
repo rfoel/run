@@ -8,6 +8,7 @@
     "./db": "./src/db.ts",
     "./garmin": "./src/garmin.ts",
     "./plan": "./src/plan.ts",
+    "./route": "./src/route.ts",
     "./stats": "./src/stats.ts",
     "./strava": "./src/strava.ts",
     "./track": "./src/track.ts",

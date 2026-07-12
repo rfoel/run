@@ -184,6 +184,59 @@ export async function createCourse(input: {
   return (await res.json()) as CreatedCourse;
 }
 
+export type SavedRoute = {
+  id: string;
+  name: string;
+  polyline: string;
+  distance: number;
+  garminCourseId?: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function listSavedRoutes(): Promise<SavedRoute[]> {
+  const res = await fetch(`${BASE}/routes`);
+  if (!res.ok) throw new Error(`routes ${res.status}`);
+  return ((await res.json()) as { items: SavedRoute[] }).items;
+}
+
+export async function saveRoute(input: {
+  name: string;
+  points: { lat: number; lon: number }[];
+  distance: number;
+}): Promise<SavedRoute> {
+  const res = await fetch(`${BASE}/routes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `save ${res.status}`);
+  }
+  return (await res.json()) as SavedRoute;
+}
+
+export async function deleteSavedRoute(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/routes/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`delete ${res.status}`);
+}
+
+export async function pushRouteToGarmin(id: string): Promise<CreatedCourse> {
+  const res = await fetch(`${BASE}/routes/${id}/garmin`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `push ${res.status}`);
+  }
+  return (await res.json()) as CreatedCourse;
+}
+
 export async function resyncActivity(
   source: string,
   externalId: string,

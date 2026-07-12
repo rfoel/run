@@ -10,13 +10,21 @@ import {
 } from "react-leaflet";
 import {
   ArrowClockwiseIcon,
+  ArrowSquareOutIcon,
   ArrowUUpLeftIcon,
   CrosshairIcon,
   FloppyDiskIcon,
+  PaperPlaneRightIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
 import type { Map as LeafletMap } from "leaflet";
-import { useCreateCourse } from "../lib/queries.ts";
+import {
+  useCreateCourse,
+  useDeleteRoute,
+  usePushRouteToGarmin,
+  useSavedRoutes,
+  useSaveRoute,
+} from "../lib/queries.ts";
 import { km } from "../lib/format.ts";
 import type { LatLng } from "../lib/polyline.ts";
 
@@ -91,6 +99,10 @@ export default function RouteBuilder() {
   const [locating, setLocating] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
   const create = useCreateCourse();
+  const saveM = useSaveRoute();
+  const savedRoutes = useSavedRoutes();
+  const pushM = usePushRouteToGarmin();
+  const deleteM = useDeleteRoute();
 
   function locate() {
     if (!("geolocation" in navigator)) {
@@ -148,10 +160,27 @@ export default function RouteBuilder() {
 
   const canSave = name.trim().length > 0 && snapped.points.length >= 2;
 
-  function save() {
+  function currentPoints() {
+    return decimate(snapped.points).map(([lat, lon]) => ({ lat, lon }));
+  }
+
+  // Push straight to Garmin (does not persist in the app).
+  function sendToGarmin() {
     if (!canSave) return;
-    const points = decimate(snapped.points).map(([lat, lon]) => ({ lat, lon }));
-    create.mutate({ name: name.trim(), points });
+    create.mutate({ name: name.trim(), points: currentPoints() });
+  }
+
+  // Save in the app only; push later from the saved list.
+  function saveLocal() {
+    if (!canSave) return;
+    saveM.mutate(
+      {
+        name: name.trim(),
+        points: currentPoints(),
+        distance: snapped.distanceMeter,
+      },
+      { onSuccess: () => setName("") },
+    );
   }
 
   return (
@@ -170,13 +199,15 @@ export default function RouteBuilder() {
         pode fechar o trajeto ou use ida-e-volta.
       </p>
 
-      <div className="border border-line rounded-lg overflow-hidden bg-card shadow-sm mb-3">
+      {/* Full-bleed: break out of the page's max-w container to span the
+          viewport width. Controls below stay within the normal column. */}
+      <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen border-y border-line overflow-hidden bg-card mb-3">
         <MapContainer
           ref={setMap}
           center={DEFAULT_CENTER}
           zoom={14}
           scrollWheelZoom
-          style={{ height: 420, width: "100%", background: "var(--color-paper-2, #eee)" }}
+          style={{ height: 520, width: "100%", background: "var(--color-paper-2, #eee)" }}
           attributionControl={false}
         >
           <TileLayer
@@ -261,11 +292,19 @@ export default function RouteBuilder() {
           className="flex-1 min-w-[180px] border border-line rounded-lg px-3 py-2 text-sm bg-paper focus:outline-none focus:border-accent"
         />
         <button
-          onClick={save}
-          disabled={!canSave || create.isPending}
+          onClick={saveLocal}
+          disabled={!canSave || saveM.isPending}
           className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border border-line rounded-lg px-4 py-2 hover:bg-accent hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
         >
           <FloppyDiskIcon className="h-3.5 w-3.5" />
+          {saveM.isPending ? "salvando…" : "salvar"}
+        </button>
+        <button
+          onClick={sendToGarmin}
+          disabled={!canSave || create.isPending}
+          className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border border-line rounded-lg px-4 py-2 hover:bg-accent hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
+        >
+          <PaperPlaneRightIcon className="h-3.5 w-3.5" />
           {create.isPending ? "enviando…" : "enviar ao Garmin"}
         </button>
       </div>
@@ -287,6 +326,77 @@ export default function RouteBuilder() {
         <p className="text-xs text-red-700 mt-3">
           {(create.error as Error).message}
         </p>
+      )}
+      {saveM.isError && (
+        <p className="text-xs text-red-700 mt-3">
+          {(saveM.error as Error).message}
+        </p>
+      )}
+
+      {(savedRoutes.data?.length ?? 0) > 0 && (
+        <div className="mt-10">
+          <h2 className="text-xs uppercase tracking-[0.2em] text-ink/60 mb-3">
+            Percursos salvos
+          </h2>
+          <ul className="border border-line rounded-lg divide-y divide-line overflow-hidden">
+            {savedRoutes.data!.map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center justify-between gap-3 px-3 py-2.5 bg-card"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm truncate">{r.name}</p>
+                  <p className="font-mono text-[11px] text-ink/50">
+                    {km(r.distance)} km
+                    {r.garminCourseId ? " · no Garmin" : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {r.garminCourseId ? (
+                    <a
+                      href={`https://connect.garmin.com/modern/course/${r.garminCourseId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Abrir no Garmin Connect"
+                      className="p-1.5 rounded-md border border-line hover:bg-accent hover:text-white"
+                    >
+                      <ArrowSquareOutIcon className="h-3.5 w-3.5" />
+                    </a>
+                  ) : (
+                    <button
+                      onClick={() => pushM.mutate(r.id)}
+                      disabled={pushM.isPending}
+                      title="Enviar ao Garmin"
+                      className="p-1.5 rounded-md border border-line hover:bg-accent hover:text-white disabled:opacity-40"
+                    >
+                      <PaperPlaneRightIcon
+                        className={
+                          "h-3.5 w-3.5 " +
+                          (pushM.isPending && pushM.variables === r.id
+                            ? "animate-pulse"
+                            : "")
+                        }
+                      />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => deleteM.mutate(r.id)}
+                    disabled={deleteM.isPending}
+                    title="Apagar"
+                    className="p-1.5 rounded-md border border-line hover:bg-red-600 hover:text-white hover:border-red-600 disabled:opacity-40"
+                  >
+                    <TrashIcon className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+          {pushM.isError && (
+            <p className="text-xs text-red-700 mt-2">
+              {(pushM.error as Error).message}
+            </p>
+          )}
+        </div>
       )}
     </section>
   );

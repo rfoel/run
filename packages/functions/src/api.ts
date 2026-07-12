@@ -52,6 +52,15 @@ import {
   type CoursePoint,
 } from "@run/core/garmin";
 import { detailsToTrack, garminMetrics } from "@run/core/parsers/garmin";
+import {
+  createRoute,
+  decodeRoute,
+  deleteRoute,
+  getRoute,
+  listRoutes,
+  setRouteGarminId,
+  type RoutePoint,
+} from "@run/core/route";
 import { resolvePlanWorkouts } from "./garmin/resolve.ts";
 import { isAuthorized } from "./lib/auth.ts";
 
@@ -458,6 +467,73 @@ app.post("/courses", async (c) => {
       { name, description: body.description, points },
       token,
     );
+    return c.json({
+      courseId: created.courseId,
+      courseName: created.courseName,
+      url: courseWebUrl(created.courseId),
+    });
+  } catch (e) {
+    return c.json({ error: `course create: ${(e as Error).message}` }, 502);
+  }
+});
+
+// ---- Saved routes ---------------------------------------------------------
+// Persist drawn routes in the app so they can be kept without pushing to
+// Garmin, and pushed later. Points come pre-snapped from the web (OSRM).
+app.get("/routes", async (c) => {
+  const routes = await listRoutes();
+  c.header("Cache-Control", READ_CACHE);
+  return c.json({ items: routes });
+});
+
+app.post("/routes", async (c) => {
+  if (!isAuthorized(c.req.header())) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const body = (await c.req.json().catch(() => ({}))) as {
+    name?: string;
+    points?: RoutePoint[];
+    distance?: number;
+  };
+  const name = body.name?.trim();
+  const points = body.points ?? [];
+  if (!name) return c.json({ error: "missing name" }, 400);
+  if (points.length < 2) return c.json({ error: "need at least 2 points" }, 400);
+  const route = await createRoute({
+    name,
+    points,
+    distance: body.distance ?? 0,
+  });
+  return c.json(route);
+});
+
+app.delete("/routes/:id", async (c) => {
+  if (!isAuthorized(c.req.header())) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  await deleteRoute(c.req.param("id"));
+  return c.json({ ok: true });
+});
+
+// Push a saved route to Garmin as a course, recording the course id back on
+// the saved route so the list can link to it (and re-push is obvious).
+app.post("/routes/:id/garmin", async (c) => {
+  if (!isAuthorized(c.req.header())) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const route = await getRoute(c.req.param("id"));
+  if (!route) return c.json({ error: "not found" }, 404);
+
+  let token: string;
+  try {
+    token = await getGarminAccessToken();
+  } catch (e) {
+    return c.json({ error: `garmin auth: ${(e as Error).message}` }, 502);
+  }
+  try {
+    const points = decodeRoute(route.polyline);
+    const created = await createCourse({ name: route.name, points }, token);
+    await setRouteGarminId(route.id, created.courseId);
     return c.json({
       courseId: created.courseId,
       courseName: created.courseName,

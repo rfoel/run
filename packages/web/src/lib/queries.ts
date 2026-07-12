@@ -8,12 +8,16 @@ import {
   createCourse,
   deleteActivity,
   deletePlan,
+  deleteSavedRoute,
   getActivityDetail,
   getStats,
   listActivities,
   listPlans,
+  listSavedRoutes,
   pushGarmin,
+  pushRouteToGarmin,
   resyncActivity,
+  saveRoute,
   syncGarmin,
   syncStrava,
   type ActivityDetail,
@@ -105,6 +109,38 @@ export function useCreateCourse() {
       description?: string;
       points: { lat: number; lon: number }[];
     }) => createCourse(input),
+  });
+}
+
+export function useSavedRoutes() {
+  return useQuery({ queryKey: ["routes"], queryFn: listSavedRoutes });
+}
+
+export function useSaveRoute() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      name: string;
+      points: { lat: number; lon: number }[];
+      distance: number;
+    }) => saveRoute(input),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["routes"] }),
+  });
+}
+
+export function useDeleteRoute() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteSavedRoute(id),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["routes"] }),
+  });
+}
+
+export function usePushRouteToGarmin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => pushRouteToGarmin(id),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["routes"] }),
   });
 }
 
