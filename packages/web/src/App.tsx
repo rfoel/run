@@ -5,6 +5,7 @@ import {
   ListChecksIcon,
   LockIcon,
   LockOpenIcon,
+  MapTrifoldIcon,
   PersonSimpleRunIcon,
 } from "@phosphor-icons/react";
 import { lazy, Suspense, useEffect, useState } from "react";
@@ -32,6 +33,9 @@ const WorkoutDetail = lazy(importWorkoutDetail);
 // The factory is reused to prefetch the chunk on unlock (see effect below).
 const importChat = () => import("./components/Chat.tsx");
 const Chat = lazy(importChat);
+// Pulls in leaflet only when the route builder is opened.
+const importRouteBuilder = () => import("./components/RouteBuilder.tsx");
+const RouteBuilder = lazy(importRouteBuilder);
 import {
   clearWriteToken,
   getWriteToken,
@@ -39,7 +43,7 @@ import {
   verifyWriteToken,
 } from "./lib/api.ts";
 
-type Tab = "calendar" | "activities" | "plan" | "chat";
+type Tab = "calendar" | "activities" | "plan" | "courses" | "chat";
 
 type TabMeta = {
   path: string;
@@ -52,6 +56,12 @@ const TABS: Record<Tab, TabMeta> = {
   calendar: { path: "/calendario", label: "Calendário", Icon: CalendarBlankIcon },
   activities: { path: "/corridas", label: "Corridas", Icon: PersonSimpleRunIcon },
   plan: { path: "/plano", label: "Plano", Icon: ListChecksIcon },
+  courses: {
+    path: "/percursos",
+    label: "Percursos",
+    Icon: MapTrifoldIcon,
+    private: true,
+  },
   chat: {
     path: "/treinador",
     label: "Treinador",
@@ -60,7 +70,7 @@ const TABS: Record<Tab, TabMeta> = {
   },
 };
 
-const TAB_ORDER: Tab[] = ["calendar", "activities", "plan", "chat"];
+const TAB_ORDER: Tab[] = ["calendar", "activities", "plan", "courses", "chat"];
 
 function activeTabFor(pathname: string): Tab {
   const hit = TAB_ORDER.find(
@@ -91,7 +101,10 @@ export default function App() {
   // Warm the chat chunk as soon as it's reachable, so opening the tab is
   // instant (the screen has no data to load — only its JS to download).
   useEffect(() => {
-    if (unlocked) void importChat();
+    if (unlocked) {
+      void importChat();
+      void importRouteBuilder();
+    }
   }, [unlocked]);
 
   const visibleTabs = TAB_ORDER.filter((t) => unlocked || !TABS[t].private);
@@ -178,6 +191,18 @@ export default function App() {
             element={<WorkoutDetailRoute unlocked={unlocked} />}
           />
           <Route path="/plano" element={<Plan unlocked={unlocked} />} />
+          <Route
+            path="/percursos"
+            element={
+              unlocked ? (
+                <Suspense fallback={null}>
+                  <RouteBuilder />
+                </Suspense>
+              ) : (
+                <Navigate to="/calendario" replace />
+              )
+            }
+          />
           <Route
             path="/treinador"
             element={

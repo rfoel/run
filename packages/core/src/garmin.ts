@@ -902,3 +902,155 @@ const GARMIN_RUN_TYPE_KEYS = new Set([
 export function isGarminRun(typeKey: string): boolean {
   return GARMIN_RUN_TYPE_KEYS.has(typeKey);
 }
+
+// --- courses (navigable routes) ---------------------------------------------
+//
+// A course is a route the watch can navigate — distinct from a workout (pace /
+// interval targets). We build one from a drawn/snapped polyline and POST it to
+// the course-service. Payload shape mirrors what Garmin Connect stores (probed
+// from an existing course): geoPoints carry cumulative distance + elevation, a
+// startPoint and boundingBox summarise the route.
+
+const COURSE_URL = (id?: number | string) =>
+  id ? `${GC_API}/course-service/course/${id}` : `${GC_API}/course-service/course`;
+
+export type CoursePoint = { lat: number; lon: number; ele?: number };
+
+export type CourseInput = {
+  name: string;
+  description?: string;
+  /** Ordered, ideally road-snapped points. Elevation optional (filled if absent). */
+  points: CoursePoint[];
+};
+
+export type CreatedCourse = { courseId: number; courseName: string };
+
+const EARTH_R = 6371000;
+function haversineMeters(
+  a: { lat: number; lon: number },
+  b: { lat: number; lon: number },
+): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
+  return 2 * EARTH_R * Math.asin(Math.sqrt(s));
+}
+
+/**
+ * Best-effort elevation lookup via Open-Meteo (free, no key). Returns a
+ * parallel array of metres, or all-zero if the service is unreachable — a
+ * missing elevation profile shouldn't block course creation.
+ */
+async function fetchElevations(pts: CoursePoint[]): Promise<number[]> {
+  const out = new Array<number>(pts.length).fill(0);
+  const CHUNK = 100; // Open-Meteo caps coordinates per request
+  for (let i = 0; i < pts.length; i += CHUNK) {
+    const slice = pts.slice(i, i + CHUNK);
+    const lat = slice.map((p) => p.lat.toFixed(6)).join(",");
+    const lon = slice.map((p) => p.lon.toFixed(6)).join(",");
+    try {
+      const res = await fetch(
+        `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`,
+      );
+      if (!res.ok) continue;
+      const json = (await res.json()) as { elevation?: number[] };
+      json.elevation?.forEach((e, j) => (out[i + j] = e));
+    } catch {
+      // leave this chunk at 0
+    }
+  }
+  return out;
+}
+
+/** Build the course-service payload from an ordered point list. */
+export async function buildCoursePayload(input: CourseInput): Promise<Json> {
+  const pts = input.points;
+  if (pts.length < 2) throw new Error("course needs at least 2 points");
+
+  // Fill elevation for any point that lacks it (one batched lookup).
+  const needEle = pts.some((p) => p.ele == null);
+  const eles = needEle
+    ? await fetchElevations(pts)
+    : pts.map((p) => p.ele ?? 0);
+
+  const baseTs = Date.now();
+  let cum = 0;
+  let gain = 0;
+  let loss = 0;
+  let minLat = Infinity,
+    maxLat = -Infinity,
+    minLon = Infinity,
+    maxLon = -Infinity;
+
+  const geoPoints = pts.map((p, i) => {
+    if (i > 0) {
+      cum += haversineMeters(pts[i - 1]!, p);
+      const de = eles[i]! - eles[i - 1]!;
+      if (de > 0) gain += de;
+      else loss -= de;
+    }
+    minLat = Math.min(minLat, p.lat);
+    maxLat = Math.max(maxLat, p.lat);
+    minLon = Math.min(minLon, p.lon);
+    maxLon = Math.max(maxLon, p.lon);
+    return {
+      latitude: p.lat,
+      longitude: p.lon,
+      elevation: eles[i]!,
+      distance: cum,
+      // Synthetic timestamps (assume ~3 m/s) — the DTO carries them; a course
+      // is a route, so the exact values don't matter for navigation.
+      timestamp: baseTs + Math.round((cum / 3) * 1000),
+    };
+  });
+
+  const startPoint = geoPoints[0];
+  return {
+    courseName: input.name,
+    description: input.description ?? "",
+    rulePK: 2, // privacy: 1-public, 2-private, 4-group
+    activityTypePk: 1, // running
+    sourceTypeId: 3, // user-created
+    distanceMeter: cum,
+    elevationGainMeter: gain,
+    elevationLossMeter: loss,
+    coordinateSystem: "WGS84",
+    targetCoordinateSystem: "WGS84",
+    originalCoordinateSystem: "WGS84",
+    startPoint,
+    boundingBox: {
+      lowerLeft: { latitude: minLat, longitude: minLon },
+      upperRight: { latitude: maxLat, longitude: maxLon },
+    },
+    includeLaps: false,
+    geoPoints,
+  };
+}
+
+/** Create a Garmin course from a point list. */
+export async function createCourse(
+  input: CourseInput,
+  accessToken: string,
+): Promise<CreatedCourse> {
+  const payload = await buildCoursePayload(input);
+  return garminFetch<CreatedCourse>(COURSE_URL(), accessToken, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Delete a course by id. */
+export async function deleteCourse(
+  courseId: number | string,
+  accessToken: string,
+): Promise<unknown> {
+  return garminFetch(COURSE_URL(courseId), accessToken, { method: "DELETE" });
+}
+
+/** Public Garmin Connect URL for a course. */
+export function courseWebUrl(courseId: number | string): string {
+  return `https://connect.garmin.com/modern/course/${courseId}`;
+}

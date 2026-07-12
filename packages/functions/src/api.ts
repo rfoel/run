@@ -39,6 +39,8 @@ import {
   updateActivityName,
 } from "@run/core/strava";
 import {
+  courseWebUrl,
+  createCourse,
   createWorkout,
   fetchActivities as fetchGarminActivities,
   fetchActivityDetails as fetchGarminActivityDetails,
@@ -47,6 +49,7 @@ import {
   isGarminRun,
   scheduleWorkout,
   updateWorkout,
+  type CoursePoint,
 } from "@run/core/garmin";
 import { detailsToTrack, garminMetrics } from "@run/core/parsers/garmin";
 import { resolvePlanWorkouts } from "./garmin/resolve.ts";
@@ -423,6 +426,46 @@ app.post("/garmin/push", async (c) => {
   }
 
   return c.json(result);
+});
+
+// ---- Garmin courses -------------------------------------------------------
+// Create a navigable route on Garmin Connect from a drawn/snapped point list.
+// The web builds points with OSRM (road-snapping); elevation is filled server
+// -side. Returns the new course id + its Garmin Connect URL.
+app.post("/courses", async (c) => {
+  if (!isAuthorized(c.req.header())) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const body = (await c.req.json().catch(() => ({}))) as {
+    name?: string;
+    description?: string;
+    points?: CoursePoint[];
+  };
+  const name = body.name?.trim();
+  const points = body.points ?? [];
+  if (!name) return c.json({ error: "missing name" }, 400);
+  if (points.length < 2) return c.json({ error: "need at least 2 points" }, 400);
+  if (points.length > 5000) return c.json({ error: "too many points" }, 400);
+
+  let token: string;
+  try {
+    token = await getGarminAccessToken();
+  } catch (e) {
+    return c.json({ error: `garmin auth: ${(e as Error).message}` }, 502);
+  }
+  try {
+    const created = await createCourse(
+      { name, description: body.description, points },
+      token,
+    );
+    return c.json({
+      courseId: created.courseId,
+      courseName: created.courseName,
+      url: courseWebUrl(created.courseId),
+    });
+  } catch (e) {
+    return c.json({ error: `course create: ${(e as Error).message}` }, 502);
+  }
 });
 
 // ---- Activities -----------------------------------------------------------

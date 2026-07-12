@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-query";
 import {
   analyzeWorkout,
+  createCourse,
   deleteActivity,
   deletePlan,
   getActivityDetail,
@@ -94,6 +95,16 @@ export function useSyncGarmin() {
       void qc.invalidateQueries({ queryKey: ["stats"] });
       void qc.invalidateQueries({ queryKey: ["plans"] });
     },
+  });
+}
+
+export function useCreateCourse() {
+  return useMutation({
+    mutationFn: (input: {
+      name: string;
+      description?: string;
+      points: { lat: number; lon: number }[];
+    }) => createCourse(input),
   });
 }
 

@@ -161,6 +161,29 @@ export async function pushGarmin(
   return (await res.json()) as GarminPushResult;
 }
 
+export type CreatedCourse = {
+  courseId: number;
+  courseName: string;
+  url: string;
+};
+
+export async function createCourse(input: {
+  name: string;
+  description?: string;
+  points: { lat: number; lon: number }[];
+}): Promise<CreatedCourse> {
+  const res = await fetch(`${BASE}/courses`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `course ${res.status}`);
+  }
+  return (await res.json()) as CreatedCourse;
+}
+
 export async function resyncActivity(
   source: string,
   externalId: string,
