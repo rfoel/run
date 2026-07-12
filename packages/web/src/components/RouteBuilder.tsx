@@ -25,9 +25,11 @@ import {
   usePushRouteToGarmin,
   useSavedRoutes,
   useSaveRoute,
+  useUpdateRoute,
 } from "../lib/queries.ts";
 import { km } from "../lib/format.ts";
-import type { LatLng } from "../lib/polyline.ts";
+import { decodePolyline, type LatLng } from "../lib/polyline.ts";
+import type { SavedRoute } from "../lib/api.ts";
 
 // FOSSGIS-hosted OSRM, bicycle profile. Sticks to real roads (unlike the foot
 // profile, which zig-zags onto footpaths/trails), but relaxes one-way
@@ -76,15 +78,21 @@ function ClickCapture({ onAdd }: { onAdd: (ll: LatLng) => void }) {
   return null;
 }
 
-/** Pan/zoom to fit the drawn route the first time it appears. */
-function FitToRoute({ points }: { points: LatLng[] }) {
+/**
+ * Pan/zoom to fit the drawn route: once when it first appears, and again
+ * whenever `nonce` changes (e.g. a saved route is loaded).
+ */
+function FitToRoute({ points, nonce }: { points: LatLng[]; nonce: number }) {
   const map = useMap();
   const fitted = useRef(false);
+  const lastNonce = useRef(nonce);
   useEffect(() => {
-    if (points.length < 2 || fitted.current) return;
+    if (points.length < 2) return;
+    if (fitted.current && lastNonce.current === nonce) return;
     map.fitBounds(points as [number, number][], { padding: [24, 24] });
     fitted.current = true;
-  }, [points, map]);
+    lastNonce.current = nonce;
+  }, [points, map, nonce]);
   return null;
 }
 
@@ -120,11 +128,34 @@ export default function RouteBuilder() {
   const [locating, setLocating] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [myPosition, setMyPosition] = useState<LatLng | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [fitNonce, setFitNonce] = useState(0);
   const create = useCreateCourse();
   const saveM = useSaveRoute();
+  const updateM = useUpdateRoute();
   const savedRoutes = useSavedRoutes();
   const pushM = usePushRouteToGarmin();
   const deleteM = useDeleteRoute();
+
+  // Load a saved route into the builder for viewing/editing. Prefer its stored
+  // anchor waypoints; older routes without them get coarse anchors derived from
+  // the snapped line so they're still editable (re-snapping reconstructs it).
+  function loadRoute(r: SavedRoute) {
+    const anchors = r.waypoints
+      ? decodePolyline(r.waypoints)
+      : decimate(decodePolyline(r.polyline), 12);
+    setWaypoints(anchors);
+    setName(r.name);
+    setEditingId(r.id);
+    setFitNonce((n) => n + 1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function newRoute() {
+    setWaypoints([]);
+    setName("");
+    setEditingId(null);
+  }
 
   function locate() {
     if (!("geolocation" in navigator)) {
@@ -214,24 +245,38 @@ export default function RouteBuilder() {
     create.mutate({ name: name.trim(), points: currentPoints() });
   }
 
-  // Save in the app only; push later from the saved list.
+  // Save in the app only; push later from the saved list. When a saved route
+  // is loaded (editingId set), this updates it in place instead of creating one.
   function saveLocal() {
     if (!canSave) return;
-    saveM.mutate(
-      {
-        name: name.trim(),
-        points: currentPoints(),
-        distance: snapped.distanceMeter,
-      },
-      { onSuccess: () => setName("") },
-    );
+    const payload = {
+      name: name.trim(),
+      points: currentPoints(),
+      waypoints: waypoints.map(([lat, lon]) => ({ lat, lon })),
+      distance: snapped.distanceMeter,
+    };
+    if (editingId) {
+      updateM.mutate({ id: editingId, ...payload });
+    } else {
+      saveM.mutate(payload, {
+        onSuccess: (r) => setEditingId(r.id),
+      });
+    }
   }
 
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xs uppercase tracking-[0.2em] text-ink/60">
-          Criar percurso
+        <h2 className="text-xs uppercase tracking-[0.2em] text-ink/60 flex items-center gap-2">
+          {editingId ? "Editar percurso" : "Criar percurso"}
+          {editingId && (
+            <button
+              onClick={newRoute}
+              className="normal-case tracking-normal text-[11px] text-ink/50 underline hover:text-accent"
+            >
+              (novo)
+            </button>
+          )}
         </h2>
         <span className="font-mono text-xs text-ink/70">
           {km(snapped.distanceMeter)} km · {waypoints.length} ponto(s)
@@ -262,7 +307,7 @@ export default function RouteBuilder() {
             attribution="&copy; OpenStreetMap &copy; CARTO"
           />
           <ClickCapture onAdd={(ll) => setWaypoints((w) => [...w, ll])} />
-          <FitToRoute points={snapped.points} />
+          <FitToRoute points={snapped.points} nonce={fitNonce} />
           {myPosition && <Marker position={myPosition} icon={myLocIcon} />}
           {snapped.points.length >= 2 && (
             <Polyline
@@ -360,11 +405,15 @@ export default function RouteBuilder() {
         />
         <button
           onClick={saveLocal}
-          disabled={!canSave || saveM.isPending}
+          disabled={!canSave || saveM.isPending || updateM.isPending}
           className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border border-line rounded-lg px-4 py-2 hover:bg-accent hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
         >
           <FloppyDiskIcon className="h-3.5 w-3.5" />
-          {saveM.isPending ? "salvando…" : "salvar"}
+          {saveM.isPending || updateM.isPending
+            ? "salvando…"
+            : editingId
+              ? "salvar alterações"
+              : "salvar"}
         </button>
         <button
           onClick={sendToGarmin}
@@ -409,15 +458,24 @@ export default function RouteBuilder() {
             {savedRoutes.data!.map((r) => (
               <li
                 key={r.id}
-                className="flex items-center justify-between gap-3 px-3 py-2.5 bg-card"
+                className={
+                  "flex items-center justify-between gap-3 px-3 py-2.5 bg-card " +
+                  (editingId === r.id ? "ring-1 ring-inset ring-accent" : "")
+                }
               >
-                <div className="min-w-0">
-                  <p className="text-sm truncate">{r.name}</p>
+                <button
+                  onClick={() => loadRoute(r)}
+                  title="Ver / editar no mapa"
+                  className="min-w-0 flex-1 text-left group"
+                >
+                  <p className="text-sm truncate group-hover:text-accent">
+                    {r.name}
+                  </p>
                   <p className="font-mono text-[11px] text-ink/50">
                     {km(r.distance)} km
                     {r.garminCourseId ? " · no Garmin" : ""}
                   </p>
-                </div>
+                </button>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {r.garminCourseId ? (
                     <a

@@ -188,10 +188,18 @@ export type SavedRoute = {
   id: string;
   name: string;
   polyline: string;
+  waypoints?: string;
   distance: number;
   garminCourseId?: number;
   createdAt: string;
   updatedAt: string;
+};
+
+type RouteInput = {
+  name: string;
+  points: { lat: number; lon: number }[];
+  waypoints?: { lat: number; lon: number }[];
+  distance: number;
 };
 
 export async function listSavedRoutes(): Promise<SavedRoute[]> {
@@ -200,11 +208,7 @@ export async function listSavedRoutes(): Promise<SavedRoute[]> {
   return ((await res.json()) as { items: SavedRoute[] }).items;
 }
 
-export async function saveRoute(input: {
-  name: string;
-  points: { lat: number; lon: number }[];
-  distance: number;
-}): Promise<SavedRoute> {
+export async function saveRoute(input: RouteInput): Promise<SavedRoute> {
   const res = await fetch(`${BASE}/routes`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -213,6 +217,22 @@ export async function saveRoute(input: {
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `save ${res.status}`);
+  }
+  return (await res.json()) as SavedRoute;
+}
+
+export async function updateRoute(
+  id: string,
+  input: RouteInput,
+): Promise<SavedRoute> {
+  const res = await fetch(`${BASE}/routes/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `update ${res.status}`);
   }
   return (await res.json()) as SavedRoute;
 }

@@ -18,6 +18,7 @@ import {
   pushRouteToGarmin,
   resyncActivity,
   saveRoute,
+  updateRoute,
   syncGarmin,
   syncStrava,
   type ActivityDetail,
@@ -122,8 +123,23 @@ export function useSaveRoute() {
     mutationFn: (input: {
       name: string;
       points: { lat: number; lon: number }[];
+      waypoints?: { lat: number; lon: number }[];
       distance: number;
     }) => saveRoute(input),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["routes"] }),
+  });
+}
+
+export function useUpdateRoute() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: {
+      id: string;
+      name: string;
+      points: { lat: number; lon: number }[];
+      waypoints?: { lat: number; lon: number }[];
+      distance: number;
+    }) => updateRoute(v.id, v),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["routes"] }),
   });
 }

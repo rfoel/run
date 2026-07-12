@@ -59,6 +59,7 @@ import {
   getRoute,
   listRoutes,
   setRouteGarminId,
+  updateRoute,
   type RoutePoint,
 } from "@run/core/route";
 import { resolvePlanWorkouts } from "./garmin/resolve.ts";
@@ -493,6 +494,7 @@ app.post("/routes", async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as {
     name?: string;
     points?: RoutePoint[];
+    waypoints?: RoutePoint[];
     distance?: number;
   };
   const name = body.name?.trim();
@@ -502,8 +504,33 @@ app.post("/routes", async (c) => {
   const route = await createRoute({
     name,
     points,
+    waypoints: body.waypoints,
     distance: body.distance ?? 0,
   });
+  return c.json(route);
+});
+
+app.put("/routes/:id", async (c) => {
+  if (!isAuthorized(c.req.header())) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const body = (await c.req.json().catch(() => ({}))) as {
+    name?: string;
+    points?: RoutePoint[];
+    waypoints?: RoutePoint[];
+    distance?: number;
+  };
+  const name = body.name?.trim();
+  const points = body.points ?? [];
+  if (!name) return c.json({ error: "missing name" }, 400);
+  if (points.length < 2) return c.json({ error: "need at least 2 points" }, 400);
+  const route = await updateRoute(c.req.param("id"), {
+    name,
+    points,
+    waypoints: body.waypoints,
+    distance: body.distance ?? 0,
+  });
+  if (!route) return c.json({ error: "not found" }, 404);
   return c.json(route);
 });
 

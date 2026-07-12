@@ -19,7 +19,9 @@ export type SavedRoute = {
   id: string;
   userId: string;
   name: string;
-  polyline: string; // encoded [lat, lon] points
+  polyline: string; // encoded snapped [lat, lon] points (what gets pushed)
+  /** Encoded editable anchor points — restored into the builder for editing. */
+  waypoints?: string;
   distance: number; // meters
   /** Set once pushed to Garmin as a course, so the list can link to it. */
   garminCourseId?: number;
@@ -42,6 +44,7 @@ export function decodeRoute(str: string): RoutePoint[] {
 export async function createRoute(input: {
   name: string;
   points: RoutePoint[];
+  waypoints?: RoutePoint[];
   distance: number;
   garminCourseId?: number;
   userId?: string;
@@ -52,6 +55,7 @@ export async function createRoute(input: {
     userId: input.userId ?? USER_ID,
     name: input.name,
     polyline: encodeRoute(input.points),
+    waypoints: input.waypoints ? encodeRoute(input.waypoints) : undefined,
     distance: input.distance,
     garminCourseId: input.garminCourseId,
     createdAt: now,
@@ -64,6 +68,40 @@ export async function createRoute(input: {
     }),
   );
   return route;
+}
+
+/**
+ * Overwrite a saved route's geometry/name. Clears garminCourseId — the edited
+ * route no longer matches the course already on Garmin, so it must be re-pushed.
+ */
+export async function updateRoute(
+  id: string,
+  input: {
+    name: string;
+    points: RoutePoint[];
+    waypoints?: RoutePoint[];
+    distance: number;
+  },
+  userId: string = USER_ID,
+): Promise<SavedRoute | undefined> {
+  const existing = await getRoute(id, userId);
+  if (!existing) return undefined;
+  const updated: SavedRoute = {
+    ...existing,
+    name: input.name,
+    polyline: encodeRoute(input.points),
+    waypoints: input.waypoints ? encodeRoute(input.waypoints) : undefined,
+    distance: input.distance,
+    garminCourseId: undefined,
+    updatedAt: new Date().toISOString(),
+  };
+  await ddb.send(
+    new PutCommand({
+      TableName: tableName(),
+      Item: { pk: userPk(userId), sk: sk(id), ...updated },
+    }),
+  );
+  return updated;
 }
 
 export async function listRoutes(
