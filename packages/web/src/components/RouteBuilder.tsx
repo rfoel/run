@@ -11,9 +11,11 @@ import {
 import {
   ArrowClockwiseIcon,
   ArrowUUpLeftIcon,
+  CrosshairIcon,
   FloppyDiskIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
+import type { Map as LeafletMap } from "leaflet";
 import { useCreateCourse } from "../lib/queries.ts";
 import { km } from "../lib/format.ts";
 import type { LatLng } from "../lib/polyline.ts";
@@ -85,7 +87,36 @@ export default function RouteBuilder() {
   const [outBack, setOutBack] = useState(false);
   const [name, setName] = useState("");
   const [routeError, setRouteError] = useState<string | null>(null);
+  const [map, setMap] = useState<LeafletMap | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
   const create = useCreateCourse();
+
+  function locate() {
+    if (!("geolocation" in navigator)) {
+      setGeoError("Geolocalização não suportada neste navegador.");
+      return;
+    }
+    setLocating(true);
+    setGeoError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const ll: LatLng = [pos.coords.latitude, pos.coords.longitude];
+        setWaypoints((w) => [...w, ll]);
+        map?.setView(ll, 16);
+        setLocating(false);
+      },
+      (err) => {
+        setGeoError(
+          err.code === err.PERMISSION_DENIED
+            ? "Permissão de localização negada."
+            : "Não foi possível obter a localização.",
+        );
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }
 
   // Waypoints run through OSRM; out-and-back mirrors them back to the start.
   const effectiveWaypoints = useMemo<LatLng[]>(() => {
@@ -141,6 +172,7 @@ export default function RouteBuilder() {
 
       <div className="border border-line rounded-lg overflow-hidden bg-card shadow-sm mb-3">
         <MapContainer
+          ref={setMap}
           center={DEFAULT_CENTER}
           zoom={14}
           scrollWheelZoom
@@ -181,8 +213,19 @@ export default function RouteBuilder() {
           Falha ao traçar rota ({routeError}). Tente outro ponto.
         </p>
       )}
+      {geoError && <p className="text-xs text-red-700 mb-3">{geoError}</p>}
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
+        <button
+          onClick={locate}
+          disabled={locating}
+          className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border border-line rounded-lg px-3 py-1.5 hover:bg-accent hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
+        >
+          <CrosshairIcon
+            className={"h-3.5 w-3.5 " + (locating ? "animate-pulse" : "")}
+          />
+          {locating ? "localizando…" : "minha posição"}
+        </button>
         <button
           onClick={() => setWaypoints((w) => w.slice(0, -1))}
           disabled={waypoints.length === 0}
