@@ -1,13 +1,14 @@
 import "leaflet/dist/leaflet.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  CircleMarker,
   MapContainer,
+  Marker,
   Polyline,
   TileLayer,
   useMap,
   useMapEvents,
 } from "react-leaflet";
+import L from "leaflet";
 import {
   ArrowClockwiseIcon,
   ArrowSquareOutIcon,
@@ -89,6 +90,19 @@ function FitToRoute({ points }: { points: LatLng[] }) {
 
 const DEFAULT_CENTER: LatLng = [-23.5505, -46.6333]; // São Paulo
 
+// Draggable waypoint dot (start is green). Midpoint handles are smaller and
+// translucent — drag one to insert a new waypoint on that segment.
+const dotIcon = (fill: string, size: number, opacity = 1) =>
+  L.divIcon({
+    className: "",
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${fill};opacity:${opacity};border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.35);cursor:grab"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+const startIcon = dotIcon("#16a34a", 16);
+const wpIcon = dotIcon("#3b3833", 14);
+const midIcon = dotIcon("#f97316", 12, 0.55);
+
 export default function RouteBuilder() {
   const [waypoints, setWaypoints] = useState<LatLng[]>([]);
   const [snapped, setSnapped] = useState<Snapped>({ points: [], distanceMeter: 0 });
@@ -129,6 +143,27 @@ export default function RouteBuilder() {
       { enableHighAccuracy: true, timeout: 10000 },
     );
   }
+
+  const moveWaypoint = (i: number, lat: number, lon: number) =>
+    setWaypoints((w) => w.map((p, idx) => (idx === i ? [lat, lon] : p)));
+  const insertWaypoint = (at: number, lat: number, lon: number) =>
+    setWaypoints((w) => [...w.slice(0, at), [lat, lon], ...w.slice(at)]);
+  const removeWaypoint = (i: number) =>
+    setWaypoints((w) => w.filter((_, idx) => idx !== i));
+
+  // Straight-line midpoint of each consecutive waypoint pair — dragging its
+  // handle inserts a new waypoint between the two (which then re-snaps).
+  const midpoints = useMemo(
+    () =>
+      waypoints.slice(0, -1).map((a, i) => {
+        const b = waypoints[i + 1]!;
+        return {
+          at: i + 1,
+          pos: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] as LatLng,
+        };
+      }),
+    [waypoints],
+  );
 
   // Waypoints run through OSRM; out-and-back mirrors them back to the start.
   const effectiveWaypoints = useMemo<LatLng[]>(() => {
@@ -195,8 +230,9 @@ export default function RouteBuilder() {
       </div>
 
       <p className="text-xs text-ink/50 mb-2">
-        Clique no mapa para marcar pontos — a rota segue as ruas. O último ponto
-        pode fechar o trajeto ou use ida-e-volta.
+        Clique no mapa para marcar pontos — a rota segue as ruas. Arraste um
+        ponto para movê-lo, arraste a alça laranja no meio de um trecho para
+        inserir um ponto ali, e dê duplo-clique num ponto para removê-lo.
       </p>
 
       {/* Full-bleed: break out of the page's max-w container to span the
@@ -206,6 +242,7 @@ export default function RouteBuilder() {
           ref={setMap}
           center={DEFAULT_CENTER}
           zoom={14}
+          doubleClickZoom={false}
           scrollWheelZoom
           style={{ height: 520, width: "100%", background: "var(--color-paper-2, #eee)" }}
           attributionControl={false}
@@ -223,16 +260,34 @@ export default function RouteBuilder() {
               pathOptions={{ color: "#f97316", weight: 5, opacity: 0.9 }}
             />
           )}
+          {/* Midpoint handles: drag to insert a waypoint on that segment. */}
+          {midpoints.map((m) => (
+            <Marker
+              key={`mid-${m.at}`}
+              position={m.pos}
+              draggable
+              icon={midIcon}
+              eventHandlers={{
+                dragend: (e) => {
+                  const ll = e.target.getLatLng();
+                  insertWaypoint(m.at, ll.lat, ll.lng);
+                },
+              }}
+            />
+          ))}
+          {/* Waypoints: drag to move, double-click to remove. */}
           {waypoints.map((w, i) => (
-            <CircleMarker
-              key={i}
-              center={w}
-              radius={i === 0 ? 7 : 5}
-              pathOptions={{
-                color: "#fff",
-                weight: 2,
-                fillColor: i === 0 ? "#16a34a" : "#3b3833",
-                fillOpacity: 1,
+            <Marker
+              key={`wp-${i}`}
+              position={w}
+              draggable
+              icon={i === 0 ? startIcon : wpIcon}
+              eventHandlers={{
+                dragend: (e) => {
+                  const ll = e.target.getLatLng();
+                  moveWaypoint(i, ll.lat, ll.lng);
+                },
+                dblclick: () => removeWaypoint(i),
               }}
             />
           ))}
