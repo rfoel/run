@@ -102,6 +102,13 @@ const dotIcon = (fill: string, size: number, opacity = 1) =>
 const startIcon = dotIcon("#16a34a", 16);
 const wpIcon = dotIcon("#3b3833", 14);
 const midIcon = dotIcon("#f97316", 12, 0.55);
+// Current-location reference marker — blue, not draggable, not part of route.
+const myLocIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:16px;height:16px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 2px rgba(37,99,235,.4)"></div>`,
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+});
 
 export default function RouteBuilder() {
   const [waypoints, setWaypoints] = useState<LatLng[]>([]);
@@ -112,6 +119,7 @@ export default function RouteBuilder() {
   const [map, setMap] = useState<LeafletMap | null>(null);
   const [locating, setLocating] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [myPosition, setMyPosition] = useState<LatLng | null>(null);
   const create = useCreateCourse();
   const saveM = useSaveRoute();
   const savedRoutes = useSavedRoutes();
@@ -128,7 +136,8 @@ export default function RouteBuilder() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const ll: LatLng = [pos.coords.latitude, pos.coords.longitude];
-        setWaypoints((w) => [...w, ll]);
+        // Reference only — not a route waypoint.
+        setMyPosition(ll);
         map?.setView(ll, 16);
         setLocating(false);
       },
@@ -254,6 +263,7 @@ export default function RouteBuilder() {
           />
           <ClickCapture onAdd={(ll) => setWaypoints((w) => [...w, ll])} />
           <FitToRoute points={snapped.points} />
+          {myPosition && <Marker position={myPosition} icon={myLocIcon} />}
           {snapped.points.length >= 2 && (
             <Polyline
               positions={snapped.points}
@@ -292,6 +302,18 @@ export default function RouteBuilder() {
             />
           ))}
         </MapContainer>
+        {/* Overlay control — above Leaflet panes (z ~400-800). */}
+        <button
+          onClick={locate}
+          disabled={locating}
+          title="Centralizar na minha posição (referência)"
+          className="absolute top-3 right-3 z-[1000] flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium bg-paper/95 backdrop-blur border border-line rounded-lg px-3 py-1.5 shadow-sm hover:bg-accent hover:text-white disabled:opacity-60"
+        >
+          <CrosshairIcon
+            className={"h-3.5 w-3.5 " + (locating ? "animate-pulse" : "")}
+          />
+          {locating ? "localizando…" : "minha posição"}
+        </button>
       </div>
 
       {routeError && (
@@ -302,16 +324,6 @@ export default function RouteBuilder() {
       {geoError && <p className="text-xs text-red-700 mb-3">{geoError}</p>}
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <button
-          onClick={locate}
-          disabled={locating}
-          className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border border-line rounded-lg px-3 py-1.5 hover:bg-accent hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
-        >
-          <CrosshairIcon
-            className={"h-3.5 w-3.5 " + (locating ? "animate-pulse" : "")}
-          />
-          {locating ? "localizando…" : "minha posição"}
-        </button>
         <button
           onClick={() => setWaypoints((w) => w.slice(0, -1))}
           disabled={waypoints.length === 0}
