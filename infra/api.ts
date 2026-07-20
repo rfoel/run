@@ -3,6 +3,7 @@
 import { router } from "./router";
 import { table } from "./storage";
 import { allSecrets } from "./secrets";
+import { analyzeQueue } from "./analyze";
 
 // Single "lambdalith": one Lambda serves EVERY HTTP route — including the
 // streaming /chat and /analyze — via a Hono router (packages/functions/src/api.ts).
@@ -16,11 +17,11 @@ import { allSecrets } from "./secrets";
 //   on the cold-start path of the fast routes.
 export const api = new sst.aws.Function("Api", {
   handler: "packages/functions/src/api.handler",
-  link: [table, ...allSecrets],
+  link: [table, analyzeQueue, ...allSecrets],
   runtime: "nodejs24.x",
   architecture: "arm64",
   memory: "2048 MB",
-  timeout: "120 seconds", // accommodates /strava/sync and the LLM routes
+  timeout: "120 seconds", // accommodates /garmin/sync and the LLM routes
   streaming: true,
   // splitting: lazily-imported heavy modules (Anthropic SDK) get their own chunk.
   // loader: the coach's system prompt lives in chat/prompt.md and is imported as text.

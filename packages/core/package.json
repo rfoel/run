@@ -10,26 +10,25 @@
     "./plan": "./src/plan.ts",
     "./route": "./src/route.ts",
     "./stats": "./src/stats.ts",
-    "./strava": "./src/strava.ts",
     "./track": "./src/track.ts",
     "./workout": "./src/workout.ts",
     "./parsers/garmin": "./src/parsers/garmin.ts",
     "./parsers/gpx": "./src/parsers/gpx.ts",
-    "./parsers/streams": "./src/parsers/streams.ts",
     "./user": "./src/user.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.700.0",
-    "@aws-sdk/lib-dynamodb": "^3.700.0",
+    "@aws-sdk/client-dynamodb": "^3.1089.0",
+    "@aws-sdk/lib-dynamodb": "^3.1089.0",
     "@mapbox/polyline": "^1.2.1",
-    "fast-xml-parser": "^5.8.0",
-    "sst": "4.14.1"
+    "fast-xml-parser": "^5.10.1",
+    "sst": "4.17.1"
   },
   "devDependencies": {
     "@types/mapbox__polyline": "^1.0.5",
-    "typescript": "^5.7.2"
+    "@types/node": "^24.13.3",
+    "typescript": "^7.0.2"
   }
 }

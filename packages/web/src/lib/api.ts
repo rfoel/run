@@ -117,15 +117,6 @@ export type SyncResult = {
   errors: string[];
 };
 
-export async function syncStrava(days = 30): Promise<SyncResult> {
-  const res = await fetch(`${BASE}/strava/sync?days=${days}`, {
-    method: "POST",
-    headers: authHeaders(),
-  });
-  if (!res.ok) throw new Error(`sync ${res.status}`);
-  return (await res.json()) as SyncResult;
-}
-
 export async function syncGarmin(days = 30): Promise<SyncResult> {
   const res = await fetch(`${BASE}/garmin/sync?days=${days}`, {
     method: "POST",
@@ -326,6 +317,63 @@ export type ChartSeries = {
   pace: (number | null)[];
   hr: (number | null)[];
   elapsed: number[];
+  // Optional — absent on series stored before these were ingested.
+  ele?: (number | null)[];
+  cadence?: (number | null)[];
+  power?: (number | null)[];
+};
+
+// Device extras — mirrors @run/core/workout ActivityExtras.
+export type DeviceLap = {
+  index: number;
+  intensity?: string;
+  wktStepIndex?: number;
+  distance: number;
+  duration: number;
+  paceSecPerKm?: number;
+  avgHr?: number;
+  maxHr?: number;
+  avgPower?: number;
+  avgCadence?: number;
+  elevGain?: number;
+  compliance?: number;
+};
+
+export type ZoneTime = { zone: number; secs: number; low: number };
+
+export type ActivityExtras = {
+  laps?: DeviceLap[];
+  hrZones?: ZoneTime[];
+  powerZones?: ZoneTime[];
+  weather?: {
+    tempC?: number;
+    feelsC?: number;
+    humidity?: number;
+    windKph?: number;
+    windDir?: string;
+    desc?: string;
+  };
+  physio?: {
+    aerobicTE?: number;
+    anaerobicTE?: number;
+    teLabel?: string;
+    trainingLoad?: number;
+    avgPower?: number;
+    maxPower?: number;
+    normPower?: number;
+    avgCadence?: number;
+    maxCadence?: number;
+    gctMs?: number;
+    strideLenCm?: number;
+    vertOscCm?: number;
+    vertRatio?: number;
+    calories?: number;
+    modIntensityMin?: number;
+    vigIntensityMin?: number;
+    bodyBatteryDiff?: number;
+    gradeAdjustedPaceSecPerKm?: number;
+  };
+  feedback?: { rpe?: number; feel?: number; compliance?: number };
 };
 
 export type WorkoutSection = {
@@ -351,6 +399,7 @@ export type WorkoutSection = {
 export type WorkoutAnalysis = {
   workout_id: string;
   date: string;
+  title?: string;
   type: "interval" | "tempo" | "long" | "easy" | "regen" | "race" | "fartlek";
   subtype?: string;
   prescription?: {
@@ -392,6 +441,7 @@ export type ActivityDetail = {
   series: ChartSeries | null;
   analysis: StoredAnalysis | null;
   plan: PlannedRun | null;
+  extras: ActivityExtras | null;
 };
 
 export async function getActivityDetail(

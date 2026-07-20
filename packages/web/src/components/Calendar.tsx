@@ -10,7 +10,7 @@ import {
   usePlans,
   usePrefetchActivityDetail,
 } from "../lib/queries.ts";
-import { duration, km, pace } from "../lib/format.ts";
+import { duration, km, localIso, pace } from "../lib/format.ts";
 import { PLAN_TYPE_COLORS, PLAN_TYPE_LABELS, TypeBadge } from "./TypeBadge.tsx";
 import { TreadmillIcon, isTreadmill } from "./TreadmillIcon.tsx";
 import StravaLink from "./StravaLink.tsx";
@@ -368,13 +368,6 @@ function DayDetail({
       )}
     </div>
   );
-}
-
-function localIso(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }
 
 function buildMonthGrid(y: number, m: number) {

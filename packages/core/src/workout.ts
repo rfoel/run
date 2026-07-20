@@ -13,6 +13,9 @@ const streamSk = (source: string, externalId: string) =>
 const analysisSk = (source: string, externalId: string) =>
   `ANALYSIS#${source}#${externalId}`;
 
+const extrasSk = (source: string, externalId: string) =>
+  `EXTRAS#${source}#${externalId}`;
+
 export async function putChartSeries(
   source: string,
   externalId: string,
@@ -47,6 +50,99 @@ export async function getChartSeries(
   return series as ChartSeries;
 }
 
+// --- Device extras (laps, zones, weather, physio) ---------------------------
+// Everything the device/platform computed beyond the sample streams, stored as
+// its own item per (source, externalId). Normalized/source-agnostic so the web
+// and the analysis never see Garmin field names.
+
+export type DeviceLap = {
+  index: number; // 1-based
+  intensity?: string; // warmup | interval | recovery | rest | cooldown | active
+  wktStepIndex?: number; // structured-workout step this lap executed
+  distance: number; // meters
+  duration: number; // seconds
+  paceSecPerKm?: number;
+  avgHr?: number;
+  maxHr?: number;
+  avgPower?: number;
+  avgCadence?: number;
+  elevGain?: number;
+  compliance?: number; // 0-100 vs the structured step
+};
+
+export type ZoneTime = { zone: number; secs: number; low: number };
+
+export type ActivityExtras = {
+  /** Watch laps — authoritative rep/recovery boundaries when the run followed a structured workout. */
+  laps?: DeviceLap[];
+  hrZones?: ZoneTime[];
+  powerZones?: ZoneTime[];
+  weather?: {
+    tempC?: number;
+    feelsC?: number;
+    humidity?: number;
+    windKph?: number;
+    windDir?: string;
+    desc?: string;
+  };
+  physio?: {
+    aerobicTE?: number;
+    anaerobicTE?: number;
+    teLabel?: string;
+    trainingLoad?: number;
+    avgPower?: number;
+    maxPower?: number;
+    normPower?: number;
+    avgCadence?: number;
+    maxCadence?: number;
+    gctMs?: number;
+    strideLenCm?: number;
+    vertOscCm?: number;
+    vertRatio?: number;
+    calories?: number;
+    modIntensityMin?: number;
+    vigIntensityMin?: number;
+    bodyBatteryDiff?: number;
+    gradeAdjustedPaceSecPerKm?: number;
+  };
+  /** Athlete-entered on the watch after the run. rpe on the 1-10 scale. */
+  feedback?: { rpe?: number; feel?: number; compliance?: number };
+};
+
+export async function putExtras(
+  source: string,
+  externalId: string,
+  extras: ActivityExtras,
+  userId: string = USER_ID,
+) {
+  await ddb.send(
+    new PutCommand({
+      TableName: tableName(),
+      Item: {
+        pk: userPk(userId),
+        sk: extrasSk(source, externalId),
+        ...extras,
+      },
+    }),
+  );
+}
+
+export async function getExtras(
+  source: string,
+  externalId: string,
+  userId: string = USER_ID,
+): Promise<ActivityExtras | undefined> {
+  const res = await ddb.send(
+    new GetCommand({
+      TableName: tableName(),
+      Key: { pk: userPk(userId), sk: extrasSk(source, externalId) },
+    }),
+  );
+  if (!res.Item) return undefined;
+  const { pk: _pk, sk: _sk, ...extras } = res.Item;
+  return extras as ActivityExtras;
+}
+
 // --- Coach analysis (Claude structured output, matches workout_schema.json) ---
 
 export type WorkoutSection = {
@@ -72,6 +168,8 @@ export type WorkoutSection = {
 export type WorkoutAnalysis = {
   workout_id: string;
   date: string;
+  /** Short pt-BR title reflecting actual execution — used to rename the activity. */
+  title?: string;
   type:
     | "interval"
     | "tempo"

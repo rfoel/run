@@ -20,7 +20,6 @@ import {
   saveRoute,
   updateRoute,
   syncGarmin,
-  syncStrava,
   type ActivityDetail,
   type WorkoutAnalysis,
 } from "./api.ts";
@@ -56,10 +55,24 @@ export function useStats() {
   return useQuery({ queryKey: qk.stats(), queryFn: getStats });
 }
 
+// Auto-analysis lands asynchronously (SQS worker) shortly after a sync. While
+// a recent run has its series but no analysis yet, poll the detail so the
+// coach card appears without a manual refresh. Older never-analyzed runs
+// don't poll — nothing is coming for them.
+const AUTO_ANALYSIS_WINDOW_MS = 48 * 3600_000;
+
+function analysisPending(detail: ActivityDetail | undefined): boolean {
+  if (!detail || !detail.series || detail.analysis) return false;
+  const age = Date.now() - new Date(detail.activity.startDate).getTime();
+  return age < AUTO_ANALYSIS_WINDOW_MS;
+}
+
 export function useActivityDetail(source: string, externalId: string) {
   return useQuery({
     queryKey: qk.activityDetail(source, externalId),
     queryFn: () => getActivityDetail(source, externalId),
+    refetchInterval: (query) =>
+      analysisPending(query.state.data) ? 5000 : false,
   });
 }
 
@@ -78,27 +91,17 @@ export function usePrefetchActivityDetail() {
   };
 }
 
-export function useSyncStrava() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (days: number) => syncStrava(days),
-    // Sync imports activities, recomputes stats, and links plans.
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["activities"] });
-      void qc.invalidateQueries({ queryKey: ["stats"] });
-      void qc.invalidateQueries({ queryKey: ["plans"] });
-    },
-  });
-}
-
 export function useSyncGarmin() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (days: number) => syncGarmin(days),
+    // Sync imports activities, recomputes stats, links plans, and kicks off
+    // auto-analysis; refetch details so pending analyses start polling.
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["activities"] });
       void qc.invalidateQueries({ queryKey: ["stats"] });
       void qc.invalidateQueries({ queryKey: ["plans"] });
+      void qc.invalidateQueries({ queryKey: ["activityDetail"] });
     },
   });
 }
@@ -211,6 +214,11 @@ export function useAnalyzeWorkout(source: string, externalId: string) {
     // The analysis is persisted server-side; reflect it in the cached detail so
     // it survives navigation without a refetch.
     onSuccess: (analysis: WorkoutAnalysis) => {
+      // The server also renames the activity to the analysis title.
+      void qc.invalidateQueries({ queryKey: ["activities"] });
+      void qc.invalidateQueries({
+        queryKey: qk.activityDetail(source, externalId),
+      });
       qc.setQueryData(
         qk.activityDetail(source, externalId),
         (prev: ActivityDetail | undefined) =>

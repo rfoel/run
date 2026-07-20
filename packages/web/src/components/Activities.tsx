@@ -1,6 +1,6 @@
-import { AlertDialog } from "@base-ui-components/react/alert-dialog";
-import { ToggleGroup } from "@base-ui-components/react/toggle-group";
-import { Toggle } from "@base-ui-components/react/toggle";
+import { AlertDialog } from "@base-ui/react/alert-dialog";
+import { ToggleGroup } from "@base-ui/react/toggle-group";
+import { Toggle } from "@base-ui/react/toggle";
 import {
   ArrowsClockwiseIcon,
   GaugeIcon,

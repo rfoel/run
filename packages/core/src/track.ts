@@ -8,6 +8,7 @@ export type TrackPoint = {
   ele?: number;
   hr?: number;
   cadence?: number;
+  power?: number; // running power, watts
 };
 
 export type Track = {
@@ -51,6 +52,10 @@ export type ChartSeries = {
   pace: (number | null)[]; // smoothed sec/km; null when stopped/too slow
   hr: (number | null)[];
   elapsed: number[]; // seconds from start
+  // Optional — absent on series stored before these were ingested.
+  ele?: (number | null)[]; // meters
+  cadence?: (number | null)[]; // steps/min
+  power?: (number | null)[]; // watts
 };
 
 const PACE_FLOOR_SPEED = 0.5; // m/s; below this we treat the runner as stopped
@@ -104,21 +109,28 @@ export function buildChartSeries(
   const pace: (number | null)[] = [];
   const hr: (number | null)[] = [];
   const elapsed: number[] = [];
-  for (let i = 0; i < pts.length; i += stride) {
+  const ele: (number | null)[] = [];
+  const cadence: (number | null)[] = [];
+  const power: (number | null)[] = [];
+  const pushSample = (i: number) => {
     km.push(Math.round(cum[i]! / 10) / 100); // km, 2 decimals
     pace.push(paceAt[i] == null ? null : Math.round(paceAt[i]!));
     hr.push(pts[i]!.hr ?? null);
     elapsed.push(pts[i]!.time - start);
-  }
+    ele.push(pts[i]!.ele == null ? null : Math.round(pts[i]!.ele! * 10) / 10);
+    cadence.push(pts[i]!.cadence == null ? null : Math.round(pts[i]!.cadence!));
+    power.push(pts[i]!.power == null ? null : Math.round(pts[i]!.power!));
+  };
+  for (let i = 0; i < pts.length; i += stride) pushSample(i);
   // Always include the final sample so the line reaches full distance.
-  const lastIdx = pts.length - 1;
-  if ((pts.length - 1) % stride !== 0) {
-    km.push(Math.round(cum[lastIdx]! / 10) / 100);
-    pace.push(paceAt[lastIdx] == null ? null : Math.round(paceAt[lastIdx]!));
-    hr.push(pts[lastIdx]!.hr ?? null);
-    elapsed.push(pts[lastIdx]!.time - start);
-  }
-  return { km, pace, hr, elapsed };
+  if ((pts.length - 1) % stride !== 0) pushSample(pts.length - 1);
+
+  const out: ChartSeries = { km, pace, hr, elapsed };
+  // Only store streams that carry data — keeps old-shape items small.
+  if (ele.some((v) => v != null)) out.ele = ele;
+  if (cadence.some((v) => v != null)) out.cadence = cadence;
+  if (power.some((v) => v != null)) out.power = power;
+  return out;
 }
 
 function haversine(a: TrackPoint, b: TrackPoint) {

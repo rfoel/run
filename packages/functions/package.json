@@ -7,24 +7,24 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.40.0",
-    "@aws-sdk/client-dynamodb": "^3.700.0",
-    "@aws-sdk/lib-dynamodb": "^3.700.0",
+    "@anthropic-ai/sdk": "^0.112.1",
+    "@aws-sdk/client-dynamodb": "^3.1089.0",
+    "@aws-sdk/client-sqs": "^3.1089.0",
+    "@aws-sdk/lib-dynamodb": "^3.1089.0",
     "@mapbox/polyline": "^1.2.1",
     "@run/core": "workspace:*",
-    "adm-zip": "^0.5.17",
-    "csv-parse": "^6.2.1",
-    "fast-xml-parser": "^5.8.0",
-    "fit-file-parser": "^3.0.0",
-    "hono": "^4.9.0",
-    "sst": "4.14.1",
-    "zod": "^3.25.76",
-    "zod-to-json-schema": "^3.25.2"
+    "adm-zip": "^0.6.0",
+    "csv-parse": "^7.0.1",
+    "fast-xml-parser": "^5.10.1",
+    "fit-file-parser": "^3.0.2",
+    "hono": "^4.12.30",
+    "sst": "4.17.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
-    "@types/aws-lambda": "^8.10.146",
+    "@types/aws-lambda": "^8.10.162",
     "@types/mapbox__polyline": "^1.0.5",
-    "typescript": "^5.7.2"
+    "typescript": "^7.0.2"
   }
 }

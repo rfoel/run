@@ -1,4 +1,4 @@
-import { Dialog } from "@base-ui-components/react/dialog";
+import { Dialog } from "@base-ui/react/dialog";
 import {
   CalendarBlankIcon,
   ChatCircleTextIcon,
@@ -8,12 +8,19 @@ import {
   MapTrifoldIcon,
   PersonSimpleRunIcon,
 } from "@phosphor-icons/react";
-import { lazy, Suspense, useEffect, useState } from "react";
+import {
+  createContext,
+  lazy,
+  Suspense,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import {
   Link,
   Navigate,
-  Route,
-  Routes,
+  Outlet,
+  ScrollRestoration,
   useLocation,
   useNavigate,
   useParams,
@@ -72,6 +79,11 @@ const TABS: Record<Tab, TabMeta> = {
 
 const TAB_ORDER: Tab[] = ["calendar", "activities", "plan", "courses", "chat"];
 
+// Routes live on the data router (router.tsx); the unlocked state stays here
+// in the layout and reaches route elements through context.
+const UnlockContext = createContext(false);
+const useUnlocked = () => useContext(UnlockContext);
+
 function activeTabFor(pathname: string): Tab {
   const hit = TAB_ORDER.find(
     (t) =>
@@ -85,9 +97,6 @@ export default function App() {
   const [unlockOpen, setUnlockOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-
-  const openDetail = (source: string, externalId: string) =>
-    navigate(`/corridas/${source}/${encodeURIComponent(externalId)}`);
 
   useEffect(() => {
     const t = getWriteToken();
@@ -122,6 +131,7 @@ export default function App() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-5 flex items-center sm:items-end justify-between gap-2 sm:gap-4">
           <Link
             to="/calendario"
+            viewTransition
             className="flex items-end gap-3 text-ink shrink-0"
           >
             <Logo className="h-6 sm:h-7 w-auto" />
@@ -135,6 +145,7 @@ export default function App() {
                   <Link
                     key={t}
                     to={path}
+                    viewTransition
                     title={label}
                     aria-label={label}
                     aria-current={selected ? "page" : undefined}
@@ -176,48 +187,11 @@ export default function App() {
         </div>
       </header>
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-        <Routes>
-          <Route path="/" element={<Navigate to="/calendario" replace />} />
-          <Route
-            path="/calendario"
-            element={<Calendar onOpenActivity={openDetail} />}
-          />
-          <Route
-            path="/corridas"
-            element={<Activities unlocked={unlocked} onOpenActivity={openDetail} />}
-          />
-          <Route
-            path="/corridas/:source/:externalId"
-            element={<WorkoutDetailRoute unlocked={unlocked} />}
-          />
-          <Route path="/plano" element={<Plan unlocked={unlocked} />} />
-          <Route
-            path="/percursos"
-            element={
-              unlocked ? (
-                <Suspense fallback={null}>
-                  <RouteBuilder />
-                </Suspense>
-              ) : (
-                <Navigate to="/calendario" replace />
-              )
-            }
-          />
-          <Route
-            path="/treinador"
-            element={
-              unlocked ? (
-                <Suspense fallback={null}>
-                  <Chat />
-                </Suspense>
-              ) : (
-                <Navigate to="/calendario" replace />
-              )
-            }
-          />
-          <Route path="*" element={<Navigate to="/calendario" replace />} />
-        </Routes>
+        <UnlockContext.Provider value={unlocked}>
+          <Outlet />
+        </UnlockContext.Provider>
       </main>
+      <ScrollRestoration />
       <UnlockDialog
         open={unlockOpen}
         onOpenChange={setUnlockOpen}
@@ -230,7 +204,46 @@ export default function App() {
   );
 }
 
-function WorkoutDetailRoute({ unlocked }: { unlocked: boolean }) {
+// ---- Route elements (mounted by router.tsx, state via UnlockContext) -------
+
+function useOpenDetail() {
+  const navigate = useNavigate();
+  return (source: string, externalId: string) =>
+    navigate(`/corridas/${source}/${encodeURIComponent(externalId)}`);
+}
+
+export function CalendarRoute() {
+  return <Calendar onOpenActivity={useOpenDetail()} />;
+}
+
+export function ActivitiesRoute() {
+  return <Activities unlocked={useUnlocked()} onOpenActivity={useOpenDetail()} />;
+}
+
+export function PlanRoute() {
+  return <Plan unlocked={useUnlocked()} />;
+}
+
+export function CoursesRoute() {
+  if (!useUnlocked()) return <Navigate to="/calendario" replace />;
+  return (
+    <Suspense fallback={null}>
+      <RouteBuilder />
+    </Suspense>
+  );
+}
+
+export function ChatRoute() {
+  if (!useUnlocked()) return <Navigate to="/calendario" replace />;
+  return (
+    <Suspense fallback={null}>
+      <Chat />
+    </Suspense>
+  );
+}
+
+export function WorkoutDetailRoute() {
+  const unlocked = useUnlocked();
   const { source, externalId } = useParams();
   const navigate = useNavigate();
   if (!source || !externalId) return <Navigate to="/corridas" replace />;

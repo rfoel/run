@@ -21,10 +21,12 @@ import {
   YAxis,
 } from "recharts";
 import {
+  type ActivityExtras,
   type ChartSeries,
   type PlannedRun,
   type WorkoutAnalysis,
   type WorkoutSection,
+  type ZoneTime,
 } from "../lib/api.ts";
 import {
   useActivityDetail,
@@ -50,7 +52,11 @@ import { TreadmillIcon, isTreadmill } from "./TreadmillIcon.tsx";
 // were produced.
 const GRANULAR_KINDS = new Set(["rep", "tempo_split", "easy_split"]);
 
-function workSections(sections: WorkoutSection[]): WorkoutSection[] {
+function workSections(
+  sections: WorkoutSection[] | undefined,
+): WorkoutSection[] {
+  // Old/degenerate stored analyses can miss `sections` entirely — never crash.
+  if (!sections) return [];
   const granular = sections.filter((s) => GRANULAR_KINDS.has(s.kind));
   if (granular.length) return granular;
   return sections.filter((s) => s.kind === "tempo");
@@ -156,6 +162,7 @@ export default function WorkoutDetail({
   const runAnalysis = () => analyzeM.mutate();
 
   const a = detail?.activity;
+  const extras = detail?.extras ?? null;
 
   return (
     <section className="flex flex-col gap-6">
@@ -193,6 +200,7 @@ export default function WorkoutDetail({
               <p className="text-xs uppercase tracking-wider text-ink/50 mt-1">
                 {date(a.startDate)} · {kmFmt(a.distance)} km ·{" "}
                 {duration(a.movingTime)}
+                {conditionsMeta(extras) && <> · {conditionsMeta(extras)}</>}
               </p>
             </div>
             {unlocked && (
@@ -219,6 +227,8 @@ export default function WorkoutDetail({
           {detail?.plan && <PlanCard plan={detail.plan} />}
 
           {analysis && <Cards analysis={analysis} />}
+
+          {extras?.physio && <GarminCards extras={extras} />}
 
           {detail?.series ? (
             <PaceChart
@@ -262,6 +272,10 @@ export default function WorkoutDetail({
             </Status>
           )}
 
+          {extras?.hrZones && extras.hrZones.length > 0 && (
+            <ZonesBar zones={extras.hrZones} />
+          )}
+
           {geo && (
             <RouteMap geo={geo} hoverKm={hoverKm} highlight={highlightSeg} />
           )}
@@ -290,7 +304,7 @@ export default function WorkoutDetail({
             !analyzing && (
               <Status>
                 {unlocked
-                  ? "Clique em analisar para gerar a leitura do treino (tiros, tabela e análise)."
+                  ? "A análise roda sozinha logo após o sync e aparece aqui em ~1 min. Se não vier, clique em analisar."
                   : "Destranque para gerar a análise do treino."}
               </Status>
             )
@@ -336,7 +350,129 @@ function PlanCard({ plan }: { plan: PlannedRun }) {
   );
 }
 
+/** "14°C · 69% · RPE 7" — conditions + athlete feedback for the header line. */
+function conditionsMeta(extras: ActivityExtras | null): string {
+  if (!extras) return "";
+  const parts: string[] = [];
+  if (extras.weather?.tempC != null) parts.push(`${extras.weather.tempC}°C`);
+  if (extras.weather?.humidity != null) parts.push(`${extras.weather.humidity}%`);
+  if (extras.feedback?.rpe != null) parts.push(`RPE ${extras.feedback.rpe}`);
+  return parts.join(" · ");
+}
+
+const TE_LABELS: Record<string, string> = {
+  RECOVERY: "recuperação",
+  BASE: "base",
+  TEMPO: "tempo",
+  THRESHOLD: "limiar",
+  VO2MAX: "VO2max",
+  ANAEROBIC_CAPACITY: "anaeróbico",
+  SPRINT: "sprint",
+};
+
+/** Second stat row: what the watch computed beyond pace/HR. */
+function GarminCards({ extras }: { extras: ActivityExtras }) {
+  const p = extras.physio!;
+  const cards: { label: string; value: string; sub?: string }[] = [];
+
+  if (p.aerobicTE != null) {
+    cards.push({
+      label: "Training effect",
+      value: `${p.aerobicTE.toFixed(1)}${p.anaerobicTE != null ? ` / ${p.anaerobicTE.toFixed(1)}` : ""}`,
+      sub: p.teLabel ? (TE_LABELS[p.teLabel] ?? p.teLabel.toLowerCase()) : "aeróbico / anaeróbico",
+    });
+  }
+  if (p.trainingLoad != null) {
+    cards.push({
+      label: "Carga",
+      value: `${p.trainingLoad}`,
+      sub:
+        p.bodyBatteryDiff != null
+          ? `body battery ${p.bodyBatteryDiff}`
+          : undefined,
+    });
+  }
+  if (p.normPower != null || p.avgPower != null) {
+    cards.push({
+      label: "Potência",
+      value: `${p.normPower ?? p.avgPower} W`,
+      sub:
+        p.normPower != null && p.avgPower != null
+          ? `NP · média ${p.avgPower} W`
+          : p.normPower != null
+            ? "normalizada"
+            : "média",
+    });
+  }
+  if (p.avgCadence != null) {
+    cards.push({
+      label: "Cadência",
+      value: `${p.avgCadence} spm`,
+      sub: p.gctMs != null ? `contato ${p.gctMs} ms` : undefined,
+    });
+  }
+  if (cards.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line border border-line rounded-lg shadow-sm overflow-hidden">
+      {cards.slice(0, 4).map((c) => (
+        <Card
+          key={c.label}
+          icon={<GaugeIcon className="h-4 w-4" />}
+          label={c.label}
+          value={c.value}
+          sub={c.sub}
+        />
+      ))}
+    </div>
+  );
+}
+
+const ZONE_COLORS = ["#9ca3af", "#3b82f6", "#16a34a", "#f97316", "#dc2626"];
+
+/** Horizontal stacked bar of time per HR zone. */
+function ZonesBar({ zones }: { zones: ZoneTime[] }) {
+  const total = zones.reduce((acc, z) => acc + z.secs, 0);
+  if (total <= 0) return null;
+  return (
+    <div>
+      <h3 className="text-[10px] uppercase tracking-[0.2em] text-ink/60 mb-2">
+        Zonas de FC
+      </h3>
+      <div className="flex h-7 w-full overflow-hidden rounded-lg border border-line">
+        {zones.map((z) => {
+          const pct = (z.secs / total) * 100;
+          if (pct < 0.5) return null;
+          return (
+            <div
+              key={z.zone}
+              style={{
+                width: `${pct}%`,
+                background: ZONE_COLORS[z.zone - 1] ?? "#9ca3af",
+              }}
+              title={`Z${z.zone} (${z.low}+ bpm): ${Math.round(z.secs / 60)} min`}
+              className="h-full"
+            />
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-[10px] uppercase tracking-[0.15em] text-ink/60">
+        {zones.map((z) => (
+          <span key={z.zone} className="flex items-center gap-1">
+            <span
+              className="inline-block w-2.5 h-2.5 rounded-sm"
+              style={{ background: ZONE_COLORS[z.zone - 1] ?? "#9ca3af" }}
+            />
+            Z{z.zone} {Math.round(z.secs / 60)}min
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Cards({ analysis }: { analysis: WorkoutAnalysis }) {
+  if (!analysis.totals) return null;
   const work = workSections(analysis.sections);
   const fastest = work.reduce<WorkoutSection | null>(
     (acc, s) =>
@@ -417,7 +553,14 @@ function Card({
   );
 }
 
-type ChartPoint = { km: number; pace: number | null; hr: number | null };
+type ChartPoint = {
+  km: number;
+  pace: number | null;
+  hr: number | null;
+  ele: number | null;
+  power: number | null;
+  cadence: number | null;
+};
 
 function PaceChart({
   series,
@@ -430,12 +573,18 @@ function PaceChart({
   onHover: (km: number | null) => void;
   highlight?: { startKm: number; endKm: number } | null;
 }) {
+  const [showPower, setShowPower] = useState(false);
+  const [showCadence, setShowCadence] = useState(false);
+
   const data: ChartPoint[] = useMemo(
     () =>
       series.km.map((km, i) => ({
         km,
         pace: series.pace[i] ?? null,
         hr: series.hr[i] ?? null,
+        ele: series.ele?.[i] ?? null,
+        power: series.power?.[i] ?? null,
+        cadence: series.cadence?.[i] ?? null,
       })),
     [series],
   );
@@ -457,6 +606,18 @@ function PaceChart({
   // Pad the HR band downward so the area sits low and doesn't fight the pace line.
   const hrLo = hasHr ? Math.max(0, Math.min(...hrs) - 25) : 0;
   const hrHi = hasHr ? Math.max(...hrs) + 8 : 200;
+
+  // Optional streams. Elevation renders as a subtle floor area (its domain is
+  // stretched upward so the profile hugs the bottom quarter of the chart).
+  const eles = data.map((d) => d.ele).filter((e): e is number => e != null);
+  const hasEle = eles.length > 0;
+  const eleMin = hasEle ? Math.min(...eles) : 0;
+  const eleMax = hasEle ? Math.max(...eles) : 1;
+  const eleHi = eleMax + Math.max(20, (eleMax - eleMin) * 3);
+  const powers = data.map((d) => d.power).filter((p): p is number => p != null);
+  const hasPower = powers.length > 0;
+  const cads = data.map((d) => d.cadence).filter((c): c is number => c != null);
+  const hasCadence = cads.length > 0;
 
   const reps = workSections(analysis?.sections ?? []).filter(
     (s) => s.start_km != null && s.end_km != null,
@@ -491,6 +652,27 @@ function PaceChart({
             <span className="inline-block w-4 h-2 align-middle bg-[#dc2626]/25 border-b border-[#dc2626]/60" />
           </LegendItem>
         )}
+        {hasEle && (
+          <LegendItem label="Elevação">
+            <span className="inline-block w-4 h-2 align-middle bg-ink/15" />
+          </LegendItem>
+        )}
+        {hasPower && (
+          <LegendToggle
+            label="Potência"
+            color="#7c3aed"
+            active={showPower}
+            onToggle={() => setShowPower((v) => !v)}
+          />
+        )}
+        {hasCadence && (
+          <LegendToggle
+            label="Cadência"
+            color="#0d9488"
+            active={showCadence}
+            onToggle={() => setShowCadence((v) => !v)}
+          />
+        )}
       </div>
       <ResponsiveContainer width="100%" height={360}>
         <ComposedChart
@@ -503,6 +685,21 @@ function PaceChart({
           onMouseLeave={() => onHover(null)}
         >
           <CartesianGrid stroke="currentColor" strokeOpacity={0.08} />
+          {hasEle && (
+            <Area
+              yAxisId="ele"
+              type="monotone"
+              dataKey="ele"
+              stroke="currentColor"
+              strokeOpacity={0.25}
+              strokeWidth={1}
+              fill="currentColor"
+              fillOpacity={0.08}
+              connectNulls
+              isAnimationActive={false}
+              activeDot={false}
+            />
+          )}
           {hasHr && (
             <Area
               yAxisId="hr"
@@ -590,11 +787,28 @@ function PaceChart({
               width={32}
             />
           )}
+          {hasEle && <YAxis yAxisId="ele" hide domain={[eleMin, eleHi]} />}
+          {hasPower && <YAxis yAxisId="power" hide domain={[0, "dataMax + 40"]} />}
+          {hasCadence && (
+            <YAxis yAxisId="cadence" hide domain={["dataMin - 40", "dataMax + 10"]} />
+          )}
           <Tooltip
-            formatter={((value: number, name: string) =>
-              name === "pace"
-                ? [`${paceFromSec(value)}/km`, "pace"]
-                : [`${Math.round(value)} bpm`, "fc"]) as never}
+            formatter={((value: number, name: string) => {
+              switch (name) {
+                case "pace":
+                  return [`${paceFromSec(value)}/km`, "pace"];
+                case "hr":
+                  return [`${Math.round(value)} bpm`, "fc"];
+                case "ele":
+                  return [`${Math.round(value)} m`, "elevação"];
+                case "power":
+                  return [`${Math.round(value)} W`, "potência"];
+                case "cadence":
+                  return [`${Math.round(value)} spm`, "cadência"];
+                default:
+                  return [String(value), name];
+              }
+            }) as never}
             labelFormatter={((v: number) => `${Number(v).toFixed(2)} km`) as never}
             contentStyle={{
               background: "var(--color-paper, #fff)",
@@ -614,6 +828,32 @@ function PaceChart({
             connectNulls
             isAnimationActive={false}
           />
+          {hasPower && showPower && (
+            <Line
+              yAxisId="power"
+              type="monotone"
+              dataKey="power"
+              stroke="#7c3aed"
+              strokeWidth={1}
+              strokeOpacity={0.8}
+              dot={false}
+              connectNulls
+              isAnimationActive={false}
+            />
+          )}
+          {hasCadence && showCadence && (
+            <Line
+              yAxisId="cadence"
+              type="monotone"
+              dataKey="cadence"
+              stroke="#0d9488"
+              strokeWidth={1}
+              strokeOpacity={0.8}
+              dot={false}
+              connectNulls
+              isAnimationActive={false}
+            />
+          )}
           <Brush
             dataKey="km"
             height={24}
@@ -640,6 +880,36 @@ function LegendItem({
       {children}
       {label}
     </span>
+  );
+}
+
+/** Clickable legend chip that shows/hides an optional series. */
+function LegendToggle({
+  label,
+  color,
+  active,
+  onToggle,
+}: {
+  label: string;
+  color: string;
+  active: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      className={
+        "flex items-center gap-1.5 uppercase tracking-[0.15em] " +
+        (active ? "" : "opacity-40 hover:opacity-70")
+      }
+      title={active ? `Ocultar ${label}` : `Mostrar ${label}`}
+    >
+      <span
+        className="inline-block w-4 h-0.5 align-middle"
+        style={{ background: color }}
+      />
+      {label}
+    </button>
   );
 }
 

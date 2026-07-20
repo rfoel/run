@@ -1,4 +1,4 @@
-import { AlertDialog } from "@base-ui-components/react/alert-dialog";
+import { AlertDialog } from "@base-ui/react/alert-dialog";
 import {
   ArrowSquareOutIcon,
   CheckCircleIcon,
@@ -15,7 +15,7 @@ import { type PlannedRun } from "../lib/api.ts";
 import { useDeletePlan, useGarminPush, usePlans } from "../lib/queries.ts";
 import { ListSkeleton, Skeleton } from "./Skeleton.tsx";
 import { TypeBadge } from "./TypeBadge.tsx";
-import { duration, km } from "../lib/format.ts";
+import { duration, isoDateDaysFromNow, km } from "../lib/format.ts";
 
 export default function Plan({ unlocked }: { unlocked: boolean }) {
   const from = isoDateDaysFromNow(-14);
@@ -332,12 +332,6 @@ function formatDate(yyyymmdd: string) {
     month: "short",
     day: "numeric",
   });
-}
-
-function isoDateDaysFromNow(offset: number) {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return d.toISOString().slice(0, 10);
 }
 
 function groupByWeek(plans: PlannedRun[]) {

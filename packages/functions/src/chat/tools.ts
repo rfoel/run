@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { findActivitiesOnDate } from "@run/core/activity";
 import { createPlan, deletePlan, listPlans, updatePlan } from "@run/core/plan";
 
@@ -109,17 +108,17 @@ const descriptions: Record<keyof typeof inputs, string> = {
   clear_all_planned_runs:
     "Delete every planned run from today onwards. Use this when the athlete wants to restart their training plan from scratch.",
   link_past_activities:
-    "For every planned run still marked 'planned' with date <= today, look for a matching Strava activity on that date and snapshot it onto the plan (mark as done). Use this after creating plans for dates the athlete has already run.",
+    "For every planned run still marked 'planned' with date <= today, look for a matching synced activity on that date and snapshot it onto the plan (mark as done). Use this after creating plans for dates the athlete has already run.",
   move_planned_run:
     "Move an existing planned run to a different date. Preserves all other attributes.",
 };
 
-// Strip the `$schema` key zod-to-json-schema adds at the root; Anthropic's tool
-// input_schema wants a bare JSON Schema object. `$refStrategy: none` inlines any
-// shared definitions so each schema is self-contained.
-function jsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
-  const { $schema, ...rest } = zodToJsonSchema(schema, {
-    $refStrategy: "none",
+// Strip the `$schema` key at the root; Anthropic's tool input_schema wants a
+// bare JSON Schema object. `reused: "inline"` inlines shared definitions so
+// each schema is self-contained (zod 4's native converter).
+function jsonSchema(schema: z.ZodType): Record<string, unknown> {
+  const { $schema, ...rest } = z.toJSONSchema(schema, {
+    reused: "inline",
   }) as Record<string, unknown>;
   return rest;
 }

@@ -17,6 +17,10 @@ async function main() {
   >;
   console.log(`#${plan.garminWorkoutId} "${w.workoutName}"`);
   const seg = (w.workoutSegments as Array<Record<string, unknown>>)[0];
+  if (!seg) {
+    console.log("workout has no segments");
+    return;
+  }
   const steps = seg.workoutSteps as Array<Record<string, unknown>>;
   const fmt = (s: Record<string, unknown>, indent = "  "): string => {
     const st = s.stepType as Record<string, unknown>;

@@ -869,6 +869,137 @@ export async function fetchActivities(
   );
 }
 
+// ---- Activity extras (full DTO, laps, zones, weather) ----------------------
+// Everything else Garmin computed for a run beyond the sample streams: watch
+// laps with the structured-workout step they executed, athlete-entered
+// RPE/feel, training effect/load, running dynamics, HR/power zone times and
+// the weather at start. Only the fields we consume are typed.
+
+export type GarminActivityFull = {
+  activityId: number;
+  metadataDTO?: { associatedWorkoutId: number | null };
+  summaryDTO?: {
+    averagePower?: number | null;
+    maxPower?: number | null;
+    normalizedPower?: number | null;
+    averageRunCadence?: number | null;
+    maxRunCadence?: number | null;
+    groundContactTime?: number | null;
+    strideLength?: number | null; // cm
+    verticalOscillation?: number | null; // cm
+    verticalRatio?: number | null;
+    trainingEffect?: number | null; // aerobic
+    anaerobicTrainingEffect?: number | null;
+    trainingEffectLabel?: string | null;
+    activityTrainingLoad?: number | null;
+    calories?: number | null;
+    moderateIntensityMinutes?: number | null;
+    vigorousIntensityMinutes?: number | null;
+    directWorkoutRpe?: number | null; // 0-100 (athlete-entered, RPE x10)
+    directWorkoutFeel?: number | null; // 0-100 (athlete-entered)
+    directWorkoutComplianceScore?: number | null; // 0-100
+    differenceBodyBattery?: number | null;
+    avgGradeAdjustedSpeed?: number | null; // m/s
+  };
+};
+
+export type GarminLap = {
+  lapIndex: number;
+  distance: number | null; // meters
+  duration: number | null; // seconds
+  movingDuration: number | null;
+  averageSpeed: number | null; // m/s
+  averageHR: number | null;
+  maxHR: number | null;
+  averagePower: number | null;
+  averageRunCadence: number | null;
+  elevationGain: number | null;
+  elevationLoss: number | null;
+  intensityType: string | null; // ACTIVE | REST | WARMUP | COOLDOWN | RECOVERY | INTERVAL...
+  wktStepIndex: number | null; // structured-workout step this lap executed
+  directWorkoutComplianceScore?: number | null;
+};
+
+export type GarminZone = {
+  zoneNumber: number;
+  secsInZone: number;
+  zoneLowBoundary: number;
+};
+
+export type GarminWeather = {
+  temp: number | null; // Fahrenheit
+  apparentTemp: number | null;
+  relativeHumidity: number | null;
+  windSpeed: number | null; // mph
+  windDirectionCompassPoint: string | null;
+  weatherTypeDTO: { desc: string | null } | null;
+};
+
+/** Full activity DTO — summary metrics beyond the list endpoint. */
+export async function fetchActivityFull(
+  activityId: number | string,
+  accessToken: string,
+): Promise<GarminActivityFull> {
+  return garminFetch<GarminActivityFull>(
+    `${GC_API}/activity-service/activity/${activityId}`,
+    accessToken,
+    { method: "GET" },
+  );
+}
+
+/** Watch laps, each tagged with the structured-workout step it executed. */
+export async function fetchActivityLaps(
+  activityId: number | string,
+  accessToken: string,
+): Promise<GarminLap[]> {
+  const res = await garminFetch<{ lapDTOs?: GarminLap[] }>(
+    `${GC_API}/activity-service/activity/${activityId}/splits`,
+    accessToken,
+    { method: "GET" },
+  );
+  return res.lapDTOs ?? [];
+}
+
+/** Seconds spent in each HR zone (empty when the run has no HR). */
+export async function fetchHrTimeInZones(
+  activityId: number | string,
+  accessToken: string,
+): Promise<GarminZone[]> {
+  return (
+    (await garminFetch<GarminZone[] | undefined>(
+      `${GC_API}/activity-service/activity/${activityId}/hrTimeInZones`,
+      accessToken,
+      { method: "GET" },
+    )) ?? []
+  );
+}
+
+/** Seconds spent in each running-power zone. */
+export async function fetchPowerTimeInZones(
+  activityId: number | string,
+  accessToken: string,
+): Promise<GarminZone[]> {
+  return (
+    (await garminFetch<GarminZone[] | undefined>(
+      `${GC_API}/activity-service/activity/${activityId}/powerTimeInZones`,
+      accessToken,
+      { method: "GET" },
+    )) ?? []
+  );
+}
+
+/** Weather observed near the start point/time. */
+export async function fetchActivityWeather(
+  activityId: number | string,
+  accessToken: string,
+): Promise<GarminWeather | undefined> {
+  return garminFetch<GarminWeather | undefined>(
+    `${GC_API}/activity-service/activity/${activityId}/weather`,
+    accessToken,
+    { method: "GET" },
+  );
+}
+
 /** Fetch one activity's per-sample metric streams (for the pace/HR chart). */
 export async function fetchActivityDetails(
   activityId: number | string,

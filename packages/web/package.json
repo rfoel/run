@@ -10,29 +10,29 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@base-ui-components/react": "1.0.0-rc.0",
+    "@base-ui/react": "^1.6.0",
     "@phosphor-icons/react": "^2.1.10",
-    "@tanstack/query-sync-storage-persister": "^5.66.0",
-    "@tanstack/react-query": "^5.66.0",
-    "@tanstack/react-query-persist-client": "^5.66.0",
+    "@tanstack/query-sync-storage-persister": "^5.101.2",
+    "@tanstack/react-query": "^5.101.2",
+    "@tanstack/react-query-persist-client": "^5.101.2",
     "leaflet": "^1.9.4",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "react-leaflet": "^5.0.0",
     "react-markdown": "^10.1.0",
-    "react-router-dom": "^7.16.0",
-    "recharts": "^3.8.1",
-    "sonner": "^1.7.0",
-    "remark-gfm": "^4.0.1"
+    "react-router-dom": "^7.18.1",
+    "recharts": "^3.9.2",
+    "remark-gfm": "^4.0.1",
+    "sonner": "^2.0.7"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.0.0",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/leaflet": "^1.9.21",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^4.3.4",
-    "tailwindcss": "^4.0.0",
-    "typescript": "^5.7.2",
-    "vite": "^6.0.0"
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5"
   }
 }

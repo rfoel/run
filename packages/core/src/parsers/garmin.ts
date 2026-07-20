@@ -2,8 +2,13 @@ import { computeMetrics, type Metrics, type Track, type TrackPoint } from "../tr
 import {
   garminStartEpochSec,
   type GarminActivityDetails,
+  type GarminActivityFull,
   type GarminActivitySummary,
+  type GarminLap,
+  type GarminWeather,
+  type GarminZone,
 } from "../garmin.ts";
+import type { ActivityExtras, DeviceLap, ZoneTime } from "../workout.ts";
 
 /**
  * Garmin activity details are column-oriented: `metricDescriptors` names each
@@ -46,6 +51,7 @@ export function detailsToTrack(
       ele: at(metrics, "directElevation"),
       hr: at(metrics, "directHeartRate"),
       cadence: at(metrics, "directRunCadence"),
+      power: at(metrics, "directPower"),
     });
   }
   return { points };
@@ -88,4 +94,129 @@ export function garminMetrics(
     }
   }
   return { metrics: metricsFromSummary(summary), track: null };
+}
+
+// ---- Extras normalization ---------------------------------------------------
+
+const round1 = (v: number) => Math.round(v * 10) / 10;
+const fToC = (f: number) => round1(((f - 32) * 5) / 9);
+const mphToKph = (mph: number) => round1(mph * 1.609344);
+
+function toDeviceLap(l: GarminLap): DeviceLap {
+  const lap: DeviceLap = {
+    index: l.lapIndex,
+    distance: Math.round(l.distance ?? 0),
+    duration: Math.round(l.duration ?? 0),
+  };
+  if (l.intensityType) lap.intensity = l.intensityType.toLowerCase();
+  if (l.wktStepIndex != null) lap.wktStepIndex = l.wktStepIndex;
+  if (l.averageSpeed && l.averageSpeed > 0)
+    lap.paceSecPerKm = Math.round(1000 / l.averageSpeed);
+  if (l.averageHR != null) lap.avgHr = Math.round(l.averageHR);
+  if (l.maxHR != null) lap.maxHr = Math.round(l.maxHR);
+  if (l.averagePower != null) lap.avgPower = Math.round(l.averagePower);
+  if (l.averageRunCadence != null) lap.avgCadence = Math.round(l.averageRunCadence);
+  if (l.elevationGain != null) lap.elevGain = Math.round(l.elevationGain);
+  if (l.directWorkoutComplianceScore != null)
+    lap.compliance = Math.round(l.directWorkoutComplianceScore);
+  return lap;
+}
+
+const toZones = (zones: GarminZone[]): ZoneTime[] =>
+  zones
+    .filter((z) => z.secsInZone > 0)
+    .map((z) => ({
+      zone: z.zoneNumber,
+      secs: Math.round(z.secsInZone),
+      low: Math.round(z.zoneLowBoundary),
+    }));
+
+/**
+ * Normalize Garmin's per-activity extras (full DTO, watch laps, zone times,
+ * weather) into the source-agnostic {@link ActivityExtras} we store. Empty
+ * sections are omitted so callers can feature-detect with plain truthiness.
+ */
+export function garminExtras(input: {
+  full?: GarminActivityFull;
+  laps?: GarminLap[];
+  hrZones?: GarminZone[];
+  powerZones?: GarminZone[];
+  weather?: GarminWeather;
+}): ActivityExtras {
+  const extras: ActivityExtras = {};
+
+  if (input.laps && input.laps.length > 0) {
+    extras.laps = input.laps.map(toDeviceLap);
+  }
+  if (input.hrZones) {
+    const z = toZones(input.hrZones);
+    if (z.length) extras.hrZones = z;
+  }
+  if (input.powerZones) {
+    const z = toZones(input.powerZones);
+    if (z.length) extras.powerZones = z;
+  }
+  if (input.weather && input.weather.temp != null) {
+    extras.weather = {
+      tempC: fToC(input.weather.temp),
+      ...(input.weather.apparentTemp != null && {
+        feelsC: fToC(input.weather.apparentTemp),
+      }),
+      ...(input.weather.relativeHumidity != null && {
+        humidity: input.weather.relativeHumidity,
+      }),
+      ...(input.weather.windSpeed != null && {
+        windKph: mphToKph(input.weather.windSpeed),
+      }),
+      ...(input.weather.windDirectionCompassPoint && {
+        windDir: input.weather.windDirectionCompassPoint,
+      }),
+      ...(input.weather.weatherTypeDTO?.desc && {
+        desc: input.weather.weatherTypeDTO.desc,
+      }),
+    };
+  }
+
+  const s = input.full?.summaryDTO;
+  if (s) {
+    const physio: NonNullable<ActivityExtras["physio"]> = {};
+    if (s.trainingEffect != null) physio.aerobicTE = round1(s.trainingEffect);
+    if (s.anaerobicTrainingEffect != null)
+      physio.anaerobicTE = round1(s.anaerobicTrainingEffect);
+    if (s.trainingEffectLabel) physio.teLabel = s.trainingEffectLabel;
+    if (s.activityTrainingLoad != null)
+      physio.trainingLoad = Math.round(s.activityTrainingLoad);
+    if (s.averagePower != null) physio.avgPower = Math.round(s.averagePower);
+    if (s.maxPower != null) physio.maxPower = Math.round(s.maxPower);
+    if (s.normalizedPower != null)
+      physio.normPower = Math.round(s.normalizedPower);
+    if (s.averageRunCadence != null)
+      physio.avgCadence = Math.round(s.averageRunCadence);
+    if (s.maxRunCadence != null) physio.maxCadence = Math.round(s.maxRunCadence);
+    if (s.groundContactTime != null) physio.gctMs = Math.round(s.groundContactTime);
+    if (s.strideLength != null) physio.strideLenCm = Math.round(s.strideLength);
+    if (s.verticalOscillation != null)
+      physio.vertOscCm = round1(s.verticalOscillation);
+    if (s.verticalRatio != null) physio.vertRatio = round1(s.verticalRatio);
+    if (s.calories != null) physio.calories = Math.round(s.calories);
+    if (s.moderateIntensityMinutes != null)
+      physio.modIntensityMin = s.moderateIntensityMinutes;
+    if (s.vigorousIntensityMinutes != null)
+      physio.vigIntensityMin = s.vigorousIntensityMinutes;
+    if (s.differenceBodyBattery != null)
+      physio.bodyBatteryDiff = s.differenceBodyBattery;
+    if (s.avgGradeAdjustedSpeed != null && s.avgGradeAdjustedSpeed > 0)
+      physio.gradeAdjustedPaceSecPerKm = Math.round(1000 / s.avgGradeAdjustedSpeed);
+    if (Object.keys(physio).length) extras.physio = physio;
+
+    const feedback: NonNullable<ActivityExtras["feedback"]> = {};
+    // Garmin stores RPE x10 (70 = RPE 7) and feel 0-100.
+    if (s.directWorkoutRpe != null) feedback.rpe = round1(s.directWorkoutRpe / 10);
+    if (s.directWorkoutFeel != null) feedback.feel = s.directWorkoutFeel;
+    if (s.directWorkoutComplianceScore != null)
+      feedback.compliance = s.directWorkoutComplianceScore;
+    if (Object.keys(feedback).length) extras.feedback = feedback;
+  }
+
+  return extras;
 }

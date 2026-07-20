@@ -26,24 +26,22 @@ import { getStatsMany, isoWeek, type StatsScope } from "@run/core/stats";
 import {
   getAnalysis,
   getChartSeries,
+  getExtras,
   putChartSeries,
+  putExtras,
 } from "@run/core/workout";
-import { buildChartSeries, computeMetrics } from "@run/core/track";
-import { streamsToTrack } from "@run/core/parsers/streams";
-import {
-  fetchActivities,
-  fetchActivity,
-  fetchStreams,
-  getValidAccessToken,
-  saveTokens,
-  updateActivityName,
-} from "@run/core/strava";
+import { buildChartSeries } from "@run/core/track";
 import {
   courseWebUrl,
   createCourse,
   createWorkout,
   fetchActivities as fetchGarminActivities,
   fetchActivityDetails as fetchGarminActivityDetails,
+  fetchActivityFull,
+  fetchActivityLaps,
+  fetchActivityWeather,
+  fetchHrTimeInZones,
+  fetchPowerTimeInZones,
   garminStartEpochSec,
   getValidAccessToken as getGarminAccessToken,
   isGarminRun,
@@ -51,7 +49,11 @@ import {
   updateWorkout,
   type CoursePoint,
 } from "@run/core/garmin";
-import { detailsToTrack, garminMetrics } from "@run/core/parsers/garmin";
+import {
+  detailsToTrack,
+  garminExtras,
+  garminMetrics,
+} from "@run/core/parsers/garmin";
 import {
   createRoute,
   decodeRoute,
@@ -64,6 +66,7 @@ import {
 } from "@run/core/route";
 import { resolvePlanWorkouts } from "./garmin/resolve.ts";
 import { isAuthorized } from "./lib/auth.ts";
+import { enqueueAnalysis } from "./lib/analyze-queue.ts";
 
 // Read endpoints: let the browser (and any private cache) serve repeats for a
 // short window. `private` keeps personal data out of shared/CDN caches; the
@@ -72,7 +75,8 @@ import { isAuthorized } from "./lib/auth.ts";
 // while refreshing in the background.
 const READ_CACHE = "private, max-age=30, stale-while-revalidate=300";
 
-const RUN_TYPES = new Set(["Run", "TrailRun", "VirtualRun"]);
+// "strava" stays valid for READING: historical runs imported before the move
+// to Garmin-only ingestion still live in the table under that source.
 const SOURCES = new Set<ActivitySource>([
   "strava",
   "garmin",
@@ -85,128 +89,6 @@ const app = new Hono();
 // Every route runs in this single Lambda (one warm pool). Routes are mounted
 // without the `/api` prefix — the SST Router strips it before forwarding.
 
-// ---- Strava webhook subscription verification -----------------------------
-app.get("/strava/webhook", (c) => {
-  const mode = c.req.query("hub.mode");
-  const token = c.req.query("hub.verify_token");
-  const challenge = c.req.query("hub.challenge");
-  if (mode !== "subscribe" || token !== Resource.StravaVerifyToken.value) {
-    return c.text("forbidden", 403);
-  }
-  return c.json({ "hub.challenge": challenge });
-});
-
-// ---- Strava webhook event -------------------------------------------------
-type StravaEvent = {
-  object_type: "activity" | "athlete";
-  object_id: number;
-  aspect_type: "create" | "update" | "delete";
-  owner_id: number;
-  subscription_id: number;
-  event_time: number;
-  updates?: Record<string, string>;
-};
-
-app.post("/strava/webhook", async (c) => {
-  const raw = await c.req.text();
-  if (!raw) {
-    console.log("webhook: missing body");
-    return c.json({ error: "missing body" }, 400);
-  }
-  const payload = JSON.parse(raw) as StravaEvent;
-  console.log("webhook payload", JSON.stringify(payload));
-
-  if (payload.object_type !== "activity") {
-    console.log(`skip: object_type=${payload.object_type}`);
-    return c.json({ skipped: true });
-  }
-  if (payload.aspect_type === "delete") {
-    console.log(`skip: delete event for ${payload.object_id}`);
-    return c.json({ ok: true });
-  }
-
-  const accessToken = await getValidAccessToken();
-  const act = await fetchActivity(payload.object_id, accessToken);
-  console.log(`fetched ${act.id} sport=${act.sport_type} type=${act.type}`);
-  if (!RUN_TYPES.has(act.sport_type) && !RUN_TYPES.has(act.type)) {
-    return c.json({ skipped: "not a run" });
-  }
-
-  const startEpochSec = Math.floor(new Date(act.start_date).getTime() / 1000);
-  const streams = await fetchStreams(payload.object_id, accessToken);
-  const track = streamsToTrack(streams, startEpochSec);
-  console.log(`track points=${track.points.length}`);
-  if (track.points.length < 2) {
-    return c.json({ skipped: "track too short" });
-  }
-
-  const metrics = computeMetrics(track);
-  const activity = buildActivity({
-    source: "strava",
-    externalId: String(act.id),
-    name: act.name,
-    sportType: act.sport_type,
-    metrics,
-  });
-  await putChartSeries("strava", String(act.id), buildChartSeries(track));
-  const { created } = await putActivity(activity);
-  console.log(`put activity ${activity.externalId} created=${created}`);
-  let linkedPlanId: string | null = null;
-  if (created) {
-    const linkedPlan = await linkActivityToPlan(activity);
-    linkedPlanId = linkedPlan?.id ?? null;
-    console.log(`linked plan=${linkedPlanId}`);
-    if (linkedPlan) {
-      const title = planTitle(linkedPlan);
-      // Keep our copy and the plan snapshot on the workout title too, so the
-      // app shows "4km tempo…" rather than Strava's "Corrida matinal".
-      await renameActivity("strava", String(act.id), title);
-      await updatePlan(linkedPlan.date, linkedPlan.id, { actualName: title });
-      try {
-        await updateActivityName(act.id, title, accessToken);
-        console.log(`renamed strava ${act.id} -> ${title}`);
-      } catch (e) {
-        console.log(`rename failed: ${(e as Error).message}`);
-      }
-    }
-  }
-  return c.json({ ok: true, externalId: activity.externalId, linkedPlanId });
-});
-
-// ---- Strava OAuth callback ------------------------------------------------
-app.get("/strava/oauth/callback", async (c) => {
-  const code = c.req.query("code");
-  if (!code) return c.text("missing code", 400);
-
-  const res = await fetch("https://www.strava.com/oauth/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: Resource.StravaClientId.value,
-      client_secret: Resource.StravaClientSecret.value,
-      code,
-      grant_type: "authorization_code",
-    }),
-  });
-  if (!res.ok) return c.text(`strava token exchange failed: ${res.status}`, 500);
-  const data = (await res.json()) as {
-    access_token: string;
-    refresh_token: string;
-    expires_at: number;
-    athlete: { id: number };
-  };
-  await saveTokens({
-    athleteId: data.athlete.id,
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    expiresAt: data.expires_at,
-  });
-  return c.text(
-    `Linked Strava athlete ${data.athlete.id}. You can close this tab.`,
-  );
-});
-
-// ---- Strava sync ----------------------------------------------------------
 type SyncResult = {
   fetched: number;
   imported: number;
@@ -215,95 +97,33 @@ type SyncResult = {
   errors: string[];
 };
 
-app.post("/strava/sync", async (c) => {
-  if (!isAuthorized(c.req.header())) {
-    return c.json({ error: "unauthorized" }, 401);
-  }
-  const days = Number(c.req.query("days") ?? 30);
-  const accessToken = await getValidAccessToken();
-  const afterEpoch = Math.floor(Date.now() / 1000) - days * 86400;
-
-  const result: SyncResult = {
-    fetched: 0,
-    imported: 0,
-    skipped: 0,
-    linked: 0,
-    errors: [],
-  };
-
-  let page = 1;
-  while (true) {
-    const batch = await fetchActivities(accessToken, {
-      page,
-      perPage: 100,
-      after: afterEpoch,
+// Pull everything Garmin computed for one run beyond the sample streams —
+// watch laps (with structured-workout step + intensity), HR/power zone times,
+// weather, training effect/load, running dynamics and athlete-entered
+// RPE/feel — and store it as the activity's EXTRAS item. Each endpoint is
+// best-effort: the unofficial API throttles hard, and a missing section just
+// means less context for the UI/analysis.
+async function ingestGarminExtras(
+  externalId: string,
+  token: string,
+): Promise<boolean> {
+  const soft = <T>(p: Promise<T>): Promise<T | undefined> =>
+    p.catch((e) => {
+      console.log(`extras ${externalId}: ${(e as Error).message}`);
+      return undefined;
     });
-    if (batch.length === 0) break;
-    result.fetched += batch.length;
-
-    for (const summary of batch) {
-      if (!RUN_TYPES.has(summary.sport_type) && !RUN_TYPES.has(summary.type)) {
-        result.skipped++;
-        continue;
-      }
-      try {
-        const streams = await fetchStreams(summary.id, accessToken);
-        const startEpochSec = Math.floor(
-          new Date(summary.start_date).getTime() / 1000,
-        );
-        const track = streamsToTrack(streams, startEpochSec);
-        if (track.points.length < 2) {
-          result.skipped++;
-          continue;
-        }
-        const metrics = computeMetrics(track);
-        const activity = buildActivity({
-          source: "strava",
-          externalId: String(summary.id),
-          name: summary.name,
-          sportType: summary.sport_type,
-          metrics,
-        });
-        // Store the chart series unconditionally so already-imported
-        // activities get backfilled on a re-sync.
-        await putChartSeries(
-          "strava",
-          String(summary.id),
-          buildChartSeries(track),
-        );
-        const { created } = await putActivity(activity);
-        if (created) result.imported++;
-        else result.skipped++;
-
-        // Reconcile the workout title on EVERY sync, so already-imported runs
-        // that kept Strava's original name get the plan title here too.
-        const linkedPlan = await linkActivityToPlan(activity);
-        if (linkedPlan) {
-          result.linked++;
-          const title = planTitle(linkedPlan);
-          await renameActivity("strava", String(summary.id), title);
-          await updatePlan(linkedPlan.date, linkedPlan.id, {
-            actualName: title,
-          });
-          if (summary.name !== title) {
-            try {
-              await updateActivityName(summary.id, title, accessToken);
-            } catch (e) {
-              result.errors.push(
-                `rename ${summary.id}: ${(e as Error).message}`,
-              );
-            }
-          }
-        }
-      } catch (e) {
-        result.errors.push(`${summary.id}: ${(e as Error).message}`);
-      }
-    }
-    page++;
-  }
-
-  return c.json(result);
-});
+  const [full, laps, hrZones, powerZones, weather] = await Promise.all([
+    soft(fetchActivityFull(externalId, token)),
+    soft(fetchActivityLaps(externalId, token)),
+    soft(fetchHrTimeInZones(externalId, token)),
+    soft(fetchPowerTimeInZones(externalId, token)),
+    soft(fetchActivityWeather(externalId, token)),
+  ]);
+  const extras = garminExtras({ full, laps, hrZones, powerZones, weather });
+  if (Object.keys(extras).length === 0) return false;
+  await putExtras("garmin", externalId, extras);
+  return true;
+}
 
 // ---- Garmin sync ----------------------------------------------------------
 // Pull recent runs from Garmin Connect (no webhook on the unofficial API, so
@@ -378,6 +198,13 @@ app.post("/garmin/sync", async (c) => {
           const title = planTitle(linkedPlan);
           await renameActivity("garmin", externalId, title);
           await updatePlan(linkedPlan.date, linkedPlan.id, { actualName: title });
+        }
+        if (created) {
+          // Laps/zones/weather/RPE — before enqueueing so the analysis sees
+          // them. Auto-analyze only runs with a chart series (the analysis
+          // needs the trace; summary-only imports can't be analyzed).
+          await ingestGarminExtras(externalId, token);
+          if (track) await enqueueAnalysis("garmin", externalId);
         }
       } catch (e) {
         result.errors.push(`${externalId}: ${(e as Error).message}`);
@@ -597,9 +424,10 @@ app.get("/activities/:source/:externalId", async (c) => {
   const activity = await getActivity(source as ActivitySource, externalId);
   if (!activity) return c.json({ error: "not found" }, 404);
 
-  const [series, analysis] = await Promise.all([
+  const [series, analysis, extras] = await Promise.all([
     getChartSeries(source, externalId),
     getAnalysis(source, externalId),
+    getExtras(source, externalId),
   ]);
 
   // The linked plan carries the prescription (notes / target pace / type).
@@ -614,45 +442,39 @@ app.get("/activities/:source/:externalId", async (c) => {
     series: series ?? null,
     analysis: analysis ?? null,
     plan: plan ?? null,
+    extras: extras ?? null,
   });
 });
 
-// Re-fetch one activity's streams from Strava and (re)store its chart series.
-// Older runs imported without streams show a map but no pace chart — this
-// backfills the series for that single activity. Stats are untouched.
+// Re-fetch one activity's detail samples from Garmin and (re)store its chart
+// series. Older runs imported without samples show a map but no pace chart —
+// this backfills the series for that single activity. Stats are untouched.
 app.post("/activities/:source/:externalId/resync", async (c) => {
   if (!isAuthorized(c.req.header())) {
     return c.json({ error: "unauthorized" }, 401);
   }
   const source = c.req.param("source") as ActivitySource;
   const externalId = c.req.param("externalId");
-  if (source !== "strava" && source !== "garmin") {
-    return c.json({ error: "resync only supported for strava/garmin" }, 400);
+  if (source !== "garmin") {
+    return c.json({ error: "resync only supported for garmin" }, 400);
   }
   const existing = await getActivity(source, externalId);
   if (!existing) return c.json({ error: "not found" }, 404);
 
-  let track;
-  if (source === "strava") {
-    const accessToken = await getValidAccessToken();
-    const startEpochSec = Math.floor(
-      new Date(existing.startDate).getTime() / 1000,
-    );
-    const streams = await fetchStreams(Number(externalId), accessToken);
-    track = streamsToTrack(streams, startEpochSec);
-  } else {
-    const token = await getGarminAccessToken();
-    const startEpochSec = Math.floor(
-      new Date(existing.startDate).getTime() / 1000,
-    );
-    const details = await fetchGarminActivityDetails(externalId, token);
-    track = detailsToTrack(details, startEpochSec);
-  }
+  const token = await getGarminAccessToken();
+  const startEpochSec = Math.floor(
+    new Date(existing.startDate).getTime() / 1000,
+  );
+  const details = await fetchGarminActivityDetails(externalId, token);
+  const track = detailsToTrack(details, startEpochSec);
   if (track.points.length < 2) {
     return c.json({ error: "no sample stream for this activity" }, 422);
   }
   await putChartSeries(source, externalId, buildChartSeries(track));
-  return c.json({ ok: true, points: track.points.length });
+  // Backfill/refresh the extras too — this is how pre-existing runs get laps,
+  // zones, weather and RPE without waiting for a new sync.
+  const extras = await ingestGarminExtras(externalId, token);
+  return c.json({ ok: true, points: track.points.length, extras });
 });
 
 app.delete("/activities/:source/:externalId", async (c) => {
