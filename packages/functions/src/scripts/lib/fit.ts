@@ -32,6 +32,9 @@ export type FitResult = {
 export function parseFit(gzippedBuffer: Buffer): Promise<FitResult> {
   const raw = gunzipSync(gzippedBuffer);
   return new Promise((resolve, reject) => {
+    // fit-file-parser v4 ships its own types, but they declare date fields as
+    // `string` while the runtime still returns `Date` objects. Cast past the
+    // shipped types and keep the local shapes above, which match reality.
     const parser = new (FitParser as any)({
       force: true,
       speedUnit: "m/s",
