@@ -78,7 +78,8 @@ async function main() {
     const pace = clock(r.paceSecPerKm);
     console.log(
       `  ${r.label.padEnd(14)} ${clock(r.timeSec).padStart(8)}  ${pace}/km  ` +
-        `${r.startDate.slice(0, 10)}  ${r.src === "splits" ? "approx" : "exact "}  ${r.activityName}`,
+        `${r.startDate.slice(0, 10)}  ${r.source.padEnd(7)}  ` +
+        `${r.src === "splits" ? "approx" : "exact "}  ${r.activityName}`,
     );
   }
 
