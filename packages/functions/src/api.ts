@@ -1,23 +1,17 @@
 import { Hono } from "hono";
 import { streamHandle } from "hono/aws-lambda";
 import { stream } from "hono/streaming";
-import { Resource } from "sst";
 
 import {
-  buildActivity,
   deleteActivity,
   getActivity,
   listActivities,
-  putActivity,
-  renameActivity,
   type Activity,
   type ActivitySource,
 } from "@run/core/activity";
 import {
   deletePlan,
-  linkActivityToPlan,
   listPlans,
-  planTitle,
   unlinkActivityFromPlan,
   updatePlan,
   type PlannedRun,
@@ -29,32 +23,19 @@ import {
   getChartSeries,
   getExtras,
   putChartSeries,
-  putExtras,
 } from "@run/core/workout";
 import { buildChartSeries } from "@run/core/track";
 import {
   createWorkout,
-  fetchActivities as fetchGarminActivities,
   fetchActivityDetails as fetchGarminActivityDetails,
-  fetchActivityFull,
-  fetchActivityLaps,
-  fetchActivityWeather,
-  fetchHrTimeInZones,
-  fetchPowerTimeInZones,
-  garminStartEpochSec,
   getValidAccessToken as getGarminAccessToken,
-  isGarminRun,
   scheduleWorkout,
   updateWorkout,
 } from "@run/core/garmin";
-import {
-  detailsToTrack,
-  garminExtras,
-  garminMetrics,
-} from "@run/core/parsers/garmin";
+import { detailsToTrack } from "@run/core/parsers/garmin";
 import { resolvePlanWorkouts } from "./garmin/resolve.ts";
+import { ingestGarminExtras, syncGarmin } from "./garmin/sync.ts";
 import { isAuthorized } from "./lib/auth.ts";
-import { enqueueAnalysis } from "./lib/analyze-queue.ts";
 
 // Read endpoints: let the browser (and any private cache) serve repeats for a
 // short window. `private` keeps personal data out of shared/CDN caches; the
@@ -77,131 +58,20 @@ const app = new Hono();
 // Every route runs in this single Lambda (one warm pool). Routes are mounted
 // without the `/api` prefix — the SST Router strips it before forwarding.
 
-type SyncResult = {
-  fetched: number;
-  imported: number;
-  skipped: number;
-  linked: number;
-  errors: string[];
-};
-
-// Pull everything Garmin computed for one run beyond the sample streams —
-// watch laps (with structured-workout step + intensity), HR/power zone times,
-// weather, training effect/load, running dynamics and athlete-entered
-// RPE/feel — and store it as the activity's EXTRAS item. Each endpoint is
-// best-effort: the unofficial API throttles hard, and a missing section just
-// means less context for the UI/analysis.
-async function ingestGarminExtras(
-  externalId: string,
-  token: string,
-): Promise<boolean> {
-  const soft = <T>(p: Promise<T>): Promise<T | undefined> =>
-    p.catch((e) => {
-      console.log(`extras ${externalId}: ${(e as Error).message}`);
-      return undefined;
-    });
-  const [full, laps, hrZones, powerZones, weather] = await Promise.all([
-    soft(fetchActivityFull(externalId, token)),
-    soft(fetchActivityLaps(externalId, token)),
-    soft(fetchHrTimeInZones(externalId, token)),
-    soft(fetchPowerTimeInZones(externalId, token)),
-    soft(fetchActivityWeather(externalId, token)),
-  ]);
-  const extras = garminExtras({ full, laps, hrZones, powerZones, weather });
-  if (Object.keys(extras).length === 0) return false;
-  await putExtras("garmin", externalId, extras);
-  return true;
-}
-
 // ---- Garmin sync ----------------------------------------------------------
-// Pull recent runs from Garmin Connect (no webhook on the unofficial API, so
-// this is polled). Newest-first paging stops once we pass the lookback window.
-// Treadmill/indoor runs import too: their detail samples have no GPS but carry
-// a distance stream, and buildActivity flags a missing polyline as indoor.
+// Manual trigger for the same ingestion the cron runs on a schedule (see
+// packages/functions/src/garmin/sync.ts). Defaults to a much wider lookback
+// than the cron, since this is what you press to backfill.
 app.post("/garmin/sync", async (c) => {
   if (!isAuthorized(c.req.header())) {
     return c.json({ error: "unauthorized" }, 401);
   }
   const days = Number(c.req.query("days") ?? 30);
-  const cutoff = Math.floor(Date.now() / 1000) - days * 86400;
-
-  let token: string;
   try {
-    token = await getGarminAccessToken();
+    return c.json(await syncGarmin(days));
   } catch (e) {
-    return c.json({ error: `garmin auth: ${(e as Error).message}` }, 502);
+    return c.json({ error: `garmin sync: ${(e as Error).message}` }, 502);
   }
-
-  const result: SyncResult = {
-    fetched: 0,
-    imported: 0,
-    skipped: 0,
-    linked: 0,
-    errors: [],
-  };
-
-  const perPage = 20;
-  let start = 0;
-  outer: while (true) {
-    const batch = await fetchGarminActivities(token, { start, limit: perPage });
-    if (batch.length === 0) break;
-    result.fetched += batch.length;
-
-    for (const summary of batch) {
-      const startEpochSec = garminStartEpochSec(summary.startTimeGMT);
-      // List is newest-first, so once we cross the window we're done.
-      if (startEpochSec < cutoff) break outer;
-      if (!isGarminRun(summary.activityType.typeKey)) {
-        result.skipped++;
-        continue;
-      }
-      const externalId = String(summary.activityId);
-      try {
-        // Detail samples power the pace chart + splits; best-effort, since the
-        // endpoint is heavily throttled. Fall back to summary-only metrics.
-        let details;
-        try {
-          details = await fetchGarminActivityDetails(summary.activityId, token);
-        } catch {
-          details = undefined;
-        }
-        const { metrics, track } = garminMetrics(summary, details);
-        const activity = buildActivity({
-          source: "garmin",
-          externalId,
-          name: summary.activityName ?? "Corrida",
-          sportType: summary.activityType.typeKey,
-          metrics,
-        });
-        if (track) {
-          await putChartSeries("garmin", externalId, buildChartSeries(track));
-        }
-        const { created } = await putActivity(activity);
-        if (created) result.imported++;
-        else result.skipped++;
-
-        const linkedPlan = await linkActivityToPlan(activity);
-        if (linkedPlan) {
-          result.linked++;
-          const title = planTitle(linkedPlan);
-          await renameActivity("garmin", externalId, title);
-          await updatePlan(linkedPlan.date, linkedPlan.id, { actualName: title });
-        }
-        if (created) {
-          // Laps/zones/weather/RPE — before enqueueing so the analysis sees
-          // them. Auto-analyze only runs with a chart series (the analysis
-          // needs the trace; summary-only imports can't be analyzed).
-          await ingestGarminExtras(externalId, token);
-          if (track) await enqueueAnalysis("garmin", externalId);
-        }
-      } catch (e) {
-        result.errors.push(`${externalId}: ${(e as Error).message}`);
-      }
-    }
-    start += perPage;
-  }
-
-  return c.json(result);
 });
 
 // ---- Garmin push ----------------------------------------------------------
