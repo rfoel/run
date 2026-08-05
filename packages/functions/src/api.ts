@@ -21,6 +21,7 @@ import {
 import { listCities, listHeatmapTracks } from "@run/core/heatmap";
 import { getStatsMany, isoWeek, type StatsScope } from "@run/core/stats";
 import {
+  deleteWorkoutItems,
   getAnalysis,
   getChartSeries,
   getExtras,
@@ -258,9 +259,13 @@ app.delete("/activities/:source/:externalId", async (c) => {
   const existing = await getActivity(source, externalId);
   if (!existing) return c.json({ error: "not found" }, 404);
   const { deleted } = await deleteActivity(source, externalId);
-  const unlinked = deleted
-    ? await unlinkActivityFromPlan(source, externalId, existing.startDate)
-    : 0;
+  let unlinked = 0;
+  if (deleted) {
+    unlinked = await unlinkActivityFromPlan(source, externalId, existing.startDate);
+    // The series, extras and analysis live in their own items and were being
+    // left behind — deleteActivity only handles the row and the stats.
+    await deleteWorkoutItems(source, externalId);
+  }
   return c.json({ ok: true, deleted, unlinked });
 });
 

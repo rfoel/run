@@ -1,4 +1,8 @@
-import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import {
+  DeleteCommand,
+  GetCommand,
+  PutCommand,
+} from "@aws-sdk/lib-dynamodb";
 import { ddb, tableName } from "./db.ts";
 import { userPk, USER_ID } from "./user.ts";
 import type { ChartSeries } from "./track.ts";
@@ -245,4 +249,31 @@ export async function getAnalysis(
   if (!res.Item) return undefined;
   const { pk: _pk, sk: _sk, ...rest } = res.Item;
   return rest as StoredAnalysis;
+}
+
+/**
+ * Drop the three satellite items a run accumulates. deleteActivity only removes
+ * the ACTIVITY row and fixes the stats, so without this the chart series,
+ * device extras and stored analysis outlive the run they belong to.
+ *
+ * Deletes are unconditional: a run that never had a series or an analysis simply
+ * has nothing to remove there.
+ */
+export async function deleteWorkoutItems(
+  source: string,
+  externalId: string,
+  userId: string = USER_ID,
+): Promise<void> {
+  const pk = userPk(userId);
+  await Promise.all(
+    [
+      streamSk(source, externalId),
+      extrasSk(source, externalId),
+      analysisSk(source, externalId),
+    ].map((sk) =>
+      ddb.send(
+        new DeleteCommand({ TableName: tableName(), Key: { pk, sk } }),
+      ),
+    ),
+  );
 }
