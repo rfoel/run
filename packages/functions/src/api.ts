@@ -6,9 +6,11 @@ import {
   deleteActivity,
   getActivity,
   listActivities,
+  setActivityBestEfforts,
   type Activity,
   type ActivitySource,
 } from "@run/core/activity";
+import { aggregateRecords, bestEffortsFor } from "@run/core/bestEfforts";
 import {
   deletePlan,
   listPlans,
@@ -148,6 +150,15 @@ app.get("/tracks", async (c) => {
   return c.json({ items });
 });
 
+// All-time best effort at each standard distance, with the run that holds it.
+// One query: every activity carries its own bests (see @run/core/bestEfforts),
+// so this is a min-reduce over the list rather than a read per run.
+app.get("/records", async (c) => {
+  const activities = await listActivities({ limit: 100_000 });
+  c.header("Cache-Control", READ_CACHE);
+  return c.json({ items: aggregateRecords(activities) });
+});
+
 // Cities the user has started a run in, busiest first. Separate from /tracks so
 // the map paints immediately: this one can block on geocoding the first time a
 // run appears in a new area.
@@ -213,7 +224,19 @@ app.post("/activities/:source/:externalId/resync", async (c) => {
   if (track.points.length < 2) {
     return c.json({ error: "no sample stream for this activity" }, 422);
   }
-  await putChartSeries(source, externalId, buildChartSeries(track));
+  const series = buildChartSeries(track);
+  await putChartSeries(source, externalId, series);
+  // Now that the samples exist, the run's records can be exact rather than
+  // snapped to kilometre boundaries.
+  await setActivityBestEfforts(
+    source,
+    externalId,
+    bestEffortsFor({
+      series,
+      splits: existing.splits,
+      distance: existing.distance,
+    }),
+  );
   // Backfill/refresh the extras too — this is how pre-existing runs get laps,
   // zones, weather and RPE without waiting for a new sync.
   const extras = await ingestGarminExtras(externalId, token);

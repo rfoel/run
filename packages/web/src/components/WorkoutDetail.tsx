@@ -35,7 +35,7 @@ import {
 } from "../lib/queries.ts";
 import { Skeleton } from "./Skeleton.tsx";
 import { date, duration, km as kmFmt, paceFromSec } from "../lib/format.ts";
-import { computeBestEfforts } from "../lib/bestEfforts.ts";
+import { distanceLabel, type StoredBest } from "@run/core/bestEfforts";
 import {
   decodePolyline,
   routeGeometry,
@@ -280,14 +280,12 @@ export default function WorkoutDetail({
             <RouteMap geo={geo} hoverKm={hoverKm} highlight={highlightSeg} />
           )}
 
-          {detail?.series && (
-            <BestEfforts
-              series={detail.series}
-              selectable={geo != null}
-              selectedKey={highlight?.key ?? null}
-              onToggle={toggleHighlight}
-            />
-          )}
+          <BestEfforts
+            efforts={detail?.activity.bestEfforts}
+            selectable={geo != null}
+            selectedKey={highlight?.key ?? null}
+            onToggle={toggleHighlight}
+          />
 
           {analysis ? (
             <>
@@ -1097,24 +1095,35 @@ function Coach({ analysis }: { analysis: WorkoutAnalysis }) {
   );
 }
 
+// Computed server-side at ingest and stored on the activity (see
+// @run/core/bestEfforts), so this renders whatever the run has — exact windows
+// for runs whose samples were kept, kilometre-snapped ones for the rest.
 function BestEfforts({
-  series,
+  efforts,
   selectable,
   selectedKey,
   onToggle,
 }: {
-  series: ChartSeries;
+  efforts: StoredBest[] | undefined;
   selectable: boolean;
   selectedKey: string | null;
   onToggle: (key: string, startKm: number, endKm: number) => void;
 }) {
-  const efforts = useMemo(() => computeBestEfforts(series), [series]);
-  if (efforts.length === 0) return null;
-  const hasHr = efforts.some((e) => e.avgHr != null);
+  if (!efforts || efforts.length === 0) return null;
+  const hasHr = efforts.some((e) => e.hr != null);
+  const anyApprox = efforts.some((e) => e.src === "splits");
   return (
     <div>
-      <h3 className="text-[10px] uppercase tracking-[0.2em] text-ink/60 mb-2">
+      <h3 className="text-[10px] uppercase tracking-[0.2em] text-ink/60 mb-2 flex items-baseline gap-2">
         Melhores marcas
+        {anyApprox && (
+          <span
+            title="Sem as amostras desta corrida, a janela só pode começar num quilômetro fechado — o tempo real é igual ou alguns segundos melhor"
+            className="text-ink/40 tracking-[0.15em]"
+          >
+            aprox
+          </span>
+        )}
       </h3>
       <div className="border border-line rounded-lg overflow-x-auto bg-card shadow-sm">
         <table className="w-full text-sm font-mono">
@@ -1128,24 +1137,21 @@ function BestEfforts({
           </thead>
           <tbody className="divide-y divide-ink/15">
             {efforts.map((e) => {
-              const key = `be:${e.meters}`;
+              const key = `be:${e.m}`;
               return (
                 <tr
-                  key={e.meters}
+                  key={e.m}
                   onClick={
                     selectable
-                      ? () =>
-                          onToggle(key, e.startKm, e.startKm + e.meters / 1000)
+                      ? () => onToggle(key, e.startKm, e.startKm + e.m / 1000)
                       : undefined
                   }
                   className={rowClass(selectable, selectedKey === key)}
                 >
-                  <Td>{e.label}</Td>
-                  <Td>{duration(e.timeSec)}</Td>
-                  <Td>{paceFromSec(e.paceSecPerKm)}/km</Td>
-                  {hasHr && (
-                    <Td>{e.avgHr != null ? `${e.avgHr} bpm` : "—"}</Td>
-                  )}
+                  <Td>{distanceLabel(e.m)}</Td>
+                  <Td>{duration(e.t)}</Td>
+                  <Td>{paceFromSec(Math.round(e.t / (e.m / 1000)))}/km</Td>
+                  {hasHr && <Td>{e.hr != null ? `${e.hr} bpm` : "—"}</Td>}
                 </tr>
               );
             })}

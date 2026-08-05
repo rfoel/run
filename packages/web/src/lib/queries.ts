@@ -12,6 +12,7 @@ import {
   listActivities,
   listCities,
   listPlans,
+  listRecords,
   listTracks,
   pushGarmin,
   resyncActivity,
@@ -34,6 +35,7 @@ export const qk = {
   stats: () => ["stats"] as const,
   tracks: () => ["tracks"] as const,
   cities: () => ["cities"] as const,
+  records: () => ["records"] as const,
   activityDetail: (source: string, externalId: string) =>
     ["activityDetail", source, externalId] as const,
 };
@@ -67,6 +69,14 @@ export function useCities() {
   return useQuery({
     queryKey: qk.cities(),
     queryFn: listCities,
+    staleTime: 30 * 60_000,
+  });
+}
+
+export function useRecords() {
+  return useQuery({
+    queryKey: qk.records(),
+    queryFn: listRecords,
     staleTime: 30 * 60_000,
   });
 }
@@ -120,6 +130,7 @@ export function useSyncGarmin() {
       void qc.invalidateQueries({ queryKey: ["activityDetail"] });
       void qc.invalidateQueries({ queryKey: ["tracks"] });
       void qc.invalidateQueries({ queryKey: ["cities"] });
+      void qc.invalidateQueries({ queryKey: ["records"] });
     },
   });
 }
@@ -146,6 +157,7 @@ export function useDeleteActivity() {
       void qc.invalidateQueries({ queryKey: ["plans"] });
       void qc.invalidateQueries({ queryKey: ["tracks"] });
       void qc.invalidateQueries({ queryKey: ["cities"] });
+      void qc.invalidateQueries({ queryKey: ["records"] });
     },
   });
 }
@@ -155,10 +167,15 @@ export function useResyncActivity(source: string, externalId: string) {
   return useMutation({
     mutationFn: () => resyncActivity(source, externalId),
     // The series is persisted server-side; refetch the detail to pull it in.
-    onSuccess: () =>
+    onSuccess: () => {
       void qc.invalidateQueries({
         queryKey: qk.activityDetail(source, externalId),
-      }),
+      });
+      // Resync upgrades the run's bests from splits-snapped to exact, which can
+      // change who holds a record.
+      void qc.invalidateQueries({ queryKey: ["activities"] });
+      void qc.invalidateQueries({ queryKey: ["records"] });
+    },
   });
 }
 

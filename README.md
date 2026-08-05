@@ -58,7 +58,7 @@ a `USER#<id>` partition, keyed by prefix:
 
 | `sk` prefix | Holds |
 |---|---|
-| `ACTIVITY#<source>#<id>` | the run itself, including its polyline and splits |
+| `ACTIVITY#<source>#<id>` | the run itself, including its polyline, splits and best efforts |
 | `STREAM#<source>#<id>` | that run's chart series (kept out of the list payload) |
 | `EXTRAS#<source>#<id>` | device extras: laps, HR/power zones, weather, RPE |
 | `ANALYSIS#<source>#<id>` | the stored Claude analysis |
@@ -83,6 +83,7 @@ are open.
 | DELETE | `/activities/:source/:externalId` | delete, unlink its plan |
 | GET | `/tracks` | thinned geometry of every run, for the heatmap |
 | GET | `/cities` | cities run in, with counts and bounds |
+| GET | `/records` | all-time best effort per distance, with the run holding it |
 | GET | `/stats` | week / month / year / total rollups |
 | GET | `/plans` | list planned runs (`?from=&to=`) |
 | DELETE | `/plans/:date/:id` | delete a planned run |

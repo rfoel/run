@@ -3,6 +3,7 @@ import {
   putActivity,
   renameActivity,
 } from "@run/core/activity";
+import { bestEffortsFor } from "@run/core/bestEfforts";
 import { linkActivityToPlan, planTitle, updatePlan } from "@run/core/plan";
 import { putChartSeries, putExtras } from "@run/core/workout";
 import { buildChartSeries } from "@run/core/track";
@@ -109,15 +110,23 @@ export async function syncGarmin(days = 30): Promise<SyncResult> {
           details = undefined;
         }
         const { metrics, track } = garminMetrics(summary, details);
+        // Built here rather than lazily so the run's records are stored with it
+        // — recomputing them later would mean re-reading every sample stream.
+        const series = track ? buildChartSeries(track) : undefined;
         const activity = buildActivity({
           source: "garmin",
           externalId,
           name: summary.activityName ?? "Corrida",
           sportType: summary.activityType.typeKey,
           metrics,
+          bestEfforts: bestEffortsFor({
+            series,
+            splits: metrics.splits,
+            distance: metrics.distance,
+          }),
         });
-        if (track) {
-          await putChartSeries("garmin", externalId, buildChartSeries(track));
+        if (series) {
+          await putChartSeries("garmin", externalId, series);
         }
         const { created } = await putActivity(activity);
         if (created) result.imported++;

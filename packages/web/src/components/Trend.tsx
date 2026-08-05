@@ -11,10 +11,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useActivities } from "../lib/queries.ts";
+import { Link } from "react-router-dom";
+import { useActivities, useRecords } from "../lib/queries.ts";
 import { fitnessTrend, type TrendPoint } from "../lib/fitness.ts";
 import { paceFromSec } from "../lib/format.ts";
 import { Skeleton } from "./Skeleton.tsx";
+import type { AllTimeRecord } from "../lib/api.ts";
 
 // One series, so one hue and no legend — the heading says what is plotted. This
 // is the same orange the heatmap uses; the warm graphite that the rest of the UI
@@ -95,8 +97,93 @@ export default function Trend() {
           <MonthTable points={trend.points} />
         </>
       )}
+
+      <Records />
     </section>
   );
+}
+
+function Records() {
+  const { data, isPending, error } = useRecords();
+
+  if (isPending) {
+    return (
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  }
+  if (error || !data || data.length === 0) return null;
+
+  const anyApprox = data.some((r) => r.src === "splits");
+
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-xs uppercase tracking-[0.2em] text-ink/60">
+        Recordes
+      </h3>
+      <ul className="border border-line rounded-lg divide-y divide-line bg-card overflow-hidden">
+        {data.map((r) => (
+          <li key={r.meters}>
+            <Link
+              to={`/corridas/${r.source}/${encodeURIComponent(r.externalId)}`}
+              viewTransition
+              className="px-5 py-3 flex items-baseline justify-between gap-4 hover:bg-paper-2"
+            >
+              <span className="flex items-baseline gap-2 min-w-0">
+                <span className="text-sm w-28 shrink-0">{r.label}</span>
+                <span className="font-mono text-base tabular-nums">
+                  {formatRecord(r)}
+                </span>
+                {r.src === "splits" && (
+                  <span
+                    title="Calculado a partir dos splits por km — nunca mais rápido que o real, às vezes alguns segundos mais lento"
+                    className="text-[10px] uppercase tracking-[0.15em] text-ink/40 shrink-0"
+                  >
+                    aprox
+                  </span>
+                )}
+              </span>
+              <span className="font-mono text-xs text-ink/60 shrink-0 tabular-nums text-right">
+                {paceFromSec(r.paceSecPerKm)}/km
+                <span className="text-ink/40">
+                  {" · "}
+                  {r.startDate.slice(0, 7).split("-").reverse().join("/")}
+                </span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-ink/50 leading-relaxed">
+        Melhor janela de cada distância em todo o histórico, clicável pra abrir a
+        corrida.
+        {anyApprox && (
+          <>
+            {" "}
+            As marcadas <span className="uppercase tracking-[0.15em]">aprox</span>{" "}
+            vêm dos splits por km, porque a corrida foi importada sem as amostras
+            e a janela só pode começar num quilômetro fechado — o tempo real é
+            igual ou alguns segundos melhor.
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * A record needs its seconds at every length, so this can't use `duration` —
+ * that renders an hour-plus time as "1h52", and a half-marathon PR losing its
+ * seconds is exactly the wrong place to round.
+ */
+function formatRecord(r: AllTimeRecord): string {
+  const s = r.timeSec;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}:${pad(s % 60)}`;
+  return `${Math.floor(s / 3600)}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
 }
 
 function Headline({

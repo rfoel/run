@@ -1,3 +1,5 @@
+import type { AllTimeRecord, StoredBest } from "@run/core/bestEfforts";
+
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "/api";
 
 const TOKEN_KEY = "run.writeToken";
@@ -46,6 +48,8 @@ export type Activity = {
   avgCadence?: number;
   polyline?: string;
   indoor?: boolean;
+  /** Computed at ingest — see @run/core/bestEfforts. */
+  bestEfforts?: StoredBest[];
 };
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -170,6 +174,14 @@ export async function listTracks(): Promise<HeatmapTrack[]> {
   const res = await fetch(`${BASE}/tracks`);
   if (!res.ok) throw new Error(`tracks ${res.status}`);
   return ((await res.json()) as { items: HeatmapTrack[] }).items;
+}
+
+export type { AllTimeRecord } from "@run/core/bestEfforts";
+
+export async function listRecords(): Promise<AllTimeRecord[]> {
+  const res = await fetch(`${BASE}/records`);
+  if (!res.ok) throw new Error(`records ${res.status}`);
+  return ((await res.json()) as { items: AllTimeRecord[] }).items;
 }
 
 export type LatLng = [number, number];

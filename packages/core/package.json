@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./activity": "./src/activity.ts",
+    "./bestEfforts": "./src/bestEfforts.ts",
     "./db": "./src/db.ts",
     "./garmin": "./src/garmin.ts",
     "./heatmap": "./src/heatmap.ts",

@@ -7,6 +7,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { ddb, tableName } from "./db.ts";
 import { userPk, USER_ID } from "./user.ts";
+import type { StoredBest } from "./bestEfforts.ts";
 import type { Metrics, Split } from "./track.ts";
 import { scopesForDate, statsKey } from "./stats.ts";
 
@@ -35,6 +36,12 @@ export type Activity = {
   polyline?: string;
   /** True for runs with no GPS track (treadmill / manual). */
   indoor?: boolean;
+  /**
+   * This run's fastest window at each standard distance, computed once at
+   * ingest. Small enough to project into list responses, which is what makes
+   * the all-time records a single query instead of one read per run.
+   */
+  bestEfforts?: StoredBest[];
   createdAt: string;
   updatedAt: string;
 };
@@ -50,6 +57,7 @@ export function buildActivity(args: {
   name: string;
   sportType: string;
   metrics: Metrics;
+  bestEfforts?: StoredBest[];
   userId?: string;
 }): Activity {
   const now = new Date().toISOString();
@@ -73,6 +81,7 @@ export function buildActivity(args: {
     splits: args.metrics.splits,
     polyline: args.metrics.polyline,
     indoor: args.metrics.polyline ? undefined : true,
+    bestEfforts: args.bestEfforts?.length ? args.bestEfforts : undefined,
     createdAt: now,
     updatedAt: now,
   };
@@ -171,6 +180,29 @@ export async function renameActivity(
       ExpressionAttributeNames: { "#n": "name" },
       ExpressionAttributeValues: {
         ":n": name,
+        ":now": new Date().toISOString(),
+      },
+    }),
+  );
+}
+
+/**
+ * Overwrite a run's stored best efforts. Used by the backfill and by resync,
+ * which is how a run that only had splits gains its exact sample-based records.
+ */
+export async function setActivityBestEfforts(
+  source: ActivitySource,
+  externalId: string,
+  bestEfforts: StoredBest[],
+  userId: string = USER_ID,
+) {
+  await ddb.send(
+    new UpdateCommand({
+      TableName: tableName(),
+      Key: { pk: userPk(userId), sk: activitySk(source, externalId) },
+      UpdateExpression: "SET bestEfforts = :b, updatedAt = :now",
+      ExpressionAttributeValues: {
+        ":b": bestEfforts,
         ":now": new Date().toISOString(),
       },
     }),
@@ -291,6 +323,9 @@ const SUMMARY_FIELDS = [
   "avgCadence",
   "hasHr",
   "indoor",
+  // Projected despite the "summary" framing: it's a handful of numbers, and
+  // having it here is what lets /records aggregate in one query.
+  "bestEfforts",
   "createdAt",
   "updatedAt",
 ] as const;
