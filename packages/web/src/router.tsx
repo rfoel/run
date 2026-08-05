@@ -6,6 +6,7 @@ import App, {
   ChatRoute,
   MapRoute,
   PlanRoute,
+  TrendRoute,
   WorkoutDetailRoute,
 } from "./App.tsx";
 import { queryClient } from "./lib/queryClient.ts";
@@ -112,6 +113,13 @@ export const router = createBrowserRouter([
       },
       { path: "plano", element: <PlanRoute />, loader: planLoader },
       { path: "mapa", element: <MapRoute />, loader: mapLoader },
+      // Reuses the activities list the Corridas tab already loads, so there is
+      // nothing extra to prefetch beyond that shared query.
+      {
+        path: "evolucao",
+        element: <TrendRoute />,
+        loader: activitiesLoader,
+      },
       { path: "treinador", element: <ChatRoute /> },
       { path: "*", loader: () => redirect("/calendario") },
     ],

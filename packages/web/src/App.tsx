@@ -7,6 +7,7 @@ import {
   LockOpenIcon,
   MapTrifoldIcon,
   PersonSimpleRunIcon,
+  TrendUpIcon,
 } from "@phosphor-icons/react";
 import {
   createContext,
@@ -42,6 +43,9 @@ const importChat = () => import("./components/Chat.tsx");
 const Chat = lazy(importChat);
 // Pulls in leaflet only when the heatmap is opened.
 const Heatmap = lazy(() => import("./components/Heatmap.tsx"));
+// Pulls in recharts only when the trend is opened — it must not land on the
+// always-loaded path just because a main tab shows a chart.
+const Trend = lazy(() => import("./components/Trend.tsx"));
 import {
   clearWriteToken,
   getWriteToken,
@@ -49,7 +53,7 @@ import {
   verifyWriteToken,
 } from "./lib/api.ts";
 
-type Tab = "calendar" | "activities" | "plan" | "map" | "chat";
+type Tab = "calendar" | "activities" | "plan" | "map" | "trend" | "chat";
 
 type TabMeta = {
   path: string;
@@ -63,6 +67,7 @@ const TABS: Record<Tab, TabMeta> = {
   activities: { path: "/corridas", label: "Corridas", Icon: PersonSimpleRunIcon },
   plan: { path: "/plano", label: "Plano", Icon: ListChecksIcon },
   map: { path: "/mapa", label: "Mapa", Icon: MapTrifoldIcon },
+  trend: { path: "/evolucao", label: "Evolução", Icon: TrendUpIcon },
   chat: {
     path: "/treinador",
     label: "Treinador",
@@ -71,7 +76,14 @@ const TABS: Record<Tab, TabMeta> = {
   },
 };
 
-const TAB_ORDER: Tab[] = ["calendar", "activities", "plan", "map", "chat"];
+const TAB_ORDER: Tab[] = [
+  "calendar",
+  "activities",
+  "plan",
+  "map",
+  "trend",
+  "chat",
+];
 
 // Routes live on the data router (router.tsx); the unlocked state stays here
 // in the layout and reaches route elements through context.
@@ -219,6 +231,14 @@ export function MapRoute() {
   return (
     <Suspense fallback={null}>
       <Heatmap />
+    </Suspense>
+  );
+}
+
+export function TrendRoute() {
+  return (
+    <Suspense fallback={null}>
+      <Trend />
     </Suspense>
   );
 }
