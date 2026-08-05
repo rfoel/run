@@ -1,3 +1,4 @@
+import { MAX_HUMAN_SPEED_MPS } from "./limits.ts";
 import type { ChartSeries, Split } from "./track.ts";
 
 /**
@@ -63,16 +64,6 @@ export function distanceLabel(meters: number): string {
 const SPLIT_DISTANCES = DISTANCES.filter((d) => d.meters % 1000 === 0);
 
 /**
- * Windows implying more than this are discarded as bad data, not celebrated as
- * records. 8 m/s is 2:05/km — faster than the 1500 m world record pace, so no
- * human log has a legitimate entry above it, while every real result sits far
- * below. Without this a single GPS jump produces a 3-second 400m, and taking a
- * maximum across a whole history is precisely the operation that finds the one
- * worst glitch in years of running.
- */
-const MAX_SPEED_MPS = 8;
-
-/**
  * How far a run's sample stream may disagree with the distance the device
  * reported before the stream is treated as corrupt. A stream whose cumulative
  * distance runs away from reality yields both impossible paces and records at
@@ -85,8 +76,17 @@ function lerp(a: number, b: number, t: number) {
 }
 
 /**
- * Cumulative distance must be non-decreasing for the sliding window to mean
- * anything, and must roughly agree with the distance the device recorded.
+ * A stream is only usable if every step in it is physically possible.
+ *
+ * The total agreeing with the device is not enough, and that is the trap this
+ * function exists to close: a stream can jump 500 m in 4 seconds and still end
+ * at the right distance, because the jump moves the runner forward rather than
+ * adding phantom distance. Nine runs here do exactly that. Checking only the
+ * total let them through, and since a best effort is a maximum, the inflated
+ * windows won six of the ten all-time records.
+ *
+ * Any run failing this falls back to its per-kilometre splits, which are coarser
+ * but were not built from the corrupt stream.
  */
 function seriesIsTrustworthy(
   series: ChartSeries,
@@ -96,7 +96,12 @@ function seriesIsTrustworthy(
   const n = Math.min(km.length, elapsed.length);
   if (n < 2 || distanceMeters <= 0) return false;
   for (let i = 1; i < n; i++) {
+    // Cumulative values must never go backwards for a sliding window to mean
+    // anything.
     if (km[i]! < km[i - 1]! || elapsed[i]! < elapsed[i - 1]!) return false;
+    const dt = elapsed[i]! - elapsed[i - 1]!;
+    const dm = (km[i]! - km[i - 1]!) * 1000;
+    if (dt > 0 && dm / dt > MAX_HUMAN_SPEED_MPS) return false;
   }
   const streamMeters = km[n - 1]! * 1000;
   return (
@@ -151,7 +156,7 @@ export function bestEffortsFromSeries(
       }
     }
     if (bestTime === Infinity) continue;
-    if (bestTime <= 0 || d.meters / bestTime > MAX_SPEED_MPS) continue;
+    if (bestTime <= 0 || d.meters / bestTime > MAX_HUMAN_SPEED_MPS) continue;
 
     let hrSum = 0;
     let hrCount = 0;
@@ -206,7 +211,7 @@ export function bestEffortsFromSplits(
       }
     }
     if (bestTime === Infinity) continue;
-    if (bestTime <= 0 || d.meters / bestTime > MAX_SPEED_MPS) continue;
+    if (bestTime <= 0 || d.meters / bestTime > MAX_HUMAN_SPEED_MPS) continue;
 
     let hrSum = 0;
     let hrCount = 0;

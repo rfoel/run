@@ -4,6 +4,7 @@ import {
   PutCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { ddb, tableName } from "./db.ts";
+import { MIN_HUMAN_PACE_SEC_PER_KM } from "./limits.ts";
 import { userPk, USER_ID } from "./user.ts";
 import type { ChartSeries } from "./track.ts";
 
@@ -38,6 +39,32 @@ export async function putChartSeries(
   );
 }
 
+/**
+ * Blank out pace samples no human produced.
+ *
+ * buildChartSeries now refuses to write these, but series already in the table
+ * were built before that and can't be rebuilt — the runs affected came from
+ * Strava, which is no longer an ingestion source, so there are no samples to
+ * re-fetch. Sanitising on the way out fixes every existing reader at once
+ * instead of migrating rows that would still hold a broken distance stream.
+ *
+ * Only `pace` is repaired. `km` keeps its jump, which is why the best-effort
+ * search judges the whole stream untrustworthy rather than trusting it here.
+ */
+function sanitizePace(series: ChartSeries): ChartSeries {
+  let bad = 0;
+  for (const p of series.pace) {
+    if (p != null && p < MIN_HUMAN_PACE_SEC_PER_KM) bad++;
+  }
+  if (bad === 0) return series;
+  return {
+    ...series,
+    pace: series.pace.map((p) =>
+      p != null && p < MIN_HUMAN_PACE_SEC_PER_KM ? null : p,
+    ),
+  };
+}
+
 export async function getChartSeries(
   source: string,
   externalId: string,
@@ -51,7 +78,7 @@ export async function getChartSeries(
   );
   if (!res.Item) return undefined;
   const { pk: _pk, sk: _sk, ...series } = res.Item;
-  return series as ChartSeries;
+  return sanitizePace(series as ChartSeries);
 }
 
 // --- Device extras (laps, zones, weather, physio) ---------------------------

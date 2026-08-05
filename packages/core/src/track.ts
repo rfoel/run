@@ -1,4 +1,5 @@
 import polyline from "@mapbox/polyline";
+import { MAX_HUMAN_SPEED_MPS } from "./limits.ts";
 
 export type TrackPoint = {
   time: number; // unix seconds
@@ -98,6 +99,12 @@ export function buildChartSeries(
     }
     const speed = dd / dt;
     if (speed < PACE_FLOOR_SPEED) {
+      paceAt[i] = null;
+      continue;
+    }
+    // A glitched distance stream is left as a gap rather than clamped: pinning
+    // it to the limit would draw a believable 2:05/km sprint that never happened.
+    if (speed > MAX_HUMAN_SPEED_MPS) {
       paceAt[i] = null;
       continue;
     }
