@@ -40,9 +40,8 @@ const WorkoutDetail = lazy(importWorkoutDetail);
 // The factory is reused to prefetch the chunk on unlock (see effect below).
 const importChat = () => import("./components/Chat.tsx");
 const Chat = lazy(importChat);
-// Pulls in leaflet only when the route builder is opened.
-const importRouteBuilder = () => import("./components/RouteBuilder.tsx");
-const RouteBuilder = lazy(importRouteBuilder);
+// Pulls in leaflet only when the heatmap is opened.
+const Heatmap = lazy(() => import("./components/Heatmap.tsx"));
 import {
   clearWriteToken,
   getWriteToken,
@@ -50,7 +49,7 @@ import {
   verifyWriteToken,
 } from "./lib/api.ts";
 
-type Tab = "calendar" | "activities" | "plan" | "courses" | "chat";
+type Tab = "calendar" | "activities" | "plan" | "map" | "chat";
 
 type TabMeta = {
   path: string;
@@ -63,12 +62,7 @@ const TABS: Record<Tab, TabMeta> = {
   calendar: { path: "/calendario", label: "Calendário", Icon: CalendarBlankIcon },
   activities: { path: "/corridas", label: "Corridas", Icon: PersonSimpleRunIcon },
   plan: { path: "/plano", label: "Plano", Icon: ListChecksIcon },
-  courses: {
-    path: "/percursos",
-    label: "Percursos",
-    Icon: MapTrifoldIcon,
-    private: true,
-  },
+  map: { path: "/mapa", label: "Mapa", Icon: MapTrifoldIcon },
   chat: {
     path: "/treinador",
     label: "Treinador",
@@ -77,7 +71,7 @@ const TABS: Record<Tab, TabMeta> = {
   },
 };
 
-const TAB_ORDER: Tab[] = ["calendar", "activities", "plan", "courses", "chat"];
+const TAB_ORDER: Tab[] = ["calendar", "activities", "plan", "map", "chat"];
 
 // Routes live on the data router (router.tsx); the unlocked state stays here
 // in the layout and reaches route elements through context.
@@ -110,10 +104,7 @@ export default function App() {
   // Warm the chat chunk as soon as it's reachable, so opening the tab is
   // instant (the screen has no data to load — only its JS to download).
   useEffect(() => {
-    if (unlocked) {
-      void importChat();
-      void importRouteBuilder();
-    }
+    if (unlocked) void importChat();
   }, [unlocked]);
 
   const visibleTabs = TAB_ORDER.filter((t) => unlocked || !TABS[t].private);
@@ -224,11 +215,10 @@ export function PlanRoute() {
   return <Plan unlocked={useUnlocked()} />;
 }
 
-export function CoursesRoute() {
-  if (!useUnlocked()) return <Navigate to="/calendario" replace />;
+export function MapRoute() {
   return (
     <Suspense fallback={null}>
-      <RouteBuilder />
+      <Heatmap />
     </Suspense>
   );
 }

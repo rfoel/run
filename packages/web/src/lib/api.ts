@@ -152,100 +152,42 @@ export async function pushGarmin(
   return (await res.json()) as GarminPushResult;
 }
 
-export type CreatedCourse = {
-  courseId: number;
-  courseName: string;
-  url: string;
-};
-
-export async function createCourse(input: {
-  name: string;
-  description?: string;
-  points: { lat: number; lon: number }[];
-}): Promise<CreatedCourse> {
-  const res = await fetch(`${BASE}/courses`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `course ${res.status}`);
-  }
-  return (await res.json()) as CreatedCourse;
-}
-
-export type SavedRoute = {
-  id: string;
-  name: string;
+/**
+ * One run's geometry for the heatmap. `polyline` is encoded at precision 4
+ * (~11 m) rather than the stored 5 — see @run/core/heatmap.
+ */
+export type HeatmapTrack = {
+  source: string;
+  externalId: string;
+  startDate: string;
+  distance: number;
   polyline: string;
-  waypoints?: string;
-  distance: number;
-  garminCourseId?: number;
-  createdAt: string;
-  updatedAt: string;
 };
 
-type RouteInput = {
-  name: string;
-  points: { lat: number; lon: number }[];
-  waypoints?: { lat: number; lon: number }[];
+export const HEATMAP_PRECISION = 4;
+
+export async function listTracks(): Promise<HeatmapTrack[]> {
+  const res = await fetch(`${BASE}/tracks`);
+  if (!res.ok) throw new Error(`tracks ${res.status}`);
+  return ((await res.json()) as { items: HeatmapTrack[] }).items;
+}
+
+export type LatLng = [number, number];
+
+export type CitySummary = {
+  city: string;
+  state?: string;
+  country?: string;
+  runs: number;
   distance: number;
+  /** [SW, NE] — every run started in this city. */
+  bounds: [LatLng, LatLng];
 };
 
-export async function listSavedRoutes(): Promise<SavedRoute[]> {
-  const res = await fetch(`${BASE}/routes`);
-  if (!res.ok) throw new Error(`routes ${res.status}`);
-  return ((await res.json()) as { items: SavedRoute[] }).items;
-}
-
-export async function saveRoute(input: RouteInput): Promise<SavedRoute> {
-  const res = await fetch(`${BASE}/routes`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `save ${res.status}`);
-  }
-  return (await res.json()) as SavedRoute;
-}
-
-export async function updateRoute(
-  id: string,
-  input: RouteInput,
-): Promise<SavedRoute> {
-  const res = await fetch(`${BASE}/routes/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `update ${res.status}`);
-  }
-  return (await res.json()) as SavedRoute;
-}
-
-export async function deleteSavedRoute(id: string): Promise<void> {
-  const res = await fetch(`${BASE}/routes/${id}`, {
-    method: "DELETE",
-    headers: authHeaders(),
-  });
-  if (!res.ok) throw new Error(`delete ${res.status}`);
-}
-
-export async function pushRouteToGarmin(id: string): Promise<CreatedCourse> {
-  const res = await fetch(`${BASE}/routes/${id}/garmin`, {
-    method: "POST",
-    headers: authHeaders(),
-  });
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `push ${res.status}`);
-  }
-  return (await res.json()) as CreatedCourse;
+export async function listCities(): Promise<CitySummary[]> {
+  const res = await fetch(`${BASE}/cities`);
+  if (!res.ok) throw new Error(`cities ${res.status}`);
+  return ((await res.json()) as { items: CitySummary[] }).items;
 }
 
 export async function resyncActivity(

@@ -38,6 +38,8 @@ API behind `/api` on the router:
 | GET | `/strava/oauth/callback` | strava/oauth |
 | POST | `/strava/sync` | strava/sync |
 | GET | `/activities` | activities/list |
+| GET | `/tracks` | activities/heatmap geometry |
+| GET | `/cities` | activities/cities run in |
 | GET | `/stats` | activities/stats |
 | GET | `/plans` | plans/list |
 | DELETE | `/plans/{date}/{id}` | plans/delete |

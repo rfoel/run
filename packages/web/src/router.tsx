@@ -4,7 +4,7 @@ import App, {
   ActivitiesRoute,
   CalendarRoute,
   ChatRoute,
-  CoursesRoute,
+  MapRoute,
   PlanRoute,
   WorkoutDetailRoute,
 } from "./App.tsx";
@@ -14,8 +14,9 @@ import {
   getActivityDetail,
   getStats,
   listActivities,
+  listCities,
   listPlans,
-  listSavedRoutes,
+  listTracks,
 } from "./lib/api.ts";
 import { isoDateDaysFromNow, localIso } from "./lib/format.ts";
 import { importWorkoutDetail } from "./lib/lazyDetail.ts";
@@ -77,10 +78,17 @@ function planLoader() {
   return null;
 }
 
-function coursesLoader() {
+function mapLoader() {
+  // Both match their hooks' staleTime — the history only changes on a sync.
   void queryClient.prefetchQuery({
-    queryKey: ["routes"],
-    queryFn: listSavedRoutes,
+    queryKey: qk.tracks(),
+    queryFn: listTracks,
+    staleTime: 30 * 60_000,
+  });
+  void queryClient.prefetchQuery({
+    queryKey: qk.cities(),
+    queryFn: listCities,
+    staleTime: 30 * 60_000,
   });
   return null;
 }
@@ -103,7 +111,7 @@ export const router = createBrowserRouter([
         loader: workoutDetailLoader,
       },
       { path: "plano", element: <PlanRoute />, loader: planLoader },
-      { path: "percursos", element: <CoursesRoute />, loader: coursesLoader },
+      { path: "mapa", element: <MapRoute />, loader: mapLoader },
       { path: "treinador", element: <ChatRoute /> },
       { path: "*", loader: () => redirect("/calendario") },
     ],

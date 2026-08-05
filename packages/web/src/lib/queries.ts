@@ -5,20 +5,16 @@ import {
 } from "@tanstack/react-query";
 import {
   analyzeWorkout,
-  createCourse,
   deleteActivity,
   deletePlan,
-  deleteSavedRoute,
   getActivityDetail,
   getStats,
   listActivities,
+  listCities,
   listPlans,
-  listSavedRoutes,
+  listTracks,
   pushGarmin,
-  pushRouteToGarmin,
   resyncActivity,
-  saveRoute,
-  updateRoute,
   syncGarmin,
   type ActivityDetail,
   type WorkoutAnalysis,
@@ -36,6 +32,8 @@ export const qk = {
   activities: (o: ActivityOpts = {}) =>
     ["activities", o.from ?? null, o.to ?? null, o.limit ?? null] as const,
   stats: () => ["stats"] as const,
+  tracks: () => ["tracks"] as const,
+  cities: () => ["cities"] as const,
   activityDetail: (source: string, externalId: string) =>
     ["activityDetail", source, externalId] as const,
 };
@@ -53,6 +51,24 @@ export function useActivities(opts: ActivityOpts = {}) {
 
 export function useStats() {
   return useQuery({ queryKey: qk.stats(), queryFn: getStats });
+}
+
+// The whole history's geometry. Only changes when a sync imports a run, so it
+// stays fresh far longer than the other reads.
+export function useTracks() {
+  return useQuery({
+    queryKey: qk.tracks(),
+    queryFn: listTracks,
+    staleTime: 30 * 60_000,
+  });
+}
+
+export function useCities() {
+  return useQuery({
+    queryKey: qk.cities(),
+    queryFn: listCities,
+    staleTime: 30 * 60_000,
+  });
 }
 
 // Auto-analysis lands asynchronously (SQS worker) shortly after a sync. While
@@ -102,64 +118,9 @@ export function useSyncGarmin() {
       void qc.invalidateQueries({ queryKey: ["stats"] });
       void qc.invalidateQueries({ queryKey: ["plans"] });
       void qc.invalidateQueries({ queryKey: ["activityDetail"] });
+      void qc.invalidateQueries({ queryKey: ["tracks"] });
+      void qc.invalidateQueries({ queryKey: ["cities"] });
     },
-  });
-}
-
-export function useCreateCourse() {
-  return useMutation({
-    mutationFn: (input: {
-      name: string;
-      description?: string;
-      points: { lat: number; lon: number }[];
-    }) => createCourse(input),
-  });
-}
-
-export function useSavedRoutes() {
-  return useQuery({ queryKey: ["routes"], queryFn: listSavedRoutes });
-}
-
-export function useSaveRoute() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: {
-      name: string;
-      points: { lat: number; lon: number }[];
-      waypoints?: { lat: number; lon: number }[];
-      distance: number;
-    }) => saveRoute(input),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["routes"] }),
-  });
-}
-
-export function useUpdateRoute() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: {
-      id: string;
-      name: string;
-      points: { lat: number; lon: number }[];
-      waypoints?: { lat: number; lon: number }[];
-      distance: number;
-    }) => updateRoute(v.id, v),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["routes"] }),
-  });
-}
-
-export function useDeleteRoute() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => deleteSavedRoute(id),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["routes"] }),
-  });
-}
-
-export function usePushRouteToGarmin() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => pushRouteToGarmin(id),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["routes"] }),
   });
 }
 
@@ -183,6 +144,8 @@ export function useDeleteActivity() {
       void qc.invalidateQueries({ queryKey: ["activities"] });
       void qc.invalidateQueries({ queryKey: ["stats"] });
       void qc.invalidateQueries({ queryKey: ["plans"] });
+      void qc.invalidateQueries({ queryKey: ["tracks"] });
+      void qc.invalidateQueries({ queryKey: ["cities"] });
     },
   });
 }

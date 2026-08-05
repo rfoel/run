@@ -8,6 +8,7 @@ import {
   PERSIST_MAX_AGE,
   persister,
   queryClient,
+  shouldPersistQuery,
 } from "./lib/queryClient.ts";
 import "./index.css";
 
@@ -15,7 +16,12 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <PersistQueryClientProvider
       client={queryClient}
-      persistOptions={{ persister, maxAge: PERSIST_MAX_AGE, buster: "v1" }}
+      persistOptions={{
+        persister,
+        maxAge: PERSIST_MAX_AGE,
+        buster: "v1",
+        dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
+      }}
     >
       <RouterProvider router={router} />
       <Toaster position="top-center" richColors closeButton />

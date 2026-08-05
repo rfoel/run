@@ -1,4 +1,9 @@
-import { MutationCache, QueryClient } from "@tanstack/react-query";
+import {
+  defaultShouldDehydrateQuery,
+  MutationCache,
+  QueryClient,
+  type Query,
+} from "@tanstack/react-query";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { toast } from "sonner";
 
@@ -39,3 +44,13 @@ export const persister = createSyncStoragePersister({
 });
 
 export const PERSIST_MAX_AGE = DAY;
+
+/**
+ * The heatmap's ["tracks"] entry holds the whole history's geometry — hundreds
+ * of kilobytes. localStorage writes are synchronous and capped around 5 MB, so
+ * keep it out of the persisted cache; it refetches on a cold open instead.
+ */
+export function shouldPersistQuery(query: Query): boolean {
+  if (query.queryKey[0] === "tracks") return false;
+  return defaultShouldDehydrateQuery(query);
+}

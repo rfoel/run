@@ -22,6 +22,7 @@ import {
   updatePlan,
   type PlannedRun,
 } from "@run/core/plan";
+import { listCities, listHeatmapTracks } from "@run/core/heatmap";
 import { getStatsMany, isoWeek, type StatsScope } from "@run/core/stats";
 import {
   getAnalysis,
@@ -32,8 +33,6 @@ import {
 } from "@run/core/workout";
 import { buildChartSeries } from "@run/core/track";
 import {
-  courseWebUrl,
-  createCourse,
   createWorkout,
   fetchActivities as fetchGarminActivities,
   fetchActivityDetails as fetchGarminActivityDetails,
@@ -47,23 +46,12 @@ import {
   isGarminRun,
   scheduleWorkout,
   updateWorkout,
-  type CoursePoint,
 } from "@run/core/garmin";
 import {
   detailsToTrack,
   garminExtras,
   garminMetrics,
 } from "@run/core/parsers/garmin";
-import {
-  createRoute,
-  decodeRoute,
-  deleteRoute,
-  getRoute,
-  listRoutes,
-  setRouteGarminId,
-  updateRoute,
-  type RoutePoint,
-} from "@run/core/route";
 import { resolvePlanWorkouts } from "./garmin/resolve.ts";
 import { isAuthorized } from "./lib/auth.ts";
 import { enqueueAnalysis } from "./lib/analyze-queue.ts";
@@ -265,139 +253,6 @@ app.post("/garmin/push", async (c) => {
   return c.json(result);
 });
 
-// ---- Garmin courses -------------------------------------------------------
-// Create a navigable route on Garmin Connect from a drawn/snapped point list.
-// The web builds points with OSRM (road-snapping); elevation is filled server
-// -side. Returns the new course id + its Garmin Connect URL.
-app.post("/courses", async (c) => {
-  if (!isAuthorized(c.req.header())) {
-    return c.json({ error: "unauthorized" }, 401);
-  }
-  const body = (await c.req.json().catch(() => ({}))) as {
-    name?: string;
-    description?: string;
-    points?: CoursePoint[];
-  };
-  const name = body.name?.trim();
-  const points = body.points ?? [];
-  if (!name) return c.json({ error: "missing name" }, 400);
-  if (points.length < 2) return c.json({ error: "need at least 2 points" }, 400);
-  if (points.length > 5000) return c.json({ error: "too many points" }, 400);
-
-  let token: string;
-  try {
-    token = await getGarminAccessToken();
-  } catch (e) {
-    return c.json({ error: `garmin auth: ${(e as Error).message}` }, 502);
-  }
-  try {
-    const created = await createCourse(
-      { name, description: body.description, points },
-      token,
-    );
-    return c.json({
-      courseId: created.courseId,
-      courseName: created.courseName,
-      url: courseWebUrl(created.courseId),
-    });
-  } catch (e) {
-    return c.json({ error: `course create: ${(e as Error).message}` }, 502);
-  }
-});
-
-// ---- Saved routes ---------------------------------------------------------
-// Persist drawn routes in the app so they can be kept without pushing to
-// Garmin, and pushed later. Points come pre-snapped from the web (OSRM).
-app.get("/routes", async (c) => {
-  const routes = await listRoutes();
-  c.header("Cache-Control", READ_CACHE);
-  return c.json({ items: routes });
-});
-
-app.post("/routes", async (c) => {
-  if (!isAuthorized(c.req.header())) {
-    return c.json({ error: "unauthorized" }, 401);
-  }
-  const body = (await c.req.json().catch(() => ({}))) as {
-    name?: string;
-    points?: RoutePoint[];
-    waypoints?: RoutePoint[];
-    distance?: number;
-  };
-  const name = body.name?.trim();
-  const points = body.points ?? [];
-  if (!name) return c.json({ error: "missing name" }, 400);
-  if (points.length < 2) return c.json({ error: "need at least 2 points" }, 400);
-  const route = await createRoute({
-    name,
-    points,
-    waypoints: body.waypoints,
-    distance: body.distance ?? 0,
-  });
-  return c.json(route);
-});
-
-app.put("/routes/:id", async (c) => {
-  if (!isAuthorized(c.req.header())) {
-    return c.json({ error: "unauthorized" }, 401);
-  }
-  const body = (await c.req.json().catch(() => ({}))) as {
-    name?: string;
-    points?: RoutePoint[];
-    waypoints?: RoutePoint[];
-    distance?: number;
-  };
-  const name = body.name?.trim();
-  const points = body.points ?? [];
-  if (!name) return c.json({ error: "missing name" }, 400);
-  if (points.length < 2) return c.json({ error: "need at least 2 points" }, 400);
-  const route = await updateRoute(c.req.param("id"), {
-    name,
-    points,
-    waypoints: body.waypoints,
-    distance: body.distance ?? 0,
-  });
-  if (!route) return c.json({ error: "not found" }, 404);
-  return c.json(route);
-});
-
-app.delete("/routes/:id", async (c) => {
-  if (!isAuthorized(c.req.header())) {
-    return c.json({ error: "unauthorized" }, 401);
-  }
-  await deleteRoute(c.req.param("id"));
-  return c.json({ ok: true });
-});
-
-// Push a saved route to Garmin as a course, recording the course id back on
-// the saved route so the list can link to it (and re-push is obvious).
-app.post("/routes/:id/garmin", async (c) => {
-  if (!isAuthorized(c.req.header())) {
-    return c.json({ error: "unauthorized" }, 401);
-  }
-  const route = await getRoute(c.req.param("id"));
-  if (!route) return c.json({ error: "not found" }, 404);
-
-  let token: string;
-  try {
-    token = await getGarminAccessToken();
-  } catch (e) {
-    return c.json({ error: `garmin auth: ${(e as Error).message}` }, 502);
-  }
-  try {
-    const points = decodeRoute(route.polyline);
-    const created = await createCourse({ name: route.name, points }, token);
-    await setRouteGarminId(route.id, created.courseId);
-    return c.json({
-      courseId: created.courseId,
-      courseName: created.courseName,
-      url: courseWebUrl(created.courseId),
-    });
-  } catch (e) {
-    return c.json({ error: `course create: ${(e as Error).message}` }, 502);
-  }
-});
-
 // ---- Activities -----------------------------------------------------------
 type ActivitySummary = Omit<Activity, "polyline" | "splits">;
 const strip = (a: Activity): ActivitySummary => {
@@ -412,6 +267,24 @@ app.get("/activities", async (c) => {
   const items = await listActivities({ limit, from, to });
   c.header("Cache-Control", READ_CACHE);
   return c.json({ items: items.map(strip) });
+});
+
+// Every outdoor run's geometry in one response, thinned for drawing (see
+// @run/core/heatmap). Cached longer than the other reads: the history only
+// changes when a sync imports a new run.
+app.get("/tracks", async (c) => {
+  const items = await listHeatmapTracks();
+  c.header("Cache-Control", "private, max-age=300, stale-while-revalidate=3600");
+  return c.json({ items });
+});
+
+// Cities the user has started a run in, busiest first. Separate from /tracks so
+// the map paints immediately: this one can block on geocoding the first time a
+// run appears in a new area.
+app.get("/cities", async (c) => {
+  const items = await listCities();
+  c.header("Cache-Control", "private, max-age=300, stale-while-revalidate=3600");
+  return c.json({ items });
 });
 
 app.get("/activities/:source/:externalId", async (c) => {
