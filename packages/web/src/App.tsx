@@ -79,7 +79,7 @@ const TAB_ORDER: Tab[] = ["calendar", "activities", "plan", "map", "trend"];
 
 /** The floating glass surface shared by the dock and the lock bubble. */
 const GLASS =
-  "pointer-events-auto rounded-full border border-foreground/10 bg-background/65 shadow-[0_12px_40px_-12px_rgb(0_0_0/0.45)] backdrop-blur-2xl backdrop-saturate-150 dark:bg-card/75";
+  "pointer-events-auto rounded-full border border-foreground/10 bg-background/45 shadow-[0_12px_40px_-12px_rgb(0_0_0/0.45)] backdrop-blur-2xl backdrop-saturate-150";
 
 // Routes live on the data router (router.tsx); the unlocked state stays here
 // in the layout and reaches route elements through context.
@@ -119,8 +119,8 @@ export default function App() {
 
   return (
     <div className="min-h-full overflow-x-clip pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-32">
-      {/* No top bar: the logo lives in the page's monogram background, and
-          navigation and the lock float at the bottom. */}
+      {/* No top bar: the logo lives in the page's monogram background,
+          navigation floats at the bottom and the lock in the top corner. */}
       <main className="mx-auto max-w-5xl px-4 pt-[calc(env(safe-area-inset-top)+2rem)] pb-10 sm:px-6 md:pt-14">
         {isTabRoot && (
           <h1 className="font-display mb-6 text-6xl md:mb-10 md:text-8xl">
@@ -133,11 +133,10 @@ export default function App() {
       </main>
       {/* A floating, translucent dock on every screen size; the page scrolls
           under it. Phones get a full-width tab bar, wider screens a compact
-          pill with icon and label side by side. The lock is its own bubble
-          beside it. */}
+          pill with icon and label side by side. */}
       <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-6">
-        <div className="mx-auto flex max-w-md items-center gap-2 md:max-w-fit">
-          <div className={cn(GLASS, "grid flex-1 grid-cols-5 gap-1 p-1.5 md:flex md:p-2")}>
+        <div className="mx-auto max-w-md md:max-w-fit">
+          <div className={cn(GLASS, "grid grid-cols-5 gap-1 p-1.5 md:flex md:p-2")}>
             {TAB_ORDER.map((t) => {
               const { label, Icon, path } = TABS[t];
               const selected = t === activeTab;
@@ -163,25 +162,26 @@ export default function App() {
               );
             })}
           </div>
-          <button
-            type="button"
-            onClick={unlocked ? lock : () => setUnlockOpen(true)}
-            title={unlocked ? "Trancar (limpa senha)" : "Destrancar ações de escrita"}
-            aria-label={unlocked ? "Trancar" : "Destrancar"}
-            className={cn(
-              GLASS,
-              "flex size-16 shrink-0 items-center justify-center transition-colors hover:bg-foreground/5 md:size-[58px]",
-              unlocked ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {unlocked ? (
-              <LockOpenIcon className="size-6 md:size-5" weight="bold" />
-            ) : (
-              <LockIcon className="size-6 md:size-5" />
-            )}
-          </button>
         </div>
       </nav>
+      {/* The lock: a small glass bubble floating in the top corner. */}
+      <button
+        type="button"
+        onClick={unlocked ? lock : () => setUnlockOpen(true)}
+        title={unlocked ? "Trancar (limpa senha)" : "Destrancar ações de escrita"}
+        aria-label={unlocked ? "Trancar" : "Destrancar"}
+        className={cn(
+          GLASS,
+          "fixed top-[calc(env(safe-area-inset-top)+0.75rem)] right-3 z-30 flex size-10 items-center justify-center transition-colors hover:bg-foreground/5 md:top-6 md:right-6",
+          unlocked ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        {unlocked ? (
+          <LockOpenIcon className="size-[18px]" weight="bold" />
+        ) : (
+          <LockIcon className="size-[18px]" />
+        )}
+      </button>
       <ScrollRestoration />
       <UnlockDialog
         open={unlockOpen}
