@@ -1,4 +1,3 @@
-import type Anthropic from "@anthropic-ai/sdk";
 import { Resource } from "sst";
 import type { PlannedRun } from "@run/core/plan";
 import type { StructuredWorkout } from "@run/core/garmin";
@@ -7,17 +6,17 @@ import type { StructuredWorkout } from "@run/core/garmin";
  * Intermediate "interpreter" prompt: turn a PlannedRun's free-text prescription
  * (type + distance + pace + notes) into a StructuredWorkout — warmup, repeat
  * blocks, recoveries, cooldown — so it pushes to Garmin as real structured steps
- * instead of one flat run. The model is forced to call emit_workout, so the
- * return value is a validated StructuredWorkout (or null if it didn't comply).
+ * instead of one flat run. Structured outputs guarantee the response matches
+ * the workout schema; the result is null if the call fails.
  */
 
-const MODEL = "claude-sonnet-4-6";
+const MODEL = "claude-sonnet-5";
 
 const SYSTEM = `Você converte a prescrição de um treino de corrida em uma estrutura de passos para um relógio Garmin.
 
 Recebe um <treino> com: tipo, distância total (metros), duração (segundos), pace alvo (seg/km) e notas em português (a prescrição real, ex.: "5x1000m em 4:30–4:45/km com 2min de trote. Aquecimento 1km + desaquecimento 1km").
 
-Sua saída (via a tool emit_workout) é uma lista ORDENADA de "elements". Cada element é:
+Sua saída é uma lista ORDENADA de "elements". Cada element é:
 - um PASSO único: { kind, duration, ...pace, notes? }
 - ou um BLOCO DE REPETIÇÃO: { repeat: N, steps: [ ...passos ] }
 
@@ -35,7 +34,7 @@ PACE (sempre seg/km):
 - Se as notas não derem pace para o esforço principal, use o pace alvo do <treino>.
 
 REGRAS:
-- "5x1000m ... com 2min de trote" → um bloco { repeat: 5, steps: [ {run 1000m + pace}, {recovery time 120s} ] }. NÃO repita manualmente; use repeat. O trote vai DENTRO do bloco (o sistema já remove o último trote sobrando).
+- "5x1000m ... com 2min de trote" → um bloco { repeat: 5, steps: [ {run 1000m + pace}, {recovery time 120s} ] }, em vez de repetir os passos à mão. O trote vai dentro do bloco (o sistema já remove o último trote sobrando).
 - Aquecimento, se mencionado, é o PRIMEIRO element; desaquecimento é o ÚLTIMO.
 - Treino sem estrutura (easy/long/tempo contínuo): devolva UM único passo run com a distância (ou duração) total e o pace alvo. Para tempo com aquecimento/desaquecimento, separe em warmup + run + cooldown.
 - Não invente distâncias: respeite o que a prescrição diz. A soma das partes deve bater aproximadamente com a distância total quando ela existir.
@@ -43,8 +42,10 @@ REGRAS:
 
 name: título curto pro relógio (ex.: "Tiros 5x1000m"). description: a prescrição em uma linha.`;
 
+// Structured outputs require every object to be closed (additionalProperties: false).
 const DURATION_SCHEMA = {
   type: "object",
+  additionalProperties: false,
   required: ["kind"],
   properties: {
     kind: { type: "string", enum: ["distance", "time", "lap"] },
@@ -65,35 +66,34 @@ const STEP_PROPS = {
   notes: { type: "string" },
 } as const;
 
-const WORKOUT_TOOL = {
-  name: "emit_workout",
-  description: "Emite o treino estruturado.",
-  input_schema: {
-    type: "object",
-    required: ["name", "elements"],
-    properties: {
-      name: { type: "string" },
-      description: { type: "string" },
-      elements: {
-        type: "array",
-        description:
-          "Sequência ordenada. Cada item é um passo único (kind+duration) OU um bloco de repetição (repeat+steps).",
-        items: {
-          type: "object",
-          properties: {
-            ...STEP_PROPS,
-            repeat: {
-              type: "integer",
-              description: "nº de repetições do bloco (>=2)",
-            },
-            steps: {
-              type: "array",
-              description: "passos repetidos pelo bloco",
-              items: {
-                type: "object",
-                required: ["kind", "duration"],
-                properties: STEP_PROPS,
-              },
+const WORKOUT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["name", "elements"],
+  properties: {
+    name: { type: "string" },
+    description: { type: "string" },
+    elements: {
+      type: "array",
+      description:
+        "Sequência ordenada. Cada item é um passo único (kind+duration) OU um bloco de repetição (repeat+steps).",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          ...STEP_PROPS,
+          repeat: {
+            type: "integer",
+            description: "nº de repetições do bloco (>=2)",
+          },
+          steps: {
+            type: "array",
+            description: "passos repetidos pelo bloco",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["kind", "duration"],
+              properties: STEP_PROPS,
             },
           },
         },
@@ -115,7 +115,7 @@ function userMessage(plan: PlannedRun): string {
 
 /**
  * Interpret a plan into a StructuredWorkout. Returns null on any failure (no
- * tool call, API error) so the caller can fall back to the flat single step.
+ * response, API error) so the caller can fall back to the flat single step.
  */
 export async function interpretWorkout(
   plan: PlannedRun,
@@ -133,14 +133,17 @@ export async function interpretWorkout(
     const msg = await client.messages.create({
       model: MODEL,
       max_tokens: 2048,
+      // A direct conversion of the notes into steps; no thinking needed.
+      thinking: { type: "disabled" },
       system: SYSTEM,
-      tools: [WORKOUT_TOOL as unknown as Anthropic.Tool],
-      tool_choice: { type: "tool", name: "emit_workout" },
+      output_config: {
+        format: { type: "json_schema", schema: WORKOUT_SCHEMA },
+      },
       messages: [{ role: "user", content: userMessage(plan) }],
     });
-    const toolUse = msg.content.find((b) => b.type === "tool_use");
-    if (!toolUse || toolUse.type !== "tool_use") return null;
-    const sw = toolUse.input as StructuredWorkout;
+    const text = msg.content.find((b) => b.type === "text");
+    if (!text || text.type !== "text") return null;
+    const sw = JSON.parse(text.text) as StructuredWorkout;
     if (!sw || !Array.isArray(sw.elements) || sw.elements.length === 0)
       return null;
     return sw;

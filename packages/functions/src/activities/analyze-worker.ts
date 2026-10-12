@@ -21,7 +21,7 @@ export async function handler(event: SQSEvent) {
       }
       const analysis = await analyzeActivity(source, externalId);
       console.log(
-        `analyzed ${source}/${externalId}: ${analysis.type} ${analysis.subtype ?? ""}`,
+        `analyzed ${source}/${externalId}: ${analysis.type} "${analysis.title ?? ""}"`,
       );
     } catch (err) {
       console.error(

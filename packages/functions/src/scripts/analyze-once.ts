@@ -6,7 +6,7 @@ const source = process.argv[2] ?? "garmin";
 const externalId = process.argv[3] ?? "23618280127";
 
 const a = await analyzeActivity(source, externalId);
-console.log(`type=${a.type} subtype=${a.subtype ?? "-"} sections=${a.sections.length}`);
+console.log(`type=${a.type} title=${a.title ?? "-"} sections=${a.sections.length}`);
 console.log("pattern:", a.analysis?.pattern, "| rpe:", a.analysis?.rpe_estimate, "| target_hit:", a.analysis?.target_hit);
 console.log("highlights:", JSON.stringify(a.analysis?.highlights, null, 1));
 console.log("issues:", JSON.stringify(a.analysis?.issues, null, 1));

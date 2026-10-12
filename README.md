@@ -10,8 +10,8 @@ which are pushed to Garmin as structured workouts.
 - **TypeScript** monorepo, **pnpm** workspaces
 - **React + Vite** web (`packages/web`), Tailwind, Leaflet, Recharts
 - **Hono** single-Lambda API ("lambdalith"), response streaming for the LLM routes
-- **Anthropic SDK** — `claude-sonnet-5` for workout analysis, `claude-sonnet-4-6`
-  for plan interpretation
+- **Anthropic SDK** — `claude-sonnet-5` for workout analysis and plan interpretation,
+  both through structured outputs
 - **MCP SDK** — planning tools served over stateless Streamable HTTP at `/api/mcp`
 - **Garmin Connect** as the only ingestion source, via its unofficial mobile API
   (no webhook exists, so runs are polled — see Scheduled jobs)

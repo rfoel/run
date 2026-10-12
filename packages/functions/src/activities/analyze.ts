@@ -9,16 +9,30 @@ import {
 } from "@run/core/activity";
 import { updatePlan } from "@run/core/plan";
 import { describeWorkout } from "@run/core/workoutText";
+import type { StepSpec } from "@run/core/workoutTypes";
 import {
   getChartSeries,
   getExtras,
   putAnalysis,
   type ActivityExtras,
   type WorkoutAnalysis,
+  type WorkoutSection,
 } from "@run/core/workout";
 import { listPlans, type PlannedRun } from "@run/core/plan";
 import type { ChartSeries } from "@run/core/track";
-import { ANALYSIS_SYSTEM, ANALYSIS_TOOL } from "./analyze-prompt.ts";
+import {
+  ANALYSIS_SCHEMA,
+  ANALYSIS_SYSTEM,
+  type ModelAnalysis,
+} from "./analyze-prompt.ts";
+import {
+  kmSplits,
+  lapSection,
+  lapStarts,
+  paceFromText,
+  sectionStats,
+  type PaceBand,
+} from "./sections.ts";
 
 const MODEL = "claude-sonnet-5";
 
@@ -230,26 +244,24 @@ function buildUserMessage(
     `<recent_runs>\n${recentRunsBlock(recentRuns, a)}\n</recent_runs>`,
     `<upcoming_plan>\n${upcomingPlanBlock(upcoming)}\n</upcoming_plan>`,
     `<trace_csv>\n${traceCsv(series)}\n</trace_csv>`,
-    `workout_id: ${a.startDate.slice(0, 10)}-${a.source}-${a.externalId}`,
-    `date: ${a.startDate.slice(0, 10)}`,
-    `Analyze this workout. Call emit_analysis with the full structured result. Write the verbal analysis (highlights, issues, next_workout_suggestion) in Brazilian Portuguese (pt-BR).`,
+    `Analyze this workout.`,
   ].join("\n\n");
 }
 
-// Runs the full analysis for one activity and persists the result. Shared by
-// the streaming /analyze route (manual re-analyze) and the SQS worker that
-// auto-analyzes freshly synced runs. Anthropic is imported lazily so it lands
-// in its own esbuild chunk, off the cold-start path of the non-analyze routes.
-/** Everything analyzeActivity sends to the API — exported so scripts can
- * reproduce the exact request when debugging response shapes. */
-export async function buildAnalysisRequest(
-  source: string,
-  externalId: string,
-): Promise<{
+/** Everything analyzeActivity sends to the API, plus what it needs to finish
+ * the result — exported so scripts can reproduce the exact request. */
+export type AnalysisContext = {
   request: Anthropic.MessageCreateParamsNonStreaming;
   activity: Activity;
   plan: PlannedRun | undefined;
-}> {
+  series: ChartSeries;
+  extras: ActivityExtras | undefined;
+};
+
+export async function buildAnalysisRequest(
+  source: string,
+  externalId: string,
+): Promise<AnalysisContext> {
   const activity = await getActivity(source as ActivitySource, externalId);
   if (!activity) throw new Error("activity not found");
   const series = await getChartSeries(source, externalId);
@@ -276,15 +288,16 @@ export async function buildAnalysisRequest(
 
   const request: Anthropic.MessageCreateParamsNonStreaming = {
     model: MODEL,
-    // Interval workouts emit one section per lap — a 22-lap session's JSON
-    // alone runs several thousand tokens. 16k is the safe non-streaming ceiling.
+    // A ceiling, not a cost: the response is boundaries plus a few sentences.
     max_tokens: 16000,
-    // Sonnet 5 runs adaptive thinking by default; this is a single forced
-    // tool call over pre-digested data, so skip the thinking spend.
+    // Sonnet 5 runs adaptive thinking by default; this is a single structured
+    // response over pre-digested data, so skip the thinking spend.
     thinking: { type: "disabled" },
     system: ANALYSIS_SYSTEM,
-    tools: [ANALYSIS_TOOL as unknown as Anthropic.Tool],
-    tool_choice: { type: "tool", name: "emit_analysis" },
+    // Structured outputs guarantee the response matches the schema.
+    output_config: {
+      format: { type: "json_schema", schema: ANALYSIS_SCHEMA },
+    },
     messages: [
       {
         role: "user",
@@ -299,63 +312,124 @@ export async function buildAnalysisRequest(
       },
     ],
   };
-  return { request, activity, plan };
+  return { request, activity, plan, series, extras };
 }
 
+/** The plan's target pace band for the work, if it states one. */
+function targetBand(
+  plan: PlannedRun | undefined,
+  model: ModelAnalysis,
+): PaceBand | undefined {
+  const run = plan?.workout?.elements
+    .flatMap((el): Array<Partial<StepSpec>> =>
+      el.repeat && el.steps ? el.steps : [el],
+    )
+    .find((st) => st.kind === "run" && (st.paceFastSec || st.paceTargetSec));
+  if (run?.paceFastSec && run.paceSlowSec)
+    return {
+      fast: Math.min(run.paceFastSec, run.paceSlowSec),
+      slow: Math.max(run.paceFastSec, run.paceSlowSec),
+    };
+  if (run?.paceTargetSec) return { fast: run.paceTargetSec, slow: run.paceTargetSec };
+  const tp = model.prescription?.target_pace_min_per_km;
+  const lo = paceFromText(tp?.min);
+  const hi = paceFromText(tp?.max) ?? lo;
+  if (lo && hi) return { fast: Math.min(lo, hi), slow: Math.max(lo, hi) };
+  if (plan?.paceTargetSec) return { fast: plan.paceTargetSec, slow: plan.paceTargetSec };
+  return undefined;
+}
+
+/** Within this many s/km of the band still counts as on target. */
+const TARGET_TOLERANCE = 5;
+
+/**
+ * Turn the model's response into the stored analysis: section numbers from the
+ * full series, generated 1 km splits for easy runs and tempo blocks, totals
+ * from the activity, and target_hit decided from the computed paces whenever
+ * there is a target to compare against.
+ */
+export function parseAnalysis(
+  msg: Anthropic.Message,
+  ctx: Omit<AnalysisContext, "request">,
+): WorkoutAnalysis {
+  if (msg.stop_reason === "max_tokens")
+    throw new Error("analysis truncated at max_tokens — workout too long");
+  const text = msg.content.find((b) => b.type === "text");
+  if (!text || text.type !== "text")
+    throw new Error(`model returned no analysis (stop_reason=${msg.stop_reason})`);
+  const model = JSON.parse(text.text) as ModelAnalysis;
+
+  const { activity: a, plan, series, extras } = ctx;
+  const band = targetBand(plan, model);
+  const laps = extras?.laps ?? [];
+  const starts = lapStarts(laps);
+  const sections: WorkoutSection[] = [];
+  if (model.type === "easy" || model.type === "long" || model.type === "regen") {
+    sections.push(...kmSplits(series, "easy_split", 0, a.distance / 1000));
+  }
+  const marked = [...model.sections].sort((x, y) => x.start_km - y.start_km);
+  for (const m of marked) {
+    const lap = m.lap != null ? laps[m.lap - 1] : undefined;
+    sections.push(
+      lap
+        ? lapSection(lap, m.kind, m.index, starts[m.lap! - 1]!, band)
+        : sectionStats(series, m.kind, m.index, m.start_km, m.end_km, band),
+    );
+    if (m.kind === "tempo") {
+      sections.push(...kmSplits(series, "tempo_split", m.start_km, m.end_km, band));
+    }
+  }
+
+  // The work the target applies to: reps, else the tempo's kilometres.
+  const work = sections.filter((s) => s.kind === "rep" || s.kind === "tempo_split");
+  const scored = work.filter((s) => s.vs_target_sec_per_km != null);
+  const targetHit =
+    band && scored.length > 0 && model.type !== "easy" && model.type !== "long"
+      ? scored.every((s) => Math.abs(s.vs_target_sec_per_km!) <= TARGET_TOLERANCE)
+      : model.analysis.target_hit;
+
+  return {
+    workout_id: `${a.startDate.slice(0, 10)}-${a.source}-${a.externalId}`,
+    date: a.startDate.slice(0, 10),
+    title: model.title,
+    type: model.type,
+    prescription: model.prescription,
+    totals: {
+      distance_km: Math.round(a.distance / 10) / 100,
+      duration_sec: a.movingTime,
+      avg_pace_sec_per_km:
+        a.distance > 0 ? Math.round(a.movingTime / (a.distance / 1000)) : 0,
+      avg_hr: a.avgHr ? Math.round(a.avgHr) : undefined,
+      max_hr: a.maxHr ? Math.round(a.maxHr) : undefined,
+      elevation_gain_m: Math.round(a.elevationGain),
+    },
+    sections,
+    analysis: { ...model.analysis, target_hit: targetHit },
+  };
+}
+
+// Runs the full analysis for one activity and persists the result. Shared by
+// the streaming /analyze route (manual re-analyze) and the SQS worker that
+// auto-analyzes freshly synced runs. Anthropic is imported lazily so it lands
+// in its own esbuild chunk, off the cold-start path of the non-analyze routes.
 export async function analyzeActivity(
   source: string,
   externalId: string,
 ): Promise<WorkoutAnalysis> {
   const { default: AnthropicClient } = await import("@anthropic-ai/sdk");
-  const { request, plan } = await buildAnalysisRequest(source, externalId);
+  const { request, ...ctx } = await buildAnalysisRequest(source, externalId);
 
   const client = new AnthropicClient({
     apiKey: Resource.AnthropicApiKey.value,
   });
   const msg = await client.messages.create(request);
-
-  // A truncated response cuts the tool-call JSON mid-stream, which surfaces
-  // as missing fields below — fail with the real cause instead.
-  if (msg.stop_reason === "max_tokens")
-    throw new Error("analysis truncated at max_tokens — workout too long");
-  const toolUse = msg.content.find((b) => b.type === "tool_use");
-  if (!toolUse || toolUse.type !== "tool_use")
-    throw new Error("model did not return structured analysis");
-  let analysis = toolUse.input as WorkoutAnalysis;
-  // The schema has a field literally named "analysis", and the model
-  // occasionally nests the whole payload under an outer key of that name —
-  // sometimes as an object, sometimes double-encoded as a JSON string.
-  // Unwrap when the real document is one level down.
-  if (!analysis.sections) {
-    let wrapped = (analysis as Record<string, unknown>).analysis;
-    if (typeof wrapped === "string") {
-      try {
-        wrapped = JSON.parse(wrapped);
-      } catch {
-        wrapped = undefined;
-      }
-    }
-    if (wrapped && Array.isArray((wrapped as WorkoutAnalysis).sections)) {
-      analysis = wrapped as WorkoutAnalysis;
-    }
-  }
-  // tool_choice forces the call but not schema completeness — never persist an
-  // analysis the UI can't render.
-  if (!Array.isArray(analysis.sections) || !analysis.totals) {
-    // Dump the shape to CloudWatch so a recurrence is diagnosable.
-    console.error(
-      "malformed analysis:",
-      JSON.stringify({
-        stop_reason: msg.stop_reason,
-        blocks: msg.content.map((b) => b.type),
-        inputKeys: Object.keys(analysis as Record<string, unknown>),
-        inputPreview: JSON.stringify(analysis).slice(0, 600),
-      }),
-    );
-    throw new Error(
-      `model returned analysis without sections/totals (stop_reason=${msg.stop_reason})`,
-    );
-  }
+  // Token accounting per analysis, so prompt changes can be measured.
+  console.log(
+    "analysis usage",
+    JSON.stringify({ run: `${source}/${externalId}`, model: MODEL, ...msg.usage }),
+  );
+  const analysis = parseAnalysis(msg, ctx);
+  const { plan } = ctx;
 
   await putAnalysis(source, externalId, {
     analysis,
@@ -363,10 +437,6 @@ export async function analyzeActivity(
     createdAt: new Date().toISOString(),
   });
 
-  // Rename the run to the execution-based title ("10x400m @4:26" beats the
-  // plan's "Tiros específicos"). Keep the linked plan's snapshot in sync so
-  // the calendar shows the same name. Best-effort — a rename failure must not
-  // fail the analysis.
   // Feed the result back onto the plan, so planning sees how each prescribed
   // session actually went. RPE entered on the watch beats the model's estimate.
   if (plan) {
@@ -385,6 +455,10 @@ export async function analyzeActivity(
     }
   }
 
+  // Rename the run to the execution-based title ("10x400m @4:26" beats the
+  // plan's "Tiros específicos"). Keep the linked plan's snapshot in sync so
+  // the calendar shows the same name. Best-effort — a rename failure must not
+  // fail the analysis.
   const title = analysis.title?.trim();
   if (title) {
     try {
