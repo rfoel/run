@@ -114,7 +114,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-full overflow-x-clip pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
+    <div className="min-h-full overflow-x-clip pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0">
       <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4 sm:px-6 md:h-16">
           <Link to="/calendario" viewTransition className="shrink-0">
@@ -168,8 +168,9 @@ export default function App() {
           <Outlet />
         </UnlockContext.Provider>
       </main>
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
-        <div className="grid grid-cols-5">
+      {/* Phones: a floating, translucent tab bar; the page scrolls under it. */}
+      <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:hidden">
+        <div className="pointer-events-auto mx-auto grid max-w-md grid-cols-5 gap-1 rounded-full border border-foreground/10 bg-background/65 p-1.5 shadow-[0_12px_40px_-12px_rgb(0_0_0/0.45)] backdrop-blur-2xl backdrop-saturate-150 dark:bg-card/75">
           {TAB_ORDER.map((t) => {
             const { label, Icon, path } = TABS[t];
             const selected = t === activeTab;
@@ -180,11 +181,13 @@ export default function App() {
                 viewTransition
                 aria-current={selected ? "page" : undefined}
                 className={
-                  "flex flex-col items-center gap-1 pt-2.5 pb-2 text-[10px] font-semibold " +
-                  (selected ? "text-foreground" : "text-muted-foreground")
+                  "flex flex-col items-center gap-0.5 rounded-full py-2 text-[10px] font-semibold transition-colors " +
+                  (selected
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-muted-foreground active:bg-foreground/5")
                 }
               >
-                <Icon className="size-6" weight={selected ? "fill" : "regular"} />
+                <Icon className="size-[22px]" weight={selected ? "fill" : "regular"} />
                 {label}
               </Link>
             );
