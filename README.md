@@ -104,11 +104,13 @@ Plans are created only through the MCP tools — there is no `POST /plans`.
 ## MCP server
 
 `/api/mcp` serves the coaching tools over stateless Streamable HTTP. It takes the
-same `x-write-token` header as the other write routes. To add it to Claude Code:
+write password like the other write routes, in `Authorization: Bearer <WritePassword>`
+(for clients that only offer standard header names), `x-api-key`, or
+`x-write-token`. To add it to Claude Code:
 
 ```sh
 claude mcp add --transport http run https://run.rfoel.dev/api/mcp \
-  --header "x-write-token: <WritePassword>"
+  --header "Authorization: Bearer <WritePassword>"
 ```
 
 - **Context**: `get_training_context` (weekly summaries, Garmin training status,

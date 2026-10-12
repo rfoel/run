@@ -13,10 +13,22 @@ function getHeader(headers: HeadersLike, name: string): string | undefined {
   return undefined;
 }
 
+/**
+ * The write token from whichever header carries it: the web app sends
+ * `x-write-token`; MCP clients that only offer standard header names send
+ * `Authorization` (with or without a "Bearer " prefix) or `x-api-key`.
+ */
+export function writeTokenFrom(headers: HeadersLike): string | undefined {
+  const direct = getHeader(headers, "x-write-token") ?? getHeader(headers, "x-api-key");
+  if (direct) return direct.trim();
+  const auth = getHeader(headers, "authorization")?.trim();
+  return auth ? auth.replace(/^bearer\s+/i, "") : undefined;
+}
+
 export function isAuthorized(headers: HeadersLike): boolean {
   const expected = Resource.WritePassword.value;
   if (!expected) return false;
-  const provided = getHeader(headers, "x-write-token");
+  const provided = writeTokenFrom(headers);
   return !!provided && provided === expected;
 }
 
