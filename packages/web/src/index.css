@@ -2,9 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
-@import "@fontsource/barlow-condensed/latin-600.css";
-@import "@fontsource/barlow-condensed/latin-700.css";
-@import "@fontsource/barlow-condensed/latin-800.css";
+@import "@fontsource/league-gothic/latin-400.css";
 
 /* Follows the OS theme. Pure CSS, so there's no flash of the wrong theme. */
 @custom-variant dark (@media (prefers-color-scheme: dark));
@@ -79,7 +77,7 @@
 @theme inline {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   /* Big numbers and page titles. */
-  --font-display: "Barlow Condensed", "Inter Variable", sans-serif;
+  --font-display: "League Gothic", "Inter Variable", sans-serif;
   --font-heading: var(--font-display);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
@@ -118,9 +116,11 @@
 
 @utility font-display {
   font-family: var(--font-display);
-  font-weight: 800;
+  /* League Gothic ships one (already heavy) weight; asking for more would
+     make the browser fake a bold. */
+  font-weight: 400;
   text-transform: uppercase;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.005em;
   line-height: 0.9;
   font-variant-numeric: tabular-nums;
 }
