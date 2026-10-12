@@ -1,5 +1,11 @@
-const CACHE = "run-v2";
-const PRECACHE = ["/", "/run.svg", "/icon.svg", "/manifest.webmanifest"];
+const CACHE = "run-v3";
+const PRECACHE = [
+  "/",
+  "/favicon.svg",
+  "/apple-touch-icon.png",
+  "/icon.svg",
+  "/manifest.webmanifest",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
