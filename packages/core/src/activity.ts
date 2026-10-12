@@ -302,7 +302,7 @@ export async function deleteActivity(
 }
 
 // Summary view of an activity: everything except the heavy `polyline` and
-// `splits` fields. Listing endpoints (and the chat/stats callers) never read
+// `splits` fields. Listing endpoints (and the MCP/stats callers) never read
 // those, so we project them out at the DynamoDB level — this avoids reading and
 // shipping kilobytes per item across potentially hundreds of activities.
 const SUMMARY_FIELDS = [

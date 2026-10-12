@@ -1,7 +1,6 @@
 import { Dialog } from "@base-ui/react/dialog";
 import {
   CalendarBlankIcon,
-  ChatCircleTextIcon,
   ListChecksIcon,
   LockIcon,
   LockOpenIcon,
@@ -37,10 +36,6 @@ import { WorkoutDetailSkeleton } from "./components/Skeleton.tsx";
 // Pulls in recharts + leaflet only when a workout is opened. The factory is
 // shared with the hover prefetch in the queries layer.
 const WorkoutDetail = lazy(importWorkoutDetail);
-// Pulls in react-markdown + remark-gfm only when the (gated) chat is opened.
-// The factory is reused to prefetch the chunk on unlock (see effect below).
-const importChat = () => import("./components/Chat.tsx");
-const Chat = lazy(importChat);
 // Pulls in leaflet only when the heatmap is opened.
 const Heatmap = lazy(() => import("./components/Heatmap.tsx"));
 // Pulls in recharts only when the trend is opened — it must not land on the
@@ -53,13 +48,12 @@ import {
   verifyWriteToken,
 } from "./lib/api.ts";
 
-type Tab = "calendar" | "activities" | "plan" | "map" | "trend" | "chat";
+type Tab = "calendar" | "activities" | "plan" | "map" | "trend";
 
 type TabMeta = {
   path: string;
   label: string;
   Icon: React.ComponentType<{ className?: string }>;
-  private?: boolean;
 };
 
 const TABS: Record<Tab, TabMeta> = {
@@ -68,22 +62,9 @@ const TABS: Record<Tab, TabMeta> = {
   plan: { path: "/plano", label: "Plano", Icon: ListChecksIcon },
   map: { path: "/mapa", label: "Mapa", Icon: MapTrifoldIcon },
   trend: { path: "/evolucao", label: "Evolução", Icon: TrendUpIcon },
-  chat: {
-    path: "/treinador",
-    label: "Treinador",
-    Icon: ChatCircleTextIcon,
-    private: true,
-  },
 };
 
-const TAB_ORDER: Tab[] = [
-  "calendar",
-  "activities",
-  "plan",
-  "map",
-  "trend",
-  "chat",
-];
+const TAB_ORDER: Tab[] = ["calendar", "activities", "plan", "map", "trend"];
 
 // Routes live on the data router (router.tsx); the unlocked state stays here
 // in the layout and reaches route elements through context.
@@ -102,7 +83,6 @@ export default function App() {
   const [unlocked, setUnlocked] = useState(false);
   const [unlockOpen, setUnlockOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
 
   useEffect(() => {
     const t = getWriteToken();
@@ -113,19 +93,11 @@ export default function App() {
     });
   }, []);
 
-  // Warm the chat chunk as soon as it's reachable, so opening the tab is
-  // instant (the screen has no data to load — only its JS to download).
-  useEffect(() => {
-    if (unlocked) void importChat();
-  }, [unlocked]);
-
-  const visibleTabs = TAB_ORDER.filter((t) => unlocked || !TABS[t].private);
   const activeTab = activeTabFor(location.pathname);
 
   function lock() {
     clearWriteToken();
     setUnlocked(false);
-    if (TABS[activeTab].private) navigate("/calendario");
   }
 
   return (
@@ -141,7 +113,7 @@ export default function App() {
           </Link>
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <nav className="flex gap-0.5 sm:gap-1 text-xs uppercase tracking-[0.15em] font-medium">
-              {visibleTabs.map((t) => {
+              {TAB_ORDER.map((t) => {
                 const { label, Icon, path } = TABS[t];
                 const selected = t === activeTab;
                 return (
@@ -239,15 +211,6 @@ export function TrendRoute() {
   return (
     <Suspense fallback={null}>
       <Trend />
-    </Suspense>
-  );
-}
-
-export function ChatRoute() {
-  if (!useUnlocked()) return <Navigate to="/calendario" replace />;
-  return (
-    <Suspense fallback={null}>
-      <Chat />
     </Suspense>
   );
 }

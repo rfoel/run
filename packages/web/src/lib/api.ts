@@ -52,8 +52,6 @@ export type Activity = {
   bestEfforts?: StoredBest[];
 };
 
-export type ChatMessage = { role: "user" | "assistant"; content: string };
-
 export type Stat = {
   scope: string;
   count: number;
@@ -243,27 +241,6 @@ export async function listActivities(
   if (!res.ok) throw new Error(`activities ${res.status}`);
   const data = (await res.json()) as { items: Activity[] };
   return data.items;
-}
-
-export async function chatStream(
-  messages: ChatMessage[],
-  onChunk: (text: string) => void,
-  signal?: AbortSignal,
-) {
-  const res = await fetch(`${BASE}/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ messages }),
-    signal,
-  });
-  if (!res.ok || !res.body) throw new Error(`chat ${res.status}`);
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) onChunk(decoder.decode(value, { stream: true }));
-  }
 }
 
 export type ChartSeries = {

@@ -1,8 +1,8 @@
 # run
 
 Personal running log and coach. Pulls runs from Garmin Connect, analyses each one
-with Claude, and builds/edits training plans through a chat that writes back to
-Garmin as structured workouts.
+with Claude, and exposes an MCP server so Claude can build/edit training plans,
+which are pushed to Garmin as structured workouts.
 
 ## Stack
 
@@ -11,7 +11,8 @@ Garmin as structured workouts.
 - **React + Vite** web (`packages/web`), Tailwind, Leaflet, Recharts
 - **Hono** single-Lambda API ("lambdalith"), response streaming for the LLM routes
 - **Anthropic SDK** — `claude-sonnet-5` for workout analysis, `claude-sonnet-4-6`
-  for the coach chat and plan interpretation
+  for plan interpretation
+- **MCP SDK** — planning tools served over stateless Streamable HTTP at `/api/mcp`
 - **Garmin Connect** as the only ingestion source, via its unofficial mobile API
   (no webhook exists, so runs are polled — see Scheduled jobs)
 
@@ -45,11 +46,11 @@ packages/
     api.ts                every HTTP route (Hono)
     garmin/               sync, scheduled sync, plan interpretation, resolve
     activities/           analysis prompt, analysis, queue worker
-    chat/                 streaming coach + planning tools (prompt.md as text)
+    mcp/                  MCP server: planning tools (instructions.md as text)
     lib/                  auth, queue, response helpers
     scripts/              backfills, migrations, API probes, one-offs
   web/
-    components/           Calendar, Activities, Plan, Heatmap, Trend, Chat, WorkoutDetail
+    components/           Calendar, Activities, Plan, Heatmap, Trend, WorkoutDetail
     lib/                  api client, query hooks, fitness trend, polyline, formatting
 ```
 
@@ -88,10 +89,23 @@ are open.
 | GET | `/plans` | list planned runs (`?from=&to=`) |
 | DELETE | `/plans/:date/:id` | delete a planned run |
 | POST | `/auth/verify` | check a write token |
-| POST | `/chat` | streaming coach (creates/edits plans via tools) |
+| POST | `/mcp` | MCP server (creates/edits plans via tools) |
 | POST | `/analyze` | streaming analysis of one run |
 
-Plans are created only through the chat's tools — there is no `POST /plans`.
+Plans are created only through the MCP tools — there is no `POST /plans`.
+
+## MCP server
+
+`/api/mcp` serves the planning tools (`get_training_context`, `list_planned_runs`,
+`create_planned_run`, `update_planned_run`, `move_planned_run`,
+`delete_planned_run`, `clear_all_planned_runs`, `link_past_activities`) over
+stateless Streamable HTTP. It takes the same `x-write-token` header as the other
+write routes. To add it to Claude Code:
+
+```sh
+claude mcp add --transport http run https://run.rfoel.dev/api/mcp \
+  --header "x-write-token: <WritePassword>"
+```
 
 ## Scheduled jobs
 
@@ -102,8 +116,8 @@ Plans are created only through the chat's tools — there is no `POST /plans`.
 ## Web
 
 Tabs: **Calendário**, **Corridas**, **Plano**, **Mapa** (heatmap of every run +
-cities), **Evolução** (pace at a fixed heart rate over time), and **Treinador**
-(the chat). Treinador is behind the write password; the rest are open.
+cities), and **Evolução** (pace at a fixed heart rate over time). All are open;
+write actions are behind the write password.
 
 ## Setup
 

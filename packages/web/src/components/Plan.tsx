@@ -59,7 +59,7 @@ export default function Plan({ unlocked }: { unlocked: boolean }) {
         </div>
         {unlocked && (
           <p className="font-mono text-sm">
-            Vá para a aba Treinador e peça: "Monta um plano de 5k abaixo de 20min em 12 semanas"
+            Peça ao Claude (via MCP): "Monta um plano de 5k abaixo de 20min em 12 semanas"
           </p>
         )}
       </div>

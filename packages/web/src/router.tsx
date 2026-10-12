@@ -3,7 +3,6 @@ import type { LoaderFunctionArgs } from "react-router-dom";
 import App, {
   ActivitiesRoute,
   CalendarRoute,
-  ChatRoute,
   MapRoute,
   PlanRoute,
   TrendRoute,
@@ -120,7 +119,6 @@ export const router = createBrowserRouter([
         element: <TrendRoute />,
         loader: activitiesLoader,
       },
-      { path: "treinador", element: <ChatRoute /> },
       { path: "*", loader: () => redirect("/calendario") },
     ],
   },

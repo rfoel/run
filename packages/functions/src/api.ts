@@ -318,10 +318,22 @@ app.post("/auth/verify", (c) => {
   return c.json({ ok: true });
 });
 
+// ---- MCP --------------------------------------------------------------------
+// Planning tools for Claude (create/edit/move planned runs), over stateless
+// Streamable HTTP. Same write token as the other mutating routes. The MCP SDK
+// is imported lazily (own esbuild chunk) to stay off the cold-start path.
+app.all("/mcp", async (c) => {
+  if (!isAuthorized(c.req.header())) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const { handleMcp } = await import("./mcp/server.ts");
+  return handleMcp(c.req.raw);
+});
+
 // ---- Streaming LLM routes -------------------------------------------------
 // The function URL runs in RESPONSE_STREAM mode (see infra). Buffered routes
 // above return normal responses fine under streamHandle. The Anthropic SDK is
-// pulled in lazily inside runChat/runAnalyze (own esbuild chunk via
+// pulled in lazily inside runAnalyze (own esbuild chunk via
 // nodejs.splitting), so it stays off the cold-start path of every other route.
 
 // CloudFront drops an idle origin connection after ~55s. Emit a zero-width
@@ -331,24 +343,6 @@ function startHeartbeat(s: { write: (c: string) => Promise<unknown> }) {
     void s.write("​").catch(() => {});
   }, 8000);
 }
-
-app.post("/chat", (c) => {
-  if (!isAuthorized(c.req.header())) return c.text("unauthorized", 401);
-  c.header("Content-Type", "text/plain; charset=utf-8");
-  c.header("Cache-Control", "no-cache");
-  return stream(c, async (s) => {
-    const hb = startHeartbeat(s);
-    try {
-      const body = await c.req.text();
-      const { runChat } = await import("./chat/chat.ts");
-      await runChat(body, (chunk) => s.write(chunk));
-    } catch (err) {
-      await s.write(`\n\n[erro: ${(err as Error).message}]`);
-    } finally {
-      clearInterval(hb);
-    }
-  });
-});
 
 app.post("/analyze", (c) => {
   if (!isAuthorized(c.req.header())) return c.text("unauthorized", 401);

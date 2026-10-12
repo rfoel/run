@@ -1,6 +1,48 @@
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { findActivitiesOnDate } from "@run/core/activity";
+import {
+  findActivitiesOnDate,
+  listActivities,
+  type Activity,
+} from "@run/core/activity";
 import { createPlan, deletePlan, listPlans, updatePlan } from "@run/core/plan";
+
+function summarizeActivity(a: Activity) {
+  const km = (a.distance / 1000).toFixed(2);
+  const paceSecPerKm = a.movingTime / (a.distance / 1000);
+  const min = Math.floor(paceSecPerKm / 60);
+  const sec = Math.round(paceSecPerKm % 60).toString().padStart(2, "0");
+  return [
+    a.startDate.slice(0, 10),
+    `${km}km`,
+    `${Math.round(a.movingTime / 60)}min`,
+    `${min}:${sec}/km`,
+    a.avgHr ? `${Math.round(a.avgHr)}bpm` : "",
+    `+${Math.round(a.elevationGain)}m`,
+    a.name,
+  ].filter(Boolean).join(" | ");
+}
+
+// Everything Claude needs before planning: today's date, the Monday a new
+// plan's week 1 starts on, and one line per recent run.
+async function getTrainingContext(limit: number) {
+  const now = new Date();
+  const dayOfWeek = now.getUTCDay(); // 0=Sun, 1=Mon, ...
+  const daysToMonday = dayOfWeek === 1 ? 0 : (8 - dayOfWeek) % 7;
+  const nextMonday = new Date(now);
+  nextMonday.setUTCDate(now.getUTCDate() + daysToMonday);
+  const activities = await listActivities({ limit });
+  return {
+    today: now.toISOString().slice(0, 10),
+    weekday: now.toLocaleDateString("en-US", {
+      weekday: "long",
+      timeZone: "UTC",
+    }),
+    plan_week1_monday: nextMonday.toISOString().slice(0, 10),
+    recent_runs: activities.map(summarizeActivity),
+  };
+}
 
 async function linkPastActivities() {
   const today = new Date().toISOString().slice(0, 10);
@@ -56,9 +98,17 @@ async function movePlannedRun(currentDate: string, id: string, newDate: string) 
 const runType = z.enum(["easy", "long", "tempo", "interval", "race", "recovery"]);
 
 // One zod schema per tool — the single source of truth. The JSON Schema
-// advertised to Claude and the parsed, typed input in runTool both derive
+// advertised over MCP and the parsed, typed input in runTool both derive
 // from these, so the wire contract can't drift from the handler.
 const inputs = {
+  get_training_context: z.object({
+    limit: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("How many recent runs to include (default 200)"),
+  }),
   create_planned_run: z.object({
     date: z.string().describe("ISO date YYYY-MM-DD when the run should happen"),
     type: runType,
@@ -100,6 +150,8 @@ const inputs = {
 } satisfies Record<string, z.ZodObject<z.ZodRawShape>>;
 
 const descriptions: Record<keyof typeof inputs, string> = {
+  get_training_context:
+    "Today's date, the Monday a new plan's week 1 starts on, and the athlete's recent runs (date | km | min | pace | avg HR | elevation | name). Call this before planning.",
   create_planned_run:
     "Add a future planned run to the athlete's calendar. Use this whenever you commit to a workout the athlete should do.",
   list_planned_runs: "List the athlete's planned runs in a date range.",
@@ -113,29 +165,45 @@ const descriptions: Record<keyof typeof inputs, string> = {
     "Move an existing planned run to a different date. Preserves all other attributes.",
 };
 
-// Strip the `$schema` key at the root; Anthropic's tool input_schema wants a
-// bare JSON Schema object. `reused: "inline"` inlines shared definitions so
-// each schema is self-contained (zod 4's native converter).
-function jsonSchema(schema: z.ZodType): Record<string, unknown> {
-  const { $schema, ...rest } = z.toJSONSchema(schema, {
-    reused: "inline",
-  }) as Record<string, unknown>;
-  return rest;
+const annotations: Record<keyof typeof inputs, ToolAnnotations> = {
+  get_training_context: { readOnlyHint: true },
+  create_planned_run: { readOnlyHint: false, destructiveHint: false },
+  list_planned_runs: { readOnlyHint: true },
+  update_planned_run: { readOnlyHint: false, destructiveHint: false },
+  delete_planned_run: { readOnlyHint: false, destructiveHint: true },
+  clear_all_planned_runs: { readOnlyHint: false, destructiveHint: true },
+  link_past_activities: { readOnlyHint: false, destructiveHint: false },
+  move_planned_run: { readOnlyHint: false, destructiveHint: false },
+};
+
+export function registerTools(server: McpServer) {
+  for (const name of Object.keys(inputs) as Array<keyof typeof inputs>) {
+    server.registerTool(
+      name,
+      {
+        description: descriptions[name],
+        inputSchema: inputs[name],
+        annotations: annotations[name],
+      },
+      async (args: Record<string, unknown>) => {
+        const result = await runTool(name, args);
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
+        };
+      },
+    );
+  }
 }
 
-export const tools = (Object.keys(inputs) as Array<keyof typeof inputs>).map(
-  (name) => ({
-    name,
-    description: descriptions[name],
-    input_schema: jsonSchema(inputs[name]),
-  }),
-);
-
-export async function runTool(
+async function runTool(
   name: string,
   input: Record<string, unknown>,
 ): Promise<unknown> {
   switch (name) {
+    case "get_training_context": {
+      const i = inputs.get_training_context.parse(input);
+      return await getTrainingContext(i.limit ?? 200);
+    }
     case "create_planned_run": {
       const i = inputs.create_planned_run.parse(input);
       return await createPlan({
