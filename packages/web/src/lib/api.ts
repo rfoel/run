@@ -1,4 +1,5 @@
 import type { AllTimeRecord, StoredBest } from "@run/core/bestEfforts";
+import type { StructuredWorkout } from "@run/core/workoutTypes";
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "/api";
 
@@ -74,16 +75,54 @@ export async function getStats(): Promise<StatsResponse> {
   return (await res.json()) as StatsResponse;
 }
 
+// Plans and blocks mirror @run/core/plan and @run/core/block. Those modules
+// pull in the DynamoDB client and node:crypto, and even a type-only import
+// drags their sources into the web's type-check, so the shapes are copied here
+// (minus server-only bookkeeping). Keep them in step with core.
+
+/** The coach-authored structured workout (pure types from @run/core/workoutTypes). */
+export type { StructuredWorkout };
+
+export type PlannedRunType =
+  | "easy"
+  | "long"
+  | "tempo"
+  | "interval"
+  | "race"
+  | "recovery";
+
+/** "partial": a run was linked but covered under 80% of the planned volume. */
+export type PlannedRunStatus = "planned" | "done" | "partial" | "skipped";
+
+/** How the linked run measured up to the plan. */
+export type PlanCompliance = {
+  /** Done volume over planned (0.62 = 62%). */
+  volumePct?: number;
+  /** Whether the prescribed target was hit, from the run's analysis. */
+  targetHit?: boolean;
+  /** e.g. "consistent", "fade", "positive_split". */
+  pattern?: string;
+  /** RPE 1–10. */
+  rpe?: number;
+};
+
 export type PlannedRun = {
   id: string;
   date: string;
-  type: "easy" | "long" | "tempo" | "interval" | "race" | "recovery";
+  type: PlannedRunType;
   distance?: number;
   durationSec?: number;
   paceTargetSec?: number;
   notes?: string;
-  status: "planned" | "done" | "skipped";
+  shortTitle?: string;
+  status: PlannedRunStatus;
+  /** The training block this run belongs to. */
+  blockId?: string;
   garminWorkoutId?: number;
+  workout?: StructuredWorkout;
+  /** True when the coach wrote `workout` directly (vs. interpreted notes). */
+  workoutAuthored?: boolean;
+  compliance?: PlanCompliance;
   actualSource?: string;
   actualExternalId?: string;
   actualStartDate?: string;
@@ -91,6 +130,41 @@ export type PlannedRun = {
   actualMovingTime?: number;
   actualAvgHr?: number;
   actualName?: string;
+};
+
+export type BlockPhase =
+  | "base"
+  | "build"
+  | "peak"
+  | "taper"
+  | "race"
+  | "recovery";
+
+export type BlockWeek = {
+  /** Monday, YYYY-MM-DD. */
+  weekStart: string;
+  phase: BlockPhase;
+  /** Planned weekly volume, km. */
+  targetKm?: number;
+  /** One line on what the week is for, pt-BR. */
+  focus?: string;
+};
+
+/** A training cycle: a goal (often a race) and its Monday–Sunday weeks. */
+export type TrainingBlock = {
+  id: string;
+  name: string;
+  goal?: string;
+  raceDate?: string;
+  raceDistanceM?: number;
+  targetTimeSec?: number;
+  /** Monday the first week starts. */
+  startDate: string;
+  /** Sunday the last week ends. */
+  endDate: string;
+  weeks: BlockWeek[];
+  status: "active" | "completed" | "abandoned";
+  notes?: string;
 };
 
 export async function listPlans(opts: { from?: string; to?: string } = {}) {
@@ -101,6 +175,13 @@ export async function listPlans(opts: { from?: string; to?: string } = {}) {
   if (!res.ok) throw new Error(`plans ${res.status}`);
   const data = (await res.json()) as { items: PlannedRun[] };
   return data.items;
+}
+
+/** Every training block, newest first. */
+export async function listBlocks(): Promise<TrainingBlock[]> {
+  const res = await fetch(`${BASE}/blocks`);
+  if (!res.ok) throw new Error(`blocks ${res.status}`);
+  return ((await res.json()) as { items: TrainingBlock[] }).items;
 }
 
 export async function deletePlan(date: string, id: string) {

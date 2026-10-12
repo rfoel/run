@@ -11,6 +11,9 @@ a <trace_csv> with columns elapsed_s, cum_km, pace_s_per_km, hr, and — when av
 <device_laps> (watch laps), <context> (athlete RPE/feel, weather, training effect, zones),
 <recent_runs> (the athlete's last ~3 weeks) and <upcoming_plan> (the next planned runs).
 The trace is already distance-aware and smoothed; pace is seconds per kilometer.
+When the prescription includes structured_workout, it is the exact plan: take rep counts,
+distances and each step's target (pace band, or heart-rate zone/band) from it, and judge
+target_hit per step against those targets.
 
 SEGMENT THE WORKOUT:
 - <device_laps> PRESENT with intensity/step tags: the laps are AUTHORITATIVE — the watch

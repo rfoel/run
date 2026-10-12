@@ -1,6 +1,13 @@
 import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { createHmac, randomBytes } from "node:crypto";
 import { Resource } from "sst";
+import type {
+  Duration,
+  StepKind,
+  StepSpec,
+  StructuredWorkout,
+  WorkoutElement,
+} from "./workoutTypes.ts";
 import { ddb, tableName } from "./db.ts";
 import { userPk, USER_ID } from "./user.ts";
 import type { PlannedRun } from "./plan.ts";
@@ -395,6 +402,238 @@ async function garminFetch<T>(
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
+/** GET a connectapi path (e.g. "/hrv-service/hrv/2026-10-12") as JSON. */
+export function garminGet<T>(path: string, accessToken: string): Promise<T> {
+  return garminFetch<T>(`${GC_API}${path}`, accessToken);
+}
+
+// --- training & wellness metrics ---------------------------------------------
+//
+// What the watch itself concluded about fitness and recovery. Every field is
+// optional: each endpoint is fetched independently, and nights without the
+// watch on simply leave sleep/HRV empty.
+
+export type GarminTrainingSnapshot = {
+  date: string;
+  vo2max?: number;
+  /** e.g. "PRODUCTIVE", "MAINTAINING", "UNPRODUCTIVE", "DETRAINING", "PEAKING", "OVERREACHING". */
+  trainingStatus?: string;
+  load?: {
+    /** Garmin's 7-day acute load and 28-day chronic load. */
+    acute?: number;
+    chronic?: number;
+    chronicMin?: number;
+    chronicMax?: number;
+    ratio?: number;
+    /** e.g. "LOW", "OPTIMAL", "HIGH", "VERY_HIGH". */
+    status?: string;
+  };
+  /** Last 4 weeks of load by type vs. Garmin's target ranges. */
+  loadBalance?: {
+    aerobicLow?: number;
+    aerobicLowTarget?: [number, number];
+    aerobicHigh?: number;
+    aerobicHighTarget?: [number, number];
+    anaerobic?: number;
+    anaerobicTarget?: [number, number];
+    /** e.g. "BALANCED", "ANAEROBIC_SHORTAGE", "AEROBIC_HIGH_SHORTAGE". */
+    feedback?: string;
+  };
+  readiness?: {
+    score?: number;
+    level?: string;
+    feedback?: string;
+    recoveryHours?: number;
+  };
+  /** Predicted race times, seconds. */
+  racePredictions?: {
+    fiveK?: number;
+    tenK?: number;
+    half?: number;
+    marathon?: number;
+  };
+  /** The heart-rate zones configured on the watch. */
+  hrZones?: {
+    method?: string;
+    restingHr?: number;
+    lactateThresholdHr?: number;
+    maxHr?: number;
+    /** Lower bound of zones 1–5, bpm. */
+    floors: number[];
+  };
+  sleep?: { seconds?: number; score?: number; needMinutes?: number };
+  hrv?: { lastNightAvg?: number; weeklyAvg?: number; status?: string };
+  restingHr?: number;
+  /** Endpoints that failed, so callers can tell "no data" from "not fetched". */
+  unavailable: string[];
+};
+
+type Obj = Record<string, any>;
+
+let cachedDisplayName: string | undefined;
+
+async function displayName(token: string): Promise<string> {
+  if (!cachedDisplayName) {
+    const profile = await garminGet<{ displayName: string }>(
+      "/userprofile-service/socialProfile",
+      token,
+    );
+    cachedDisplayName = profile.displayName;
+  }
+  return cachedDisplayName;
+}
+
+const num = (v: unknown): number | undefined =>
+  typeof v === "number" && Number.isFinite(v) ? v : undefined;
+
+/** "PRODUCTIVE_7" → "PRODUCTIVE". */
+const phrase = (v: unknown): string | undefined =>
+  typeof v === "string" ? v.replace(/_\d+$/, "") : undefined;
+
+/** The entry for the primary device in Garmin's per-device maps. */
+function primary(map: unknown): Obj | undefined {
+  if (!map || typeof map !== "object") return undefined;
+  const entries = Object.values(map as Obj) as Obj[];
+  return entries.find((e) => e?.primaryTrainingDevice) ?? entries[0];
+}
+
+export async function fetchTrainingSnapshot(
+  date: string,
+  token: string,
+): Promise<GarminTrainingSnapshot> {
+  const out: GarminTrainingSnapshot = { date, unavailable: [] };
+  const name = await displayName(token).catch(() => undefined);
+
+  const get = async (label: string, path: string | undefined) => {
+    if (!path) {
+      out.unavailable.push(label);
+      return undefined;
+    }
+    try {
+      return await garminGet<Obj | Obj[] | undefined>(path, token);
+    } catch {
+      out.unavailable.push(label);
+      return undefined;
+    }
+  };
+
+  const [status, readiness, predictions, zones, sleep, hrv, summary] =
+    await Promise.all([
+      get("trainingStatus", `/metrics-service/metrics/trainingstatus/aggregated/${date}`),
+      get("readiness", `/metrics-service/metrics/trainingreadiness/${date}`),
+      get("racePredictions", name && `/metrics-service/metrics/racepredictions/latest/${name}`),
+      get("hrZones", "/biometric-service/heartRateZones"),
+      get("sleep", name && `/wellness-service/wellness/dailySleepData/${name}?date=${date}&nonSleepBufferMinutes=60`),
+      get("hrv", `/hrv-service/hrv/${date}`),
+      get("dailySummary", name && `/usersummary-service/usersummary/daily/${name}?calendarDate=${date}`),
+    ]);
+
+  const st = status as Obj | undefined;
+  out.vo2max = num(st?.mostRecentVO2Max?.generic?.vo2MaxPreciseValue);
+  const ts = primary(st?.mostRecentTrainingStatus?.latestTrainingStatusData);
+  if (ts) {
+    out.trainingStatus = phrase(ts.trainingStatusFeedbackPhrase);
+    const acwr = ts.acuteTrainingLoadDTO as Obj | undefined;
+    if (acwr) {
+      out.load = {
+        acute: num(acwr.dailyTrainingLoadAcute),
+        chronic: num(acwr.dailyTrainingLoadChronic),
+        chronicMin: num(acwr.minTrainingLoadChronic),
+        chronicMax: num(acwr.maxTrainingLoadChronic),
+        ratio: num(acwr.dailyAcuteChronicWorkloadRatio),
+        status: typeof acwr.acwrStatus === "string" ? acwr.acwrStatus : undefined,
+      };
+    }
+  }
+  const lb = primary(st?.mostRecentTrainingLoadBalance?.metricsTrainingLoadBalanceDTOMap);
+  if (lb) {
+    const range = (lo: unknown, hi: unknown): [number, number] | undefined => {
+      const a = num(lo);
+      const b = num(hi);
+      return a != null && b != null ? [a, b] : undefined;
+    };
+    out.loadBalance = {
+      aerobicLow: num(lb.monthlyLoadAerobicLow),
+      aerobicLowTarget: range(lb.monthlyLoadAerobicLowTargetMin, lb.monthlyLoadAerobicLowTargetMax),
+      aerobicHigh: num(lb.monthlyLoadAerobicHigh),
+      aerobicHighTarget: range(lb.monthlyLoadAerobicHighTargetMin, lb.monthlyLoadAerobicHighTargetMax),
+      anaerobic: num(lb.monthlyLoadAnaerobic),
+      anaerobicTarget: range(lb.monthlyLoadAnaerobicTargetMin, lb.monthlyLoadAnaerobicTargetMax),
+      feedback: phrase(lb.trainingBalanceFeedbackPhrase),
+    };
+  }
+
+  const rd = Array.isArray(readiness) ? (readiness[0] as Obj | undefined) : undefined;
+  if (rd) {
+    const recoveryMin = num(rd.recoveryTime);
+    out.readiness = {
+      score: num(rd.score),
+      level: typeof rd.level === "string" ? rd.level : undefined,
+      feedback: typeof rd.feedbackShort === "string" ? rd.feedbackShort : undefined,
+      recoveryHours: recoveryMin != null ? Math.round(recoveryMin / 60) : undefined,
+    };
+  }
+
+  const pr = predictions as Obj | undefined;
+  if (pr) {
+    out.racePredictions = {
+      fiveK: num(pr.time5K),
+      tenK: num(pr.time10K),
+      half: num(pr.timeHalfMarathon),
+      marathon: num(pr.timeMarathon),
+    };
+  }
+
+  const zs = Array.isArray(zones)
+    ? ((zones as Obj[]).find((z) => z.sport === "RUNNING") ??
+      (zones as Obj[]).find((z) => z.sport === "DEFAULT"))
+    : undefined;
+  if (zs) {
+    const floors = [1, 2, 3, 4, 5]
+      .map((n) => num(zs[`zone${n}Floor`]))
+      .filter((v): v is number => v != null);
+    if (floors.length === 5) {
+      out.hrZones = {
+        method: typeof zs.trainingMethod === "string" ? zs.trainingMethod : undefined,
+        restingHr: num(zs.restingHeartRateUsed),
+        lactateThresholdHr: num(zs.lactateThresholdHeartRateUsed),
+        maxHr: num(zs.maxHeartRateUsed),
+        floors,
+      };
+    }
+  }
+
+  const sl = (sleep as Obj | undefined)?.dailySleepDTO as Obj | undefined;
+  if (sl) {
+    const seconds = num(sl.sleepTimeSeconds);
+    const score = num(sl.sleepScores?.overall?.value);
+    const needMinutes = num(sl.sleepNeed?.actual);
+    if (seconds != null || score != null || needMinutes != null) {
+      out.sleep = { seconds, score, needMinutes };
+    }
+  }
+
+  const hs = (hrv as Obj | undefined)?.hrvSummary as Obj | undefined;
+  if (hs) {
+    out.hrv = {
+      lastNightAvg: num(hs.lastNightAvg),
+      weeklyAvg: num(hs.weeklyAvg),
+      status: typeof hs.status === "string" ? hs.status : undefined,
+    };
+  }
+
+  out.restingHr = num((summary as Obj | undefined)?.restingHeartRate);
+  return out;
+}
+
+export type {
+  Duration,
+  StepKind,
+  StepSpec,
+  StructuredWorkout,
+  WorkoutElement,
+} from "./workoutTypes.ts";
+
 // --- workout building --------------------------------------------------------
 
 type Json = Record<string, unknown>;
@@ -412,14 +651,9 @@ const STEP_TYPE = {
   run: { stepTypeId: 3, stepTypeKey: "interval", displayOrder: 3 },
   recovery: { stepTypeId: 4, stepTypeKey: "recovery", displayOrder: 4 },
   rest: { stepTypeId: 5, stepTypeKey: "rest", displayOrder: 5 },
-} as const;
+} as const satisfies Record<StepKind, Json>;
 
-type StepKind = keyof typeof STEP_TYPE;
 
-export type Duration =
-  | { kind: "time"; seconds: number }
-  | { kind: "distance"; meters: number }
-  | { kind: "lap" };
 
 function endCondition(d: Duration): Json {
   switch (d.kind) {
@@ -499,6 +733,39 @@ function paceTargetRange(fasterSecPerKm: number, slowerSecPerKm: number): Json {
   };
 }
 
+/**
+ * Heart-rate target: one of the watch's own zones (1–5), or an explicit bpm
+ * band. Garmin uses the same target type for both; `zoneNumber` picks a zone,
+ * while targetValueOne/Two carry a custom band.
+ */
+function hrTarget(
+  zone: number | undefined,
+  lowBpm: number | undefined,
+  highBpm: number | undefined,
+): Json {
+  const targetType = {
+    workoutTargetTypeId: 4,
+    workoutTargetTypeKey: "heart.rate.zone",
+    displayOrder: 4,
+  };
+  if (lowBpm && highBpm) {
+    return {
+      targetType,
+      targetValueOne: Math.min(lowBpm, highBpm),
+      targetValueTwo: Math.max(lowBpm, highBpm),
+      targetValueUnit: null,
+      zoneNumber: null,
+    };
+  }
+  return {
+    targetType,
+    targetValueOne: null,
+    targetValueTwo: null,
+    targetValueUnit: null,
+    zoneNumber: zone,
+  };
+}
+
 const NO_TARGET: Json = {
   targetType: {
     workoutTargetTypeId: 1,
@@ -564,33 +831,7 @@ export function buildWorkout(input: WorkoutInput): Json {
 // gets cached on the PlannedRun. Pace can be given as an explicit band
 // (paceFastSec/paceSlowSec, sec/km) or a single center pace (paceTargetSec).
 
-export type StepSpec = {
-  kind: StepKind;
-  duration: Duration;
-  /** Single center pace, sec/km. A ± margin is applied at build time. */
-  paceTargetSec?: number;
-  /** Explicit faster bound of a pace band, sec/km (the smaller number). */
-  paceFastSec?: number;
-  /** Explicit slower bound of a pace band, sec/km (the larger number). */
-  paceSlowSec?: number;
-  notes?: string;
-};
 
-/**
- * One element of a structured workout: a single step, OR a repeat block when
- * `repeat`/`steps` are set (e.g. 5x [run 1000m, recovery 2min]). The two forms
- * are mutually exclusive — a repeat element ignores the top-level step fields.
- */
-export type WorkoutElement = Partial<StepSpec> & {
-  repeat?: number;
-  steps?: StepSpec[];
-};
-
-export type StructuredWorkout = {
-  name: string;
-  description?: string;
-  elements: WorkoutElement[];
-};
 
 function specTarget(s: StepSpec, margin: number): Json {
   if (
@@ -603,6 +844,9 @@ function specTarget(s: StepSpec, margin: number): Json {
   }
   if (s.paceTargetSec && s.paceTargetSec > 0) {
     return paceTarget(s.paceTargetSec, margin);
+  }
+  if ((s.hrLowBpm && s.hrHighBpm) || (s.hrZone && s.hrZone >= 1 && s.hrZone <= 5)) {
+    return hrTarget(s.hrZone, s.hrLowBpm, s.hrHighBpm);
   }
   return NO_TARGET;
 }

@@ -51,6 +51,12 @@ import {
 import RouteMap from "./RouteMap.tsx";
 import StravaLink from "./StravaLink.tsx";
 import { PLAN_TYPE_LABELS } from "./TypeBadge.tsx";
+import {
+  ComplianceMeta,
+  PLAN_STATUS_LABEL,
+  PlanStatusTag,
+  WorkoutSteps,
+} from "./PlanStatus.tsx";
 import { TreadmillIcon, isTreadmill } from "./TreadmillIcon.tsx";
 
 // Granular work segments we chart/table. The parent `tempo` block is a
@@ -417,12 +423,6 @@ function SectionTitle({
   );
 }
 
-const PLAN_STATUS_LABEL: Record<PlannedRun["status"], string> = {
-  planned: "planejado",
-  done: "feito",
-  skipped: "pulado",
-};
-
 function PlanCard({ plan }: { plan: PlannedRun }) {
   const meta: string[] = [];
   if (plan.distance) meta.push(`${kmFmt(plan.distance)} km`);
@@ -432,11 +432,13 @@ function PlanCard({ plan }: { plan: PlannedRun }) {
   return (
     <div className="rounded-2xl bg-card p-5 sm:p-6">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
           <Badge>{PLAN_TYPE_LABELS[plan.type]}</Badge>
           <span className="text-xs text-muted-foreground">
-            planejado · {PLAN_STATUS_LABEL[plan.status]}
+            {PLAN_STATUS_LABEL.planned}
           </span>
+          <PlanStatusTag plan={plan} />
+          <ComplianceMeta plan={plan} />
         </div>
         {meta.length > 0 && (
           <span className="text-sm font-semibold tabular-nums">
@@ -444,8 +446,21 @@ function PlanCard({ plan }: { plan: PlannedRun }) {
           </span>
         )}
       </div>
+      {plan.workout && (
+        <WorkoutSteps
+          workout={plan.workout}
+          className={cn("text-base", plan.notes && "mb-2")}
+        />
+      )}
       {plan.notes && (
-        <p className="text-base leading-relaxed">{plan.notes}</p>
+        <p
+          className={cn(
+            "leading-relaxed",
+            plan.workout ? "text-sm text-muted-foreground" : "text-base",
+          )}
+        >
+          {plan.notes}
+        </p>
       )}
     </div>
   );

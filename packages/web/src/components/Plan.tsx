@@ -1,14 +1,14 @@
 import {
   ArrowSquareOutIcon,
-  CheckCircleIcon,
   CloudArrowUpIcon,
   EyeIcon,
   EyeSlashIcon,
-  MinusCircleIcon,
   TrashIcon,
   WarningIcon,
   WatchIcon,
 } from "@phosphor-icons/react";
+import { addDays, daysBetween, mondayOf } from "@run/core/weeks";
+import { workoutDistance } from "@run/core/workoutText";
 import { cn } from "cn";
 import { useState } from "react";
 import {
@@ -24,16 +24,39 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { type PlannedRun } from "../lib/api.ts";
-import { useDeletePlan, useGarminPush, usePlans } from "../lib/queries.ts";
+import {
+  type BlockPhase,
+  type PlannedRun,
+  type TrainingBlock,
+} from "../lib/api.ts";
+import {
+  blockOn,
+  blockWeekOn,
+  PHASE_LABEL,
+  PHASE_SHORT,
+} from "../lib/blocks.ts";
+import { useBlocks, useDeletePlan, useGarminPush, usePlans } from "../lib/queries.ts";
 import { ListSkeleton, Skeleton } from "./Skeleton.tsx";
 import { TypeBadge } from "./TypeBadge.tsx";
-import { duration, isoDateDaysFromNow, km } from "../lib/format.ts";
+import {
+  ComplianceMeta,
+  isRun,
+  PlanStatusTag,
+  WorkoutSteps,
+} from "./PlanStatus.tsx";
+import {
+  duration,
+  isoDateDaysFromNow,
+  km,
+  localIso,
+} from "../lib/format.ts";
 
 export default function Plan({ unlocked }: { unlocked: boolean }) {
   const from = isoDateDaysFromNow(-14);
   const plansQ = usePlans({ from });
+  const blocksQ = useBlocks();
   const items = plansQ.data ?? [];
+  const blocks = blocksQ.data ?? [];
   const loading = plansQ.isLoading;
   const error = plansQ.error ? String(plansQ.error) : null;
   const [hideDone, setHideDone] = useState(true);
@@ -41,10 +64,17 @@ export default function Plan({ unlocked }: { unlocked: boolean }) {
   const garminPush = useGarminPush();
   const pushResult = garminPush.data ?? null;
   const pushing = garminPush.isPending;
-  const today = isoDateDaysFromNow(0);
+  const today = localIso(new Date());
   const toPush = items.filter(
     (p) => p.status === "planned" && p.date >= today,
   ).length;
+
+  // The block on today, else the one the upcoming plans point at.
+  const block =
+    blockOn(blocks, today) ??
+    blocks.find((b) =>
+      items.some((p) => p.blockId === b.id && p.date >= today),
+    );
 
   if (loading) {
     return (
@@ -68,26 +98,30 @@ export default function Plan({ unlocked }: { unlocked: boolean }) {
   }
   if (items.length === 0) {
     return (
-      <div className="rounded-2xl bg-card p-6 md:p-8">
-        <h2 className="font-display text-3xl md:text-4xl">
-          Nenhum treino planejado
-        </h2>
-        {unlocked && (
-          <div className="mt-4 flex flex-col gap-2">
-            <p className="text-xs font-medium text-muted-foreground">
-              Peça ao Claude (via MCP):
-            </p>
-            <p className="rounded-xl bg-background px-4 py-3 text-sm font-medium">
-              "Monta um plano de 5k abaixo de 20min em 12 semanas"
-            </p>
-          </div>
-        )}
-      </div>
+      <section className="flex flex-col gap-10">
+        {block && <BlockHeader block={block} today={today} />}
+        <div className="rounded-2xl bg-card p-6 md:p-8">
+          <h2 className="font-display text-3xl md:text-4xl">
+            Nenhum treino planejado
+          </h2>
+          {unlocked && (
+            <div className="mt-4 flex flex-col gap-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                Peça ao Claude (via MCP):
+              </p>
+              <p className="rounded-xl bg-background px-4 py-3 text-sm font-medium">
+                "Monta um plano de 5k abaixo de 20min em 12 semanas"
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
     );
   }
 
   const visible = hideDone ? items.filter((p) => p.status !== "done") : items;
-  const byWeek = groupByWeek(visible);
+  const byWeek = groupByWeek(visible, today);
+  const volume = weeklyVolume(items);
   const doneCount = items.filter((p) => p.status === "done").length;
   // The one volt highlight on the page: the next workout still to run.
   const next = items
@@ -99,6 +133,7 @@ export default function Plan({ unlocked }: { unlocked: boolean }) {
 
   return (
     <section className="flex flex-col gap-10">
+      {block && <BlockHeader block={block} today={today} />}
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button
@@ -163,33 +198,274 @@ export default function Plan({ unlocked }: { unlocked: boolean }) {
           </button>
         </p>
       )}
-      {byWeek.map((week) => (
-        <div key={week.key}>
-          <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="font-display text-2xl md:text-3xl">{week.title}</h2>
-            <span className="text-sm font-semibold text-muted-foreground">
-              {week.range}
-            </span>
-          </div>
-          <ul className="flex flex-col gap-2">
-            {week.runs.map((p) => (
-              <PlanRow
-                key={`${p.date}/${p.id}`}
-                plan={p}
-                unlocked={unlocked}
-                next={
-                  next !== null && p.id === next.id && p.date === next.date
-                    ? p.date === today
-                      ? "hoje"
-                      : "próximo"
-                    : null
-                }
+      {byWeek.map((week) => {
+        const weekBlock =
+          blockOn(blocks, week.monday) ??
+          blocks.find((b) => week.runs.some((p) => p.blockId === b.id));
+        const info = weekBlock && blockWeekOn(weekBlock, week.monday);
+        const vol = volume.get(week.monday) ?? { done: 0, planned: 0 };
+        return (
+          <div key={week.monday}>
+            <div className="mb-4 flex flex-col gap-2">
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <h2 className="font-display text-2xl md:text-3xl">
+                  {week.title}
+                </h2>
+                <span className="text-sm font-semibold text-muted-foreground">
+                  {week.range}
+                </span>
+              </div>
+              {weekBlock && info && (
+                <p className="text-sm">
+                  <span className="font-semibold">
+                    Semana {info.number} de {weekBlock.weeks.length} ·{" "}
+                    {PHASE_LABEL[info.week.phase]}
+                  </span>
+                  {info.week.focus && (
+                    <span className="text-muted-foreground">
+                      {" "}
+                      — {info.week.focus}
+                    </span>
+                  )}
+                </p>
+              )}
+              <WeekVolume
+                doneM={vol.done}
+                plannedM={vol.planned}
+                targetKm={info?.week.targetKm}
+                future={week.monday > today}
               />
-            ))}
-          </ul>
-        </div>
-      ))}
+            </div>
+            <ul className="flex flex-col gap-2">
+              {week.runs.map((p) => (
+                <PlanRow
+                  key={`${p.date}/${p.id}`}
+                  plan={p}
+                  unlocked={unlocked}
+                  next={
+                    next !== null && p.id === next.id && p.date === next.date
+                      ? p.date === today
+                        ? "hoje"
+                        : "próximo"
+                      : null
+                  }
+                />
+              ))}
+            </ul>
+          </div>
+        );
+      })}
     </section>
+  );
+}
+
+// Phases as a monochrome ramp, quiet to loud: the strip stays in the NRC
+// black/white language while the build-up to the peak still reads at a glance.
+const PHASE_SHADE: Record<BlockPhase, string> = {
+  recovery: "bg-foreground/12",
+  base: "bg-foreground/20",
+  build: "bg-foreground/32",
+  peak: "bg-foreground/48",
+  taper: "bg-foreground/24",
+  race: "bg-foreground/48",
+};
+
+/** Name, goal, race countdown and the block's weeks as a volume strip. */
+function BlockHeader({
+  block,
+  today,
+}: {
+  block: TrainingBlock;
+  today: string;
+}) {
+  const current = blockWeekOn(block, today);
+  const daysToRace =
+    block.raceDate != null ? daysBetween(today, block.raceDate) : null;
+  const maxKm = Math.max(0, ...block.weeks.map((w) => w.targetKm ?? 0));
+
+  const meta: string[] = [];
+  if (block.raceDate) meta.push(`Prova ${formatRaceDate(block.raceDate)}`);
+  if (block.raceDistanceM) meta.push(`${kmShort(block.raceDistanceM)} km`);
+  if (block.targetTimeSec) meta.push(`alvo ${clock(block.targetTimeSec)}`);
+
+  // Consecutive weeks of one phase, so the strip can gap and label them.
+  const spans: { phase: BlockPhase; start: number; weeks: typeof block.weeks }[] =
+    [];
+  block.weeks.forEach((w, i) => {
+    const last = spans[spans.length - 1];
+    if (last && last.phase === w.phase) last.weeks.push(w);
+    else spans.push({ phase: w.phase, start: i, weeks: [w] });
+  });
+
+  return (
+    <div className="rounded-2xl bg-card p-5 md:p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            {current
+              ? `Bloco · semana ${current.number} de ${block.weeks.length}`
+              : "Bloco de treino"}
+          </p>
+          <h2 className="mt-1.5 font-display text-3xl md:text-4xl">
+            {block.name}
+          </h2>
+          {block.goal && (
+            <p className="mt-2 text-sm font-semibold">{block.goal}</p>
+          )}
+          {meta.length > 0 && (
+            <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">
+              {meta.map((m, i) => (
+                <span key={m} className="whitespace-nowrap">
+                  {i > 0 && " · "}
+                  {m}
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
+        {daysToRace != null && daysToRace >= 0 && (
+          <div className="flex shrink-0 flex-col items-end text-right">
+            {daysToRace === 0 ? (
+              <span className="font-display text-4xl md:text-5xl">Hoje</span>
+            ) : (
+              <>
+                <span className="text-xs font-semibold text-muted-foreground">
+                  {daysToRace === 1 ? "falta" : "faltam"}
+                </span>
+                <span className="font-display text-5xl md:text-6xl">
+                  {daysToRace}
+                </span>
+                <span className="text-xs font-semibold text-muted-foreground">
+                  {daysToRace === 1 ? "dia" : "dias"}
+                </span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div
+        className="mt-5 flex h-12 items-end gap-2 md:h-14"
+        role="img"
+        aria-label={stripLabel(block, current?.number)}
+      >
+        {spans.map((span) => (
+          <div
+            key={span.start}
+            className="flex h-full items-end gap-1"
+            style={{ flex: span.weeks.length }}
+          >
+            {span.weeks.map((w, k) => {
+              const n = span.start + k + 1;
+              const isCurrent = current?.number === n;
+              const h =
+                maxKm > 0 && w.targetKm
+                  ? Math.max(18, (w.targetKm / maxKm) * 100)
+                  : 18;
+              return (
+                <div
+                  key={w.weekStart}
+                  title={`Semana ${n} · ${PHASE_LABEL[w.phase]}${w.targetKm ? ` · ${w.targetKm} km` : ""}`}
+                  className={cn(
+                    "flex-1 rounded-[3px]",
+                    isCurrent ? "bg-primary" : PHASE_SHADE[w.phase],
+                  )}
+                  style={{ height: `${h}%` }}
+                />
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 flex gap-2" aria-hidden>
+        {spans.map((span) => {
+          const hasCurrent =
+            current != null &&
+            current.number > span.start &&
+            current.number <= span.start + span.weeks.length;
+          return (
+            <span
+              key={span.start}
+              style={{ flex: span.weeks.length }}
+              className={cn(
+                "min-w-0 truncate text-[11px] font-semibold",
+                hasCurrent ? "text-foreground" : "text-muted-foreground",
+                // One-week spans are too narrow for a label on a phone.
+                span.weeks.length < 2 && "invisible sm:visible",
+              )}
+            >
+              <span className="sm:hidden">{PHASE_SHORT[span.phase]}</span>
+              <span className="hidden sm:inline">
+                {PHASE_LABEL[span.phase]}
+              </span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function stripLabel(block: TrainingBlock, current: number | undefined) {
+  const weeks = block.weeks
+    .map(
+      (w, i) =>
+        `semana ${i + 1} ${PHASE_LABEL[w.phase]}${w.targetKm ? ` ${w.targetKm} km` : ""}`,
+    )
+    .join(", ");
+  return `${block.weeks.length} semanas${current ? `, semana atual ${current}` : ""}: ${weeks}`;
+}
+
+/** Done vs the week's target (or planned) volume, as a thin two-layer bar. */
+function WeekVolume({
+  doneM,
+  plannedM,
+  targetKm,
+  future,
+}: {
+  doneM: number;
+  plannedM: number;
+  targetKm: number | undefined;
+  future: boolean;
+}) {
+  const goalM = targetKm ? targetKm * 1000 : plannedM;
+  if (goalM <= 0) return null;
+  const width = (m: number) => `${Math.min(100, (m / goalM) * 100)}%`;
+  return (
+    <div className="flex items-center gap-3">
+      {!future && (
+        <div className="relative h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-secondary sm:w-48">
+          {targetKm != null && plannedM > 0 && (
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-foreground/15"
+              style={{ width: width(plannedM) }}
+            />
+          )}
+          <div
+            className="absolute inset-y-0 left-0 rounded-full bg-primary"
+            style={{ width: width(doneM) }}
+          />
+        </div>
+      )}
+      <p className="min-w-0 text-xs text-muted-foreground tabular-nums">
+        {future ? (
+          <>
+            <span className="font-semibold text-foreground">
+              {kmShort(plannedM)} km
+            </span>{" "}
+            planejados
+          </>
+        ) : (
+          <>
+            <span className="font-semibold text-foreground">
+              {kmShort(doneM)}
+            </span>{" "}
+            de {kmShort(plannedM)} km
+          </>
+        )}
+        {targetKm != null && ` · meta ${kmShort(targetKm * 1000)}`}
+      </p>
+    </div>
   );
 }
 
@@ -202,11 +478,11 @@ function PlanRow({
   unlocked: boolean;
   next: string | null;
 }) {
-  const done = plan.status === "done";
+  const ran = isRun(plan);
   const skipped = plan.status === "skipped";
   const d = new Date(`${plan.date}T00:00:00`);
-  const target = done ? actualMain(plan) : plannedMain(plan);
-  const secondary = done
+  const target = ran ? actualMain(plan) : plannedMain(plan);
+  const secondary = ran
     ? actualExtras(plan)
     : plan.paceTargetSec
       ? [paceString(plan.paceTargetSec)]
@@ -231,7 +507,7 @@ function PlanRow({
 
       <div className="min-w-0 flex-1">
         {/* Type + status */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
           <TypeBadge type={plan.type} />
           {next && (
             <Badge
@@ -241,19 +517,9 @@ function PlanRow({
               {next}
             </Badge>
           )}
-          {done && (
-            <span className="flex items-center gap-1 text-xs font-semibold text-success">
-              <CheckCircleIcon weight="fill" className="size-4" />
-              feito
-            </span>
-          )}
-          {skipped && (
-            <span className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">
-              <MinusCircleIcon className="size-4" />
-              pulado
-            </span>
-          )}
-          {plan.garminWorkoutId && !done && (
+          <PlanStatusTag plan={plan} />
+          <ComplianceMeta plan={plan} />
+          {plan.garminWorkoutId && !ran && (
             <a
               href={`https://connect.garmin.com/app/workout/${plan.garminWorkoutId}?workoutType=running`}
               target="_blank"
@@ -284,23 +550,29 @@ function PlanRow({
               {secondary.join(" · ")}
             </span>
           )}
-          {done && (
+          {ran && (
             <span className="text-xs text-muted-foreground tabular-nums line-through">
               {plannedTarget(plan)}
             </span>
           )}
         </div>
 
-        {/* Notes */}
+        {/* Structure, then the coach's notes */}
+        {plan.workout && <WorkoutSteps workout={plan.workout} className="mt-3" />}
         {plan.notes && (
-          <p className="mt-2 text-sm whitespace-pre-wrap text-muted-foreground">
+          <p
+            className={cn(
+              "text-sm whitespace-pre-wrap text-muted-foreground",
+              plan.workout ? "mt-1.5" : "mt-2",
+            )}
+          >
             {plan.notes}
           </p>
         )}
       </div>
 
       {/* Delete */}
-      {!done && unlocked && <DeletePlanButton plan={plan} />}
+      {!ran && unlocked && <DeletePlanButton plan={plan} />}
     </li>
   );
 }
@@ -414,20 +686,57 @@ function formatDate(yyyymmdd: string) {
   });
 }
 
-type Week = { key: string; title: string; range: string; runs: PlannedRun[] };
+/** Distance planned for a run: its own, else the structured workout's sum. */
+function plannedMeters(p: PlannedRun) {
+  return p.distance ?? (p.workout ? workoutDistance(p.workout) : undefined) ?? 0;
+}
 
-/** Groups by Sunday-started week, in the order the plans come in. */
-function groupByWeek(plans: PlannedRun[]): Week[] {
-  const thisSunday = startOfWeek(new Date());
+/** Per Monday: metres run (done + partial) and metres planned (every plan). */
+function weeklyVolume(plans: PlannedRun[]) {
+  const out = new Map<string, { done: number; planned: number }>();
+  for (const p of plans) {
+    const monday = mondayOf(p.date);
+    const v = out.get(monday) ?? { done: 0, planned: 0 };
+    v.planned += plannedMeters(p);
+    if (isRun(p)) v.done += p.actualDistance ?? 0;
+    out.set(monday, v);
+  }
+  return out;
+}
+
+/** 21100 → "21,1"; 34000 → "34". */
+function kmShort(meters: number) {
+  return (meters / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+}
+
+/** 6300 → "1:45:00". */
+function clock(sec: number) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.round(sec % 60);
+  const mm = String(m).padStart(h ? 2 : 1, "0");
+  return `${h ? `${h}:` : ""}${mm}:${String(s).padStart(2, "0")}`;
+}
+
+function formatRaceDate(yyyymmdd: string) {
+  const d = new Date(`${yyyymmdd}T00:00:00`);
+  const weekday = d
+    .toLocaleDateString("pt-BR", { weekday: "short" })
+    .replace(".", "");
+  return `${weekday}, ${dayMonth(d)}`;
+}
+
+type Week = { monday: string; title: string; range: string; runs: PlannedRun[] };
+
+/** Groups by Monday–Sunday week, in the order the plans come in. */
+function groupByWeek(plans: PlannedRun[], today: string): Week[] {
+  const thisMonday = mondayOf(today);
   const out = new Map<string, Week>();
   for (const p of plans) {
-    const sunday = startOfWeek(new Date(`${p.date}T00:00:00`));
-    const key = sunday.toDateString();
-    let week = out.get(key);
+    const monday = mondayOf(p.date);
+    let week = out.get(monday);
     if (!week) {
-      const offset = Math.round(
-        (sunday.getTime() - thisSunday.getTime()) / (7 * 86_400_000),
-      );
+      const offset = Math.round(daysBetween(thisMonday, monday) / 7);
       const title =
         offset === 0
           ? "Esta semana"
@@ -438,25 +747,18 @@ function groupByWeek(plans: PlannedRun[]): Week[] {
               : offset > 0
                 ? `Em ${offset} semanas`
                 : `Há ${-offset} semanas`;
-      const saturday = new Date(sunday);
-      saturday.setDate(sunday.getDate() + 6);
+      const start = new Date(`${monday}T00:00:00`);
+      const end = new Date(`${addDays(monday, 6)}T00:00:00`);
       const range =
-        sunday.getMonth() === saturday.getMonth()
-          ? `${sunday.getDate()}–${dayMonth(saturday)}`
-          : `${dayMonth(sunday)} – ${dayMonth(saturday)}`;
-      week = { key, title, range, runs: [] };
-      out.set(key, week);
+        start.getMonth() === end.getMonth()
+          ? `${start.getDate()}–${dayMonth(end)}`
+          : `${dayMonth(start)} – ${dayMonth(end)}`;
+      week = { monday, title, range, runs: [] };
+      out.set(monday, week);
     }
     week.runs.push(p);
   }
   return [...out.values()];
-}
-
-function startOfWeek(d: Date) {
-  const sunday = new Date(d);
-  sunday.setHours(0, 0, 0, 0);
-  sunday.setDate(d.getDate() - d.getDay());
-  return sunday;
 }
 
 function dayMonth(d: Date) {

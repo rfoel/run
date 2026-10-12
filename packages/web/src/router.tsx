@@ -14,6 +14,7 @@ import {
   getActivityDetail,
   getStats,
   listActivities,
+  listBlocks,
   listCities,
   listPlans,
   listTracks,
@@ -74,6 +75,10 @@ function planLoader() {
   void queryClient.prefetchQuery({
     queryKey: qk.plans({ from }),
     queryFn: () => listPlans({ from }),
+  });
+  void queryClient.prefetchQuery({
+    queryKey: qk.blocks(),
+    queryFn: listBlocks,
   });
   return null;
 }

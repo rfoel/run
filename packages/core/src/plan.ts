@@ -18,7 +18,23 @@ export type PlannedRunType =
   | "race"
   | "recovery";
 
-export type PlannedRunStatus = "planned" | "done" | "skipped";
+// "partial": a run was linked but covered under 80% of the planned volume.
+export type PlannedRunStatus = "planned" | "done" | "partial" | "skipped";
+
+/** How the linked run measured up to the plan. */
+export type PlanCompliance = {
+  /** Done distance (or moving time, for time-based plans) over planned. */
+  volumePct?: number;
+  /** From the run's analysis: whether the prescribed target was hit. */
+  targetHit?: boolean;
+  /** From the run's analysis, e.g. "consistent", "fade", "positive_split". */
+  pattern?: string;
+  /** RPE 1–10, entered on the watch, else the analysis' estimate. */
+  rpe?: number;
+};
+
+/** Below this share of the planned volume a linked run counts as partial. */
+export const PARTIAL_VOLUME_PCT = 0.8;
 
 export type PlannedRun = {
   id: string;
@@ -31,6 +47,8 @@ export type PlannedRun = {
   notes?: string;
   shortTitle?: string;
   status: PlannedRunStatus;
+  /** The training block (cycle) this run belongs to. */
+  blockId?: string;
   // Set once the plan has been pushed to Garmin Connect as a workout, so the
   // push is idempotent (re-pushing skips plans that already have an id).
   garminWorkoutId?: number;
@@ -40,6 +58,11 @@ export type PlannedRun = {
   // from; when they change the cache is stale and we re-interpret.
   workout?: StructuredWorkout;
   workoutHash?: string;
+  // True when `workout` was written directly by the coach (MCP) rather than
+  // interpreted from the notes. An authored workout is the source of truth and
+  // is never re-interpreted, even if the notes change.
+  workoutAuthored?: boolean;
+  compliance?: PlanCompliance;
   // Snapshot of the matching Activity, denormalized so the Plan page never
   // needs a second roundtrip. If the source activity is later updated, the
   // snapshot may drift — we accept that for personal-use simplicity.
@@ -63,6 +86,10 @@ export async function createPlan(input: {
   durationSec?: number;
   paceTargetSec?: number;
   notes?: string;
+  shortTitle?: string;
+  blockId?: string;
+  /** A coach-authored structured workout; stored as the source of truth. */
+  workout?: StructuredWorkout;
   userId?: string;
 }): Promise<PlannedRun> {
   const now = new Date().toISOString();
@@ -75,6 +102,10 @@ export async function createPlan(input: {
     durationSec: input.durationSec,
     paceTargetSec: input.paceTargetSec,
     notes: input.notes,
+    shortTitle: input.shortTitle,
+    blockId: input.blockId,
+    workout: input.workout,
+    workoutAuthored: input.workout ? true : undefined,
     status: "planned",
     createdAt: now,
     updatedAt: now,
@@ -144,6 +175,9 @@ export async function updatePlan(
       | "garminWorkoutId"
       | "workout"
       | "workoutHash"
+      | "workoutAuthored"
+      | "blockId"
+      | "compliance"
       | "actualSource"
       | "actualExternalId"
       | "actualStartDate"
@@ -205,28 +239,64 @@ type ActivityLike = {
   avgHr?: number;
 };
 
+/** Done volume over planned: distance when planned, else moving time. */
+export function volumePct(
+  plan: Pick<PlannedRun, "distance" | "durationSec">,
+  activity: Pick<ActivityLike, "distance" | "movingTime">,
+): number | undefined {
+  if (plan.distance && plan.distance > 0) return activity.distance / plan.distance;
+  if (plan.durationSec && plan.durationSec > 0)
+    return activity.movingTime / plan.durationSec;
+  return undefined;
+}
+
 /**
- * Match an incoming Activity to the first still-planned PlannedRun on the same
- * date and snapshot the actual metrics onto it. Returns the matched plan
- * (or null if no plan exists for that day).
+ * Pick the plan an activity most plausibly executed among one day's plans:
+ * the one already linked to it, else the still-planned one whose volume is
+ * closest to what was run. Two-a-days and a separate warm-up recording no
+ * longer grab whichever plan happens to sort first.
+ */
+export function bestPlanFor(
+  plans: PlannedRun[],
+  activity: Pick<ActivityLike, "source" | "externalId" | "distance" | "movingTime">,
+): PlannedRun | undefined {
+  const linked = plans.find(
+    (p) =>
+      p.actualSource === activity.source &&
+      p.actualExternalId === activity.externalId,
+  );
+  if (linked) return linked;
+  const open = plans.filter((p) => p.status === "planned");
+  const distanceTo = (p: PlannedRun) => {
+    const pct = volumePct(p, activity);
+    return pct == null ? 1 : Math.abs(Math.log(Math.max(pct, 0.01)));
+  };
+  return open.sort((a, b) => distanceTo(a) - distanceTo(b))[0];
+}
+
+/**
+ * Match an incoming Activity to the best-fitting plan on the same date (see
+ * {@link bestPlanFor}) and snapshot the actual metrics onto it. A run that
+ * covered under {@link PARTIAL_VOLUME_PCT} of the planned volume marks the plan
+ * partial. Returns the matched plan (or null if no plan exists for that day).
  */
 export async function linkActivityToPlan(
   activity: ActivityLike,
 ): Promise<PlannedRun | null> {
   const date = activity.startDate.slice(0, 10);
   const plans = await listPlans({ from: date, to: date, userId: activity.userId });
-  const plan = plans.find(
-    (p) =>
-      p.status === "planned" ||
-      (p.actualSource === activity.source &&
-        p.actualExternalId === activity.externalId),
-  );
+  const plan = bestPlanFor(plans, activity);
   if (!plan) return null;
+  const pct = volumePct(plan, activity);
   await updatePlan(
     plan.date,
     plan.id,
     {
-      status: "done",
+      status: pct != null && pct < PARTIAL_VOLUME_PCT ? "partial" : "done",
+      compliance: {
+        ...plan.compliance,
+        volumePct: pct != null ? Math.round(pct * 100) / 100 : undefined,
+      },
       actualSource: activity.source,
       actualExternalId: activity.externalId,
       actualStartDate: activity.startDate,
@@ -263,7 +333,7 @@ export async function unlinkActivityFromPlan(
         UpdateExpression:
           "SET #status = :planned, updatedAt = :now " +
           "REMOVE actualSource, actualExternalId, actualStartDate, " +
-          "actualDistance, actualMovingTime, actualAvgHr, actualName",
+          "actualDistance, actualMovingTime, actualAvgHr, actualName, compliance",
         ExpressionAttributeNames: { "#status": "status" },
         ExpressionAttributeValues: {
           ":planned": "planned",

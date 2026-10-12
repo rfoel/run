@@ -1,4 +1,6 @@
 import {
+  BatchGetCommand,
+  type BatchGetCommandOutput,
   DeleteCommand,
   GetCommand,
   PutCommand,
@@ -276,6 +278,63 @@ export async function getAnalysis(
   if (!res.Item) return undefined;
   const { pk: _pk, sk: _sk, ...rest } = res.Item;
   return rest as StoredAnalysis;
+}
+
+type RunKey = { source: string; externalId: string };
+
+/**
+ * Batch-read one kind of satellite item for many runs, keyed by
+ * `${source}#${externalId}`. Missing items are simply absent from the map.
+ * BatchGet takes 100 keys per call and may return some as unprocessed, which
+ * are retried until drained.
+ */
+async function getMany(
+  runs: RunKey[],
+  skFor: (source: string, externalId: string) => string,
+  userId: string,
+): Promise<Map<string, Record<string, unknown>>> {
+  const pk = userPk(userId);
+  const prefix = skFor("", "").length;
+  const out = new Map<string, Record<string, unknown>>();
+  const unique = [...new Set(runs.map((r) => skFor(r.source, r.externalId)))];
+  for (let i = 0; i < unique.length; i += 100) {
+    let keys: Record<string, unknown>[] | undefined = unique
+      .slice(i, i + 100)
+      .map((sk) => ({ pk, sk }));
+    for (let attempt = 0; keys && keys.length > 0 && attempt < 5; attempt++) {
+      const res: BatchGetCommandOutput = await ddb.send(
+        new BatchGetCommand({
+          RequestItems: { [tableName()]: { Keys: keys } },
+        }),
+      );
+      for (const item of res.Responses?.[tableName()] ?? []) {
+        const { pk: _pk, sk, ...rest } = item;
+        // sk is "<KIND>#<source>#<externalId>"; the map key drops the kind.
+        out.set((sk as string).slice(prefix - 1).replace(/^#/, ""), rest);
+      }
+      keys = res.UnprocessedKeys?.[tableName()]?.Keys;
+    }
+  }
+  return out;
+}
+
+/** Device extras for many runs, keyed by `${source}#${externalId}`. */
+export async function getManyExtras(
+  runs: RunKey[],
+  userId: string = USER_ID,
+): Promise<Map<string, ActivityExtras>> {
+  return (await getMany(runs, extrasSk, userId)) as Map<string, ActivityExtras>;
+}
+
+/** Stored analyses for many runs, keyed by `${source}#${externalId}`. */
+export async function getManyAnalyses(
+  runs: RunKey[],
+  userId: string = USER_ID,
+): Promise<Map<string, StoredAnalysis>> {
+  return (await getMany(runs, analysisSk, userId)) as Map<
+    string,
+    StoredAnalysis
+  >;
 }
 
 /**

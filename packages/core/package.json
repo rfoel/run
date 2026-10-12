@@ -6,16 +6,22 @@
   "exports": {
     "./activity": "./src/activity.ts",
     "./bestEfforts": "./src/bestEfforts.ts",
+    "./block": "./src/block.ts",
     "./db": "./src/db.ts",
+    "./fitness": "./src/fitness.ts",
     "./garmin": "./src/garmin.ts",
     "./heatmap": "./src/heatmap.ts",
     "./plan": "./src/plan.ts",
     "./stats": "./src/stats.ts",
     "./track": "./src/track.ts",
+    "./training": "./src/training.ts",
+    "./user": "./src/user.ts",
+    "./weeks": "./src/weeks.ts",
     "./workout": "./src/workout.ts",
     "./parsers/garmin": "./src/parsers/garmin.ts",
     "./parsers/gpx": "./src/parsers/gpx.ts",
-    "./user": "./src/user.ts"
+    "./workoutText": "./src/workoutText.ts",
+    "./workoutTypes": "./src/workoutTypes.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

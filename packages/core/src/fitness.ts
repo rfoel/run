@@ -1,4 +1,11 @@
-import type { Activity } from "./api.ts";
+/** The few run fields the trend reads; any activity shape with them fits. */
+type RunLike = {
+  startDate: string;
+  distance: number;
+  movingTime: number;
+  avgHr?: number;
+  indoor?: boolean;
+};
 
 /**
  * Aerobic fitness trend: the pace you would hold at a fixed heart rate, month
@@ -110,7 +117,7 @@ function monthLabel(month: string): string {
 }
 
 export function fitnessTrend(
-  activities: Activity[],
+  activities: RunLike[],
   opts: { monthsBack?: number } = {},
 ): FitnessTrend | null {
   const windowed = opts.monthsBack

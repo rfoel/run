@@ -20,13 +20,15 @@ import {
  *   --dry     just print the payload we WOULD send, no API calls
  */
 
-// "Tiros de 1km": aquecimento 1km + 5x(1000m em 4:30–4:45/km, 2min trote) + desaquecimento 1km
+// "Tiros de 1km": aquecimento 1km em Z2 + 5x(1000m em 4:30–4:45/km, 2min trote)
+// + desaquecimento 1km em 130–145 bpm. The warmup and cooldown exercise both
+// heart-rate target forms (watch zone, explicit bpm band).
 const PROBE: StructuredWorkout = {
   name: "PROBE Tiros 5x1000m",
   description:
-    "Aquecimento 1km + 5x1000m em 4:30–4:45/km com 2min de trote + desaquecimento 1km",
+    "Aquecimento 1km Z2 + 5x1000m em 4:30–4:45/km com 2min de trote + desaquecimento 1km 130–145 bpm",
   elements: [
-    { kind: "warmup", duration: { kind: "distance", meters: 1000 } },
+    { kind: "warmup", duration: { kind: "distance", meters: 1000 }, hrZone: 2 },
     {
       repeat: 5,
       steps: [
@@ -44,7 +46,12 @@ const PROBE: StructuredWorkout = {
         },
       ],
     },
-    { kind: "cooldown", duration: { kind: "distance", meters: 1000 } },
+    {
+      kind: "cooldown",
+      duration: { kind: "distance", meters: 1000 },
+      hrLowBpm: 130,
+      hrHighBpm: 145,
+    },
   ],
 };
 

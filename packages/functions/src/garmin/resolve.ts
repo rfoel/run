@@ -33,14 +33,19 @@ function titled(plan: PlannedRun, sw: StructuredWorkout): StructuredWorkout {
 }
 
 /**
- * Resolve the Garmin workout payload for a plan: reuse the cached structured
- * workout when its fingerprint still matches, otherwise interpret the
- * prescription into structured steps and cache the result. Falls back to the
+ * Resolve the Garmin workout payload for a plan: use a coach-authored workout
+ * as is, reuse the cached interpretation when its fingerprint still matches,
+ * otherwise interpret the prescription into structured steps and cache the
+ * result. Falls back to the
  * flat single-step workout if interpretation is unavailable.
  */
 export async function resolvePlanWorkout(
   plan: PlannedRun,
 ): Promise<WorkoutInput | StructuredWorkout> {
+  // A coach-authored workout is the source of truth: never re-interpret it.
+  if (plan.workout && plan.workoutAuthored) {
+    return titled(plan, plan.workout);
+  }
   const hash = workoutHash(plan);
   if (plan.workout && plan.workoutHash === hash) {
     return titled(plan, plan.workout);

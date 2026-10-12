@@ -34,17 +34,22 @@ infra/                    SST resources
 packages/
   core/                   domain, no Lambda glue
     activity.ts           activities + transactional stats rollups
-    plan.ts               planned runs, plan<->activity linking
+    plan.ts               planned runs, plan<->activity linking, compliance
+    block.ts              training blocks: goal + Monday–Sunday weeks with phase/target km
+    training.ts           VDOT paces, HR zones, weekly summaries
+    fitness.ts            aerobic trend (pace at a fixed heart rate)
+    weeks.ts              Monday-start week arithmetic
+    workoutText.ts        structured workout -> pt-BR text, total distance
     stats.ts              week/month/year/total scopes
     track.ts              samples -> metrics, splits, polyline, chart series
     workout.ts            per-activity chart series, analysis, device extras
-    garmin.ts             Garmin Connect client (auth, activities, workouts)
+    garmin.ts             Garmin Connect client (auth, activities, workouts, training metrics)
     geo.ts                grid-cell reverse geocoding, cached in Dynamo
     heatmap.ts            thinned run geometry + cities aggregation
     parsers/              garmin, gpx
   functions/
     api.ts                every HTTP route (Hono)
-    garmin/               sync, scheduled sync, plan interpretation, resolve
+    garmin/               sync, scheduled sync, plan interpretation, resolve, push
     activities/           analysis prompt, analysis, queue worker
     mcp/                  MCP server: planning tools (instructions.md as text)
     lib/                  auth, queue, response helpers
@@ -63,7 +68,8 @@ a `USER#<id>` partition, keyed by prefix:
 | `STREAM#<source>#<id>` | that run's chart series (kept out of the list payload) |
 | `EXTRAS#<source>#<id>` | device extras: laps, HR/power zones, weather, RPE |
 | `ANALYSIS#<source>#<id>` | the stored Claude analysis |
-| `PLAN#<date>#<id>` | a planned run |
+| `PLAN#<date>#<id>` | a planned run, its structured workout and compliance |
+| `BLOCK#<monday>#<id>` | a training block (cycle) and its weeks |
 | `STATS#<scope>` | week / month / year / total rollups |
 
 Geocoded grid cells live outside the user partition, under `pk: "GEO"` with
@@ -87,6 +93,7 @@ are open.
 | GET | `/records` | all-time best effort per distance, with the run holding it |
 | GET | `/stats` | week / month / year / total rollups |
 | GET | `/plans` | list planned runs (`?from=&to=`) |
+| GET | `/blocks` | list training blocks |
 | DELETE | `/plans/:date/:id` | delete a planned run |
 | POST | `/auth/verify` | check a write token |
 | POST | `/mcp` | MCP server (creates/edits plans via tools) |
@@ -96,16 +103,31 @@ Plans are created only through the MCP tools — there is no `POST /plans`.
 
 ## MCP server
 
-`/api/mcp` serves the planning tools (`get_training_context`, `list_planned_runs`,
-`create_planned_run`, `update_planned_run`, `move_planned_run`,
-`delete_planned_run`, `clear_all_planned_runs`, `link_past_activities`) over
-stateless Streamable HTTP. It takes the same `x-write-token` header as the other
-write routes. To add it to Claude Code:
+`/api/mcp` serves the coaching tools over stateless Streamable HTTP. It takes the
+same `x-write-token` header as the other write routes. To add it to Claude Code:
 
 ```sh
 claude mcp add --transport http run https://run.rfoel.dev/api/mcp \
   --header "x-write-token: <WritePassword>"
 ```
+
+- **Context**: `get_training_context` (weekly summaries, Garmin training status,
+  load, readiness, recent runs and analysis insights), `get_training_zones`
+  (Daniels paces from Garmin's race predictions, the watch's HR zones, records),
+  `get_plan_compliance` (planned vs done, per week and per run).
+- **Blocks**: `create_training_block`, `update_training_block`,
+  `list_training_blocks`, `delete_training_block`.
+- **Plans**: `create_planned_run` / `update_planned_run` take the exact session as
+  structured `workout` steps (pace bands or HR-zone targets), which go to the
+  watch as is — the notes are only interpreted by an LLM when a plan has no
+  authored workout. Plus `list_planned_runs`, `move_planned_run`,
+  `delete_planned_run`, `clear_all_planned_runs`, `link_past_activities`.
+- **Watch**: `push_to_garmin` schedules planned runs as Garmin workouts; deleting
+  or moving a plan removes its workout from the watch.
+
+A synced run links to the same day's plan whose volume it best matches, and the
+plan becomes `partial` when the run covered under 80% of it. The run's analysis
+then writes back whether the target was hit, the pacing pattern and RPE.
 
 ## Scheduled jobs
 

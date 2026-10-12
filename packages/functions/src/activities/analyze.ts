@@ -8,6 +8,7 @@ import {
   type ActivitySource,
 } from "@run/core/activity";
 import { updatePlan } from "@run/core/plan";
+import { describeWorkout } from "@run/core/workoutText";
 import {
   getChartSeries,
   getExtras,
@@ -84,10 +85,17 @@ function prescriptionBlock(plan: PlannedRun | undefined, a: Activity): string {
     return `No linked plan. Infer the workout type and structure from the trace and the activity name "${a.name}".`;
   }
   const lines = [`type: ${plan.type}`];
+  // A structured workout spells out every step's target — grade each rep
+  // against it rather than re-deriving the prescription from the notes.
+  if (plan.workout) {
+    lines.push(`structured_workout: ${describeWorkout(plan.workout)}`);
+    lines.push(`structured_workout_json: ${JSON.stringify(plan.workout.elements)}`);
+  }
   if (plan.notes) lines.push(`notes: ${plan.notes}`);
   if (plan.distance) lines.push(`planned_distance_m: ${plan.distance}`);
   if (plan.paceTargetSec)
     lines.push(`target_pace: ${paceStr(plan.paceTargetSec)}/km`);
+  if (plan.durationSec) lines.push(`planned_duration_s: ${plan.durationSec}`);
   return lines.join("\n");
 }
 
@@ -359,6 +367,24 @@ export async function analyzeActivity(
   // plan's "Tiros específicos"). Keep the linked plan's snapshot in sync so
   // the calendar shows the same name. Best-effort — a rename failure must not
   // fail the analysis.
+  // Feed the result back onto the plan, so planning sees how each prescribed
+  // session actually went. RPE entered on the watch beats the model's estimate.
+  if (plan) {
+    try {
+      const extras = await getExtras(source, externalId);
+      await updatePlan(plan.date, plan.id, {
+        compliance: {
+          ...plan.compliance,
+          targetHit: analysis.analysis?.target_hit,
+          pattern: analysis.analysis?.pattern,
+          rpe: extras?.feedback?.rpe ?? analysis.analysis?.rpe_estimate,
+        },
+      });
+    } catch (e) {
+      console.error(`compliance ${source}/${externalId}: ${(e as Error).message}`);
+    }
+  }
+
   const title = analysis.title?.trim();
   if (title) {
     try {

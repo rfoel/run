@@ -13,11 +13,13 @@ import {
 import { aggregateRecords, bestEffortsFor } from "@run/core/bestEfforts";
 import {
   deletePlan,
+  getPlan,
   listPlans,
   unlinkActivityFromPlan,
   updatePlan,
   type PlannedRun,
 } from "@run/core/plan";
+import { listBlocks } from "@run/core/block";
 import { listCities, listHeatmapTracks } from "@run/core/heatmap";
 import { getStatsMany, isoWeek, type StatsScope } from "@run/core/stats";
 import {
@@ -29,14 +31,11 @@ import {
 } from "@run/core/workout";
 import { buildChartSeries } from "@run/core/track";
 import {
-  createWorkout,
   fetchActivityDetails as fetchGarminActivityDetails,
   getValidAccessToken as getGarminAccessToken,
-  scheduleWorkout,
-  updateWorkout,
 } from "@run/core/garmin";
 import { detailsToTrack } from "@run/core/parsers/garmin";
-import { resolvePlanWorkouts } from "./garmin/resolve.ts";
+import { pushPlansToGarmin, removePlansFromGarmin } from "./garmin/push.ts";
 import { ingestGarminExtras, syncGarmin } from "./garmin/sync.ts";
 import { isAuthorized } from "./lib/auth.ts";
 
@@ -78,11 +77,9 @@ app.post("/garmin/sync", async (c) => {
 });
 
 // ---- Garmin push ----------------------------------------------------------
-// Upsert each still-planned run into Garmin Connect: create + schedule the ones
-// not yet pushed, and overwrite (PUT) the ones already pushed so title/step
-// edits re-sync. Safe to press repeatedly. The first push triggers the SSO
-// login (fails on 2FA accounts — surfaced per-plan in `errors`).
-type GarminPushResult = { created: number; updated: number; errors: string[] };
+// Upsert each still-planned run into Garmin Connect (see garmin/push.ts). Safe
+// to press repeatedly. The first push triggers the SSO login (fails on 2FA
+// accounts).
 
 app.post("/garmin/push", async (c) => {
   if (!isAuthorized(c.req.header())) {
@@ -94,36 +91,11 @@ app.post("/garmin/push", async (c) => {
     (p) => p.status === "planned",
   );
 
-  const result: GarminPushResult = { created: 0, updated: 0, errors: [] };
-  if (plans.length === 0) return c.json(result);
-
-  let token: string;
   try {
-    token = await getGarminAccessToken();
+    return c.json(await pushPlansToGarmin(plans));
   } catch (e) {
-    return c.json({ error: `garmin auth: ${(e as Error).message}` }, 502);
+    return c.json({ error: (e as Error).message }, 502);
   }
-  // Interpret all prescriptions up front (bounded concurrency), then write to
-  // Garmin sequentially to avoid hammering the unofficial API.
-  const workouts = await resolvePlanWorkouts(plans);
-  for (let i = 0; i < plans.length; i++) {
-    const p = plans[i]!;
-    try {
-      if (p.garminWorkoutId) {
-        await updateWorkout(p.garminWorkoutId, workouts[i]!, token);
-        result.updated++;
-      } else {
-        const w = await createWorkout(workouts[i]!, token);
-        await scheduleWorkout(w.workoutId, p.date, token);
-        await updatePlan(p.date, p.id, { garminWorkoutId: w.workoutId });
-        result.created++;
-      }
-    } catch (e) {
-      result.errors.push(`${p.date}: ${(e as Error).message}`);
-    }
-  }
-
-  return c.json(result);
 });
 
 // ---- Activities -----------------------------------------------------------
@@ -299,6 +271,13 @@ app.get("/plans", async (c) => {
   return c.json({ items });
 });
 
+app.get("/blocks", async (c) => {
+  const items = await listBlocks();
+  items.sort((a, b) => b.startDate.localeCompare(a.startDate));
+  c.header("Cache-Control", READ_CACHE);
+  return c.json({ items });
+});
+
 app.delete("/plans/:date/:id", async (c) => {
   if (!isAuthorized(c.req.header())) {
     return c.json({ error: "unauthorized" }, 401);
@@ -306,6 +285,8 @@ app.delete("/plans/:date/:id", async (c) => {
   const date = c.req.param("date");
   const id = c.req.param("id");
   if (!date || !id) return c.json({ error: "missing date or id" }, 400);
+  const plan = await getPlan(date, id);
+  if (plan) await removePlansFromGarmin([plan]);
   await deletePlan(date, id);
   return c.json({ ok: true });
 });

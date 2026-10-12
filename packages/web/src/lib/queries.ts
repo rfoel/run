@@ -10,6 +10,7 @@ import {
   getActivityDetail,
   getStats,
   listActivities,
+  listBlocks,
   listCities,
   listPlans,
   listRecords,
@@ -30,6 +31,7 @@ type ActivityOpts = { from?: string; to?: string; limit?: number };
 // plan range at once.
 export const qk = {
   plans: (o: PlanOpts = {}) => ["plans", o.from ?? null, o.to ?? null] as const,
+  blocks: () => ["blocks"] as const,
   activities: (o: ActivityOpts = {}) =>
     ["activities", o.from ?? null, o.to ?? null, o.limit ?? null] as const,
   stats: () => ["stats"] as const,
@@ -42,6 +44,13 @@ export const qk = {
 
 export function usePlans(opts: PlanOpts = {}) {
   return useQuery({ queryKey: qk.plans(opts), queryFn: () => listPlans(opts) });
+}
+
+// Training blocks are few and small, so the whole list is one cached (and
+// persisted) entry. Like plans, they're edited by the coach over MCP, outside
+// the app, so they keep the default staleness rather than a long one.
+export function useBlocks() {
+  return useQuery({ queryKey: qk.blocks(), queryFn: listBlocks });
 }
 
 export function useActivities(opts: ActivityOpts = {}) {

@@ -13,7 +13,7 @@ import { Link } from "react-router-dom";
 import { cn } from "cn";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useActivities, useRecords } from "../lib/queries.ts";
-import { fitnessTrend, type TrendPoint } from "../lib/fitness.ts";
+import { fitnessTrend, type TrendPoint } from "@run/core/fitness";
 import { paceFromSec } from "../lib/format.ts";
 import { useThemeColors } from "../lib/theme.ts";
 import { Skeleton } from "./Skeleton.tsx";

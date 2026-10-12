@@ -14,10 +14,18 @@ import { duration, km, localIso, pace } from "../lib/format.ts";
 import { PLAN_TYPE_COLORS, PLAN_TYPE_LABELS, TypeBadge } from "./TypeBadge.tsx";
 import { TreadmillIcon, isTreadmill } from "./TreadmillIcon.tsx";
 import StravaLink from "./StravaLink.tsx";
+import {
+  ComplianceMeta,
+  PLAN_STATUS_LABEL,
+  PlanStatusTag,
+  WorkoutSteps,
+  pct,
+} from "./PlanStatus.tsx";
 import { Button } from "@/components/ui/button";
 import { cn } from "cn";
 
-const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+// Training weeks run Monday to Sunday, so the grid does too.
+const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
 type DaySlot = { plans: PlannedRun[]; runs: Activity[] };
 
@@ -243,14 +251,39 @@ export default function Calendar({
 
 type Tone = "default" | "outside" | "selected";
 
+/**
+ * A type-coloured pill (a thin bar on phones). Status reads at a glance: done
+ * gets a check, skipped fades, and partial fills the phone-sized bar only as
+ * far as the run got (and spells out the share on wider screens).
+ */
 function PlanPill({ plan }: { plan: PlannedRun }) {
+  const color = PLAN_TYPE_COLORS[plan.type];
+  const partial = plan.status === "partial";
+  const share = Math.min(1, Math.max(0, plan.compliance?.volumePct ?? 0.5));
   const suffix =
-    plan.status === "done" ? " ✓" : plan.status === "skipped" ? " ✗" : "";
+    plan.status === "done"
+      ? " ✓"
+      : plan.status === "skipped"
+        ? " ✗"
+        : partial
+          ? ` · ${pct(share)}`
+          : "";
   return (
     <span
       title={planTooltip(plan)}
-      style={{ backgroundColor: PLAN_TYPE_COLORS[plan.type] }}
-      className="block h-1.5 truncate rounded-full sm:h-auto sm:px-2 sm:py-0.5 sm:text-[10px] sm:leading-tight sm:font-bold sm:tracking-wide sm:text-white sm:uppercase"
+      style={
+        {
+          "--c": color,
+          "--p": `${share * 100}%`,
+          backgroundColor: partial ? undefined : color,
+        } as React.CSSProperties
+      }
+      className={cn(
+        "block h-1.5 truncate rounded-full sm:h-auto sm:px-2 sm:py-0.5 sm:text-[10px] sm:leading-tight sm:font-bold sm:tracking-wide sm:text-white sm:uppercase",
+        plan.status === "skipped" && "opacity-45 sm:line-through",
+        partial &&
+          "bg-[linear-gradient(90deg,var(--c)_var(--p),color-mix(in_srgb,var(--c)_35%,transparent)_var(--p))] sm:bg-(--c) sm:bg-none",
+      )}
     >
       {/* Mobile columns are too narrow for the label, so it's just a type-
           colored bar there; the day detail spells it out. */}
@@ -341,9 +374,23 @@ function DayDetail({
                 key={p.id}
                 className="flex flex-col gap-2 rounded-xl bg-background px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
               >
-                <div className="min-w-0">
-                  <TypeBadge type={p.type} className="mr-2" />
-                  {p.notes && <span className="text-sm">{p.notes}</span>}
+                <div className="flex min-w-0 flex-col gap-2">
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                    <TypeBadge type={p.type} />
+                    <PlanStatusTag plan={p} />
+                    <ComplianceMeta plan={p} />
+                  </div>
+                  {p.workout && <WorkoutSteps workout={p.workout} />}
+                  {p.notes && (
+                    <span
+                      className={cn(
+                        "text-sm",
+                        p.workout && "text-muted-foreground",
+                      )}
+                    >
+                      {p.notes}
+                    </span>
+                  )}
                 </div>
                 <div className="shrink-0 sm:text-right">
                   <div className="font-display text-2xl">
@@ -435,7 +482,7 @@ function DayDetail({
 
 function buildMonthGrid(y: number, m: number) {
   const first = new Date(y, m, 1);
-  const offset = first.getDay();
+  const offset = (first.getDay() + 6) % 7; // days back to Monday
   const start = new Date(y, m, 1 - offset);
   const days: Date[] = [];
   for (let i = 0; i < 42; i++) {
@@ -464,6 +511,12 @@ function paceLabel(secPerKm: number) {
 function planTooltip(p: PlannedRun) {
   const parts: string[] = [PLAN_TYPE_LABELS[p.type]];
   if (p.distance) parts.push(`${km(p.distance)} km`);
+  if (p.status !== "planned") {
+    const v = p.compliance?.volumePct;
+    parts.push(
+      `${PLAN_STATUS_LABEL[p.status]}${p.status === "partial" && v != null ? ` (${pct(v)})` : ""}`,
+    );
+  }
   if (p.paceTargetSec) parts.push(paceLabel(p.paceTargetSec));
   if (p.notes) parts.push(p.notes);
   return parts.join(" · ");
