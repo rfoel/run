@@ -7,7 +7,7 @@ export function isTreadmill(a: Pick<Activity, "indoor">) {
 }
 
 /** Small barbell glyph marking a treadmill run. Render only when isTreadmill. */
-export function TreadmillIcon({ className = "h-3.5 w-3.5 text-ink/40" }) {
+export function TreadmillIcon({ className = "size-3.5 text-muted-foreground" }) {
   return (
     <BarbellIcon className={className} weight="bold" aria-label="Esteira" />
   );

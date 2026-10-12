@@ -1,4 +1,3 @@
-import { Dialog } from "@base-ui/react/dialog";
 import {
   CalendarBlankIcon,
   ListChecksIcon,
@@ -7,6 +6,7 @@ import {
   MapTrifoldIcon,
   PersonSimpleRunIcon,
   TrendUpIcon,
+  type Icon,
 } from "@phosphor-icons/react";
 import {
   createContext,
@@ -29,6 +29,17 @@ import Activities from "./components/Activities.tsx";
 import Calendar from "./components/Calendar.tsx";
 import Logo from "./components/Logo.tsx";
 import Plan from "./components/Plan.tsx";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 import { importWorkoutDetail } from "./lib/lazyDetail.ts";
 import { WorkoutDetailSkeleton } from "./components/Skeleton.tsx";
@@ -53,7 +64,7 @@ type Tab = "calendar" | "activities" | "plan" | "map" | "trend";
 type TabMeta = {
   path: string;
   label: string;
-  Icon: React.ComponentType<{ className?: string }>;
+  Icon: Icon;
 };
 
 const TABS: Record<Tab, TabMeta> = {
@@ -94,6 +105,8 @@ export default function App() {
   }, []);
 
   const activeTab = activeTabFor(location.pathname);
+  // Big NRC-style title on the tab roots only, not on a workout's detail.
+  const isTabRoot = TAB_ORDER.some((t) => location.pathname === TABS[t].path);
 
   function lock() {
     clearWriteToken();
@@ -101,71 +114,83 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-full bg-paper text-ink overflow-x-clip">
-      <header className="border-b border-line">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-5 flex items-center sm:items-end justify-between gap-2 sm:gap-4">
-          <Link
-            to="/calendario"
-            viewTransition
-            className="flex items-end gap-3 text-ink shrink-0"
-          >
-            <Logo className="h-6 sm:h-7 w-auto" />
+    <div className="min-h-full overflow-x-clip pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
+      <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4 sm:px-6 md:h-16">
+          <Link to="/calendario" viewTransition className="shrink-0">
+            <Logo className="h-5 w-auto md:h-6" />
           </Link>
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <nav className="flex gap-0.5 sm:gap-1 text-xs uppercase tracking-[0.15em] font-medium">
-              {TAB_ORDER.map((t) => {
-                const { label, Icon, path } = TABS[t];
-                const selected = t === activeTab;
-                return (
-                  <Link
-                    key={t}
-                    to={path}
-                    viewTransition
-                    title={label}
-                    aria-label={label}
-                    aria-current={selected ? "page" : undefined}
-                    className={
-                      "px-2 sm:px-3 py-2 flex items-center gap-2 rounded-md " +
-                      (selected
-                        ? "bg-accent text-[var(--color-accent-fg)]"
-                        : "text-ink/60 hover:text-ink hover:bg-paper-2")
-                    }
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span className="hidden md:inline">{label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
+          <nav className="hidden items-center gap-1 md:flex">
+            {TAB_ORDER.map((t) => {
+              const { label, Icon, path } = TABS[t];
+              const selected = t === activeTab;
+              return (
+                <Link
+                  key={t}
+                  to={path}
+                  viewTransition
+                  aria-current={selected ? "page" : undefined}
+                  className={
+                    "flex h-9 items-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors " +
+                    (selected
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground")
+                  }
+                >
+                  <Icon className="size-4" weight={selected ? "fill" : "regular"} />
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={unlocked ? lock : () => setUnlockOpen(true)}
+            title={unlocked ? "Trancar (limpa senha)" : "Destrancar ações de escrita"}
+            aria-label={unlocked ? "Trancar" : "Destrancar"}
+          >
             {unlocked ? (
-              <button
-                onClick={lock}
-                title="Trancar (limpa senha)"
-                aria-label="Trancar"
-                className="flex items-center gap-1 text-[10px] uppercase tracking-[0.2em] font-medium text-ink/50 hover:text-ink"
-              >
-                <LockOpenIcon className="h-4 w-4" />
-                <span className="hidden md:inline">trancar</span>
-              </button>
+              <LockOpenIcon className="size-5" />
             ) : (
-              <button
-                onClick={() => setUnlockOpen(true)}
-                title="Destrancar ações de escrita"
-                aria-label="Destrancar"
-                className="flex items-center gap-1 text-[10px] uppercase tracking-[0.2em] font-medium border border-line rounded-lg px-2 sm:px-3 py-1 hover:bg-accent hover:text-white"
-              >
-                <LockIcon className="h-4 w-4" />
-                <span className="hidden md:inline">destrancar</span>
-              </button>
+              <LockIcon className="size-5" />
             )}
-          </div>
+          </Button>
         </div>
       </header>
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <main className="mx-auto max-w-5xl px-4 pt-2 pb-10 sm:px-6 md:pt-6">
+        {isTabRoot && (
+          <h1 className="font-display mb-6 text-6xl md:mb-10 md:text-8xl">
+            {TABS[activeTab].label}
+          </h1>
+        )}
         <UnlockContext.Provider value={unlocked}>
           <Outlet />
         </UnlockContext.Provider>
       </main>
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
+        <div className="grid grid-cols-5">
+          {TAB_ORDER.map((t) => {
+            const { label, Icon, path } = TABS[t];
+            const selected = t === activeTab;
+            return (
+              <Link
+                key={t}
+                to={path}
+                viewTransition
+                aria-current={selected ? "page" : undefined}
+                className={
+                  "flex flex-col items-center gap-1 pt-2.5 pb-2 text-[10px] font-semibold " +
+                  (selected ? "text-foreground" : "text-muted-foreground")
+                }
+              >
+                <Icon className="size-6" weight={selected ? "fill" : "regular"} />
+                {label}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
       <ScrollRestoration />
       <UnlockDialog
         open={unlockOpen}
@@ -274,45 +299,35 @@ function UnlockDialog({
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 bg-ink/40 z-40" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-card border border-line rounded-lg shadow-lg w-[min(92vw,24rem)] p-6 flex flex-col gap-4 outline-none">
-          <Dialog.Title className="text-xs uppercase tracking-[0.2em] text-ink/60 flex items-center gap-2">
-            <LockIcon className="h-4 w-4" />
-            Destrancar
-          </Dialog.Title>
-          <form onSubmit={submit} className="flex flex-col gap-4">
-            <input
-              type="password"
-              autoFocus
-              value={pw}
-              onChange={(e) => setPw(e.target.value)}
-              placeholder="senha"
-              className="border border-line rounded-lg px-3 py-2 font-mono text-sm bg-card outline-none focus:border-accent"
-              disabled={submitting}
-            />
-            {error && (
-              <p className="font-mono text-xs text-red-700">{error}</p>
-            )}
-            <div className="flex gap-2 justify-end">
-              <Dialog.Close
-                type="button"
-                className="text-xs uppercase tracking-[0.2em] font-medium px-3 py-2 text-ink/60 hover:text-ink"
-              >
-                cancelar
-              </Dialog.Close>
-              <button
-                type="submit"
-                disabled={!pw || submitting}
-                className="text-xs uppercase tracking-[0.2em] font-medium bg-accent text-white px-4 py-2 disabled:opacity-40"
-              >
-                {submitting ? "verificando…" : "entrar"}
-              </button>
-            </div>
-          </form>
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="font-display text-3xl">Destrancar</DialogTitle>
+          <DialogDescription>
+            Digite a senha para liberar as ações de escrita.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="flex flex-col gap-4">
+          <Input
+            type="password"
+            autoFocus
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            placeholder="Senha"
+            aria-invalid={!!error}
+            disabled={submitting}
+          />
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <DialogFooter>
+            <DialogClose render={<Button type="button" variant="ghost" />}>
+              Cancelar
+            </DialogClose>
+            <Button type="submit" disabled={!pw || submitting}>
+              {submitting ? "Verificando…" : "Entrar"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

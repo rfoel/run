@@ -5,8 +5,14 @@ import {
   HeartbeatIcon,
   LightningIcon,
   SparkleIcon,
+  TrophyIcon,
   WarningIcon,
 } from "@phosphor-icons/react";
+import { cn } from "cn";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Toggle } from "@/components/ui/toggle";
+import { useDarkMode, useThemeColors } from "../lib/theme.ts";
 import { Fragment, useMemo, useState } from "react";
 import {
   Area,
@@ -21,6 +27,7 @@ import {
   YAxis,
 } from "recharts";
 import {
+  type Activity,
   type ActivityExtras,
   type ChartSeries,
   type PlannedRun,
@@ -165,70 +172,69 @@ export default function WorkoutDetail({
   const extras = detail?.extras ?? null;
 
   return (
-    <section className="flex flex-col gap-6">
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium text-ink/60 hover:text-ink self-start"
-      >
-        <ArrowLeftIcon className="h-3.5 w-3.5" />
-        voltar
-      </button>
+    <section className="flex flex-col gap-8 md:gap-10">
+      <div className="-mb-4 flex items-center justify-between gap-4 md:-mb-6">
+        <Button
+          variant="ghost"
+          size="icon-lg"
+          onClick={onBack}
+          aria-label="voltar"
+          title="voltar"
+          className="-ml-2"
+        >
+          <ArrowLeftIcon className="size-5" />
+        </Button>
+        {a && unlocked && (
+          <Button
+            variant="secondary"
+            onClick={() => void runAnalysis()}
+            disabled={analyzing || !detail?.series}
+            title={
+              detail?.series ? "" : "Sem série — faça re-sync desta corrida"
+            }
+            className="px-3.5"
+          >
+            <SparkleIcon className={analyzing ? "animate-pulse" : ""} />
+            {analyzing
+              ? "analisando…"
+              : analysis
+                ? "re-analisar"
+                : "analisar"}
+          </Button>
+        )}
+      </div>
 
       {loading && (
         <>
-          <div>
-            <Skeleton className="h-7 w-1/2 mb-2" />
-            <Skeleton className="h-3 w-1/3" />
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-7 w-2/3" />
+            <Skeleton className="mt-3 h-20 w-48 md:h-28 md:w-72" />
+            <div className="mt-3 flex gap-8">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i}>
+                  <Skeleton className="mb-2 h-8 w-16" />
+                  <Skeleton className="h-3 w-12" />
+                </div>
+              ))}
+            </div>
           </div>
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-96 w-full rounded-2xl" />
         </>
       )}
       {error && <Status tone="error">{error}</Status>}
 
       {a && (
         <>
-          <header className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold flex items-center gap-2">
-                <span className="truncate">{a.name}</span>
-                {isTreadmill(a) && (
-                  <TreadmillIcon className="h-4 w-4 text-ink/40 shrink-0" />
-                )}
-                <StravaLink source={a.source} externalId={a.externalId} />
-              </h1>
-              <p className="text-xs uppercase tracking-wider text-ink/50 mt-1">
-                {date(a.startDate)} · {kmFmt(a.distance)} km ·{" "}
-                {duration(a.movingTime)}
-                {conditionsMeta(extras) && <> · {conditionsMeta(extras)}</>}
-              </p>
-            </div>
-            {unlocked && (
-              <button
-                onClick={() => void runAnalysis()}
-                disabled={analyzing || !detail?.series}
-                title={
-                  detail?.series ? "" : "Sem série — faça re-sync desta corrida"
-                }
-                className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border border-line rounded-lg px-3 py-1.5 hover:bg-accent hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink shrink-0"
-              >
-                <SparkleIcon
-                  className={"h-3.5 w-3.5 " + (analyzing ? "animate-pulse" : "")}
-                />
-                {analyzing
-                  ? "analisando…"
-                  : analysis
-                    ? "re-analisar"
-                    : "analisar"}
-              </button>
-            )}
-          </header>
+          <Hero activity={a} extras={extras} />
 
           {detail?.plan && <PlanCard plan={detail.plan} />}
 
-          {analysis && <Cards analysis={analysis} />}
-
-          {extras?.physio && <GarminCards extras={extras} />}
+          {/* Analysis + watch stats read as one tile grid; hidden when both are empty. */}
+          <div className="flex flex-col gap-2 empty:hidden">
+            {analysis && <Cards analysis={analysis} />}
+            {extras?.physio && <GarminCards extras={extras} />}
+          </div>
 
           {detail?.series ? (
             <PaceChart
@@ -250,21 +256,20 @@ export default function WorkoutDetail({
                   trazer o trace.
                 </span>
                 {unlocked && (
-                  <button
+                  <Button
+                    variant="outline"
                     onClick={() => resyncM.mutate()}
                     disabled={resyncM.isPending}
-                    className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border border-line rounded-lg px-3 py-1.5 hover:bg-accent hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
+                    className="px-3.5"
                   >
                     <ArrowsClockwiseIcon
-                      className={
-                        "h-3.5 w-3.5 " + (resyncM.isPending ? "animate-spin" : "")
-                      }
+                      className={resyncM.isPending ? "animate-spin" : ""}
                     />
                     {resyncM.isPending ? "re-sincronizando…" : "re-sync"}
-                  </button>
+                  </Button>
                 )}
                 {resyncM.isError && (
-                  <span className="text-red-700 text-xs normal-case tracking-normal">
+                  <span className="text-xs text-destructive">
                     {String(resyncM.error)}
                   </span>
                 )}
@@ -314,6 +319,104 @@ export default function WorkoutDetail({
 }
 
 
+/**
+ * NRC-style summary: date line, name, the distance huge, then a flat row of
+ * the headline numbers.
+ */
+function Hero({
+  activity: a,
+  extras,
+}: {
+  activity: Activity;
+  extras: ActivityExtras | null;
+}) {
+  const conditions = conditionsMeta(extras);
+  const stats: { label: string; value: string; unit?: string }[] = [];
+  if (a.distance > 0) {
+    stats.push({
+      label: "Pace",
+      value: paceFromSec(a.movingTime / (a.distance / 1000)),
+      unit: "/km",
+    });
+  }
+  stats.push({ label: "Tempo", value: duration(a.movingTime) });
+  if (a.avgHr) {
+    stats.push({ label: "FC média", value: `${Math.round(a.avgHr)}`, unit: "bpm" });
+  }
+  if (a.elevationGain > 0) {
+    stats.push({
+      label: "Elevação",
+      value: `${Math.round(a.elevationGain)}`,
+      unit: "m",
+    });
+  }
+
+  return (
+    <header className="flex flex-col gap-6">
+      <div className="min-w-0">
+        <p className="text-sm text-muted-foreground first-letter:uppercase">
+          {date(a.startDate)}
+          {conditions && <> · {conditions}</>}
+        </p>
+        <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold tracking-tight md:text-3xl">
+          <span className="truncate">{a.name}</span>
+          {isTreadmill(a) && (
+            <TreadmillIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
+          )}
+          <StravaLink
+            source={a.source}
+            externalId={a.externalId}
+            className="text-muted-foreground hover:text-foreground"
+          />
+        </h1>
+      </div>
+      <div className="flex items-baseline gap-2">
+        <span className="font-display text-8xl md:text-[10rem]">
+          {kmFmt(a.distance)}
+        </span>
+        <span className="font-display text-3xl text-muted-foreground md:text-4xl">
+          km
+        </span>
+      </div>
+      <dl className="flex flex-wrap gap-x-5 gap-y-5 sm:gap-x-10 md:gap-x-14">
+        {stats.map((s) => (
+          <div key={s.label} className="flex flex-col-reverse gap-1.5">
+            <dt className="text-xs text-muted-foreground">{s.label}</dt>
+            <dd className="font-display text-3xl normal-case sm:text-4xl md:text-5xl">
+              {s.value}
+              {s.unit && <Unit>{s.unit}</Unit>}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </header>
+  );
+}
+
+/** Small unit next to a big display number ("5:40 /km"). */
+function Unit({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="ml-1 font-sans text-sm font-medium normal-case tracking-normal text-muted-foreground">
+      {children}
+    </span>
+  );
+}
+
+/** Section title in the display face. */
+function SectionTitle({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <h2 className={cn("mb-4 font-display text-2xl md:text-3xl", className)}>
+      {children}
+    </h2>
+  );
+}
+
 const PLAN_STATUS_LABEL: Record<PlannedRun["status"], string> = {
   planned: "planejado",
   done: "feito",
@@ -327,23 +430,23 @@ function PlanCard({ plan }: { plan: PlannedRun }) {
   if (plan.paceTargetSec) meta.push(`${paceFromSec(plan.paceTargetSec)}/km`);
 
   return (
-    <div className="border border-line rounded-lg p-4 bg-paper-2">
-      <div className="flex items-center justify-between gap-3 mb-1.5">
+    <div className="rounded-2xl bg-card p-5 sm:p-6">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-wider bg-accent text-white px-2 py-0.5 rounded-md">
-            {PLAN_TYPE_LABELS[plan.type]}
-          </span>
-          <span className="text-[10px] uppercase tracking-[0.2em] text-ink/50">
+          <Badge>{PLAN_TYPE_LABELS[plan.type]}</Badge>
+          <span className="text-xs text-muted-foreground">
             planejado · {PLAN_STATUS_LABEL[plan.status]}
           </span>
         </div>
         {meta.length > 0 && (
-          <span className="font-mono text-sm text-ink/70">
+          <span className="text-sm font-semibold tabular-nums">
             {meta.join(" · ")}
           </span>
         )}
       </div>
-      {plan.notes && <p className="text-sm">{plan.notes}</p>}
+      {plan.notes && (
+        <p className="text-base leading-relaxed">{plan.notes}</p>
+      )}
     </div>
   );
 }
@@ -371,7 +474,8 @@ const TE_LABELS: Record<string, string> = {
 /** Second stat row: what the watch computed beyond pace/HR. */
 function GarminCards({ extras }: { extras: ActivityExtras }) {
   const p = extras.physio!;
-  const cards: { label: string; value: string; sub?: string }[] = [];
+  const cards: { label: string; value: string; unit?: string; sub?: string }[] =
+    [];
 
   if (p.aerobicTE != null) {
     cards.push({
@@ -393,7 +497,8 @@ function GarminCards({ extras }: { extras: ActivityExtras }) {
   if (p.normPower != null || p.avgPower != null) {
     cards.push({
       label: "Potência",
-      value: `${p.normPower ?? p.avgPower} W`,
+      value: `${p.normPower ?? p.avgPower}`,
+      unit: "W",
       sub:
         p.normPower != null && p.avgPower != null
           ? `NP · média ${p.avgPower} W`
@@ -405,20 +510,22 @@ function GarminCards({ extras }: { extras: ActivityExtras }) {
   if (p.avgCadence != null) {
     cards.push({
       label: "Cadência",
-      value: `${p.avgCadence} spm`,
+      value: `${p.avgCadence}`,
+      unit: "spm",
       sub: p.gctMs != null ? `contato ${p.gctMs} ms` : undefined,
     });
   }
   if (cards.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line border border-line rounded-lg shadow-sm overflow-hidden">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       {cards.slice(0, 4).map((c) => (
-        <Card
+        <StatTile
           key={c.label}
-          icon={<GaugeIcon className="h-4 w-4" />}
+          icon={<GaugeIcon />}
           label={c.label}
           value={c.value}
+          unit={c.unit}
           sub={c.sub}
         />
       ))}
@@ -426,7 +533,14 @@ function GarminCards({ extras }: { extras: ActivityExtras }) {
   );
 }
 
-const ZONE_COLORS = ["#9ca3af", "#3b82f6", "#16a34a", "#f97316", "#dc2626"];
+// Z1 → Z5, easy to hard: gray, blue, green, orange, red.
+const ZONE_COLORS = [
+  "bg-chart-3",
+  "bg-chart-4",
+  "bg-success",
+  "bg-chart-5",
+  "bg-chart-2",
+];
 
 /** Horizontal stacked bar of time per HR zone. */
 function ZonesBar({ zones }: { zones: ZoneTime[] }) {
@@ -434,35 +548,38 @@ function ZonesBar({ zones }: { zones: ZoneTime[] }) {
   if (total <= 0) return null;
   return (
     <div>
-      <h3 className="text-[10px] uppercase tracking-[0.2em] text-ink/60 mb-2">
-        Zonas de FC
-      </h3>
-      <div className="flex h-7 w-full overflow-hidden rounded-lg border border-line">
+      <SectionTitle>Zonas de FC</SectionTitle>
+      <div className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full">
         {zones.map((z) => {
           const pct = (z.secs / total) * 100;
           if (pct < 0.5) return null;
           return (
             <div
               key={z.zone}
-              style={{
-                width: `${pct}%`,
-                background: ZONE_COLORS[z.zone - 1] ?? "#9ca3af",
-              }}
+              style={{ width: `${pct}%` }}
               title={`Z${z.zone} (${z.low}+ bpm): ${Math.round(z.secs / 60)} min`}
-              className="h-full"
+              className={cn("h-full", ZONE_COLORS[z.zone - 1] ?? "bg-chart-3")}
             />
           );
         })}
       </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-[10px] uppercase tracking-[0.15em] text-ink/60">
+      <div className="mt-4 grid grid-cols-5 gap-2">
         {zones.map((z) => (
-          <span key={z.zone} className="flex items-center gap-1">
-            <span
-              className="inline-block w-2.5 h-2.5 rounded-sm"
-              style={{ background: ZONE_COLORS[z.zone - 1] ?? "#9ca3af" }}
-            />
-            Z{z.zone} {Math.round(z.secs / 60)}min
-          </span>
+          <div key={z.zone} className="flex flex-col gap-1.5">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span
+                className={cn(
+                  "inline-block size-2 rounded-full",
+                  ZONE_COLORS[z.zone - 1] ?? "bg-chart-3",
+                )}
+              />
+              Z{z.zone}
+            </span>
+            <span className="font-display text-2xl md:text-3xl">
+              {Math.round(z.secs / 60)}
+              <Unit>min</Unit>
+            </span>
+          </div>
         ))}
       </div>
     </div>
@@ -491,29 +608,33 @@ function Cards({ analysis }: { analysis: WorkoutAnalysis }) {
         : undefined;
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line border border-line rounded-lg shadow-sm overflow-hidden">
-      <Card
-        icon={<GaugeIcon className="h-4 w-4" />}
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <StatTile
+        icon={<GaugeIcon />}
         label="Pace médio"
-        value={`${paceFromSec(analysis.totals.avg_pace_sec_per_km)}/km`}
+        value={paceFromSec(analysis.totals.avg_pace_sec_per_km)}
+        unit="/km"
         sub={targetLabel}
       />
-      <Card
-        icon={<LightningIcon className="h-4 w-4" />}
+      <StatTile
+        icon={<LightningIcon />}
         label="Mais rápido"
-        value={fastest ? `${paceFromSec(fastest.avg_pace_sec_per_km)}/km` : "—"}
+        value={fastest ? paceFromSec(fastest.avg_pace_sec_per_km) : "—"}
+        unit={fastest ? "/km" : undefined}
         sub={fastest?.index ? `tiro ${fastest.index}` : undefined}
       />
-      <Card
-        icon={<GaugeIcon className="h-4 w-4" />}
+      <StatTile
+        icon={<GaugeIcon />}
         label="Mais lento"
-        value={slowest ? `${paceFromSec(slowest.avg_pace_sec_per_km)}/km` : "—"}
+        value={slowest ? paceFromSec(slowest.avg_pace_sec_per_km) : "—"}
+        unit={slowest ? "/km" : undefined}
         sub={slowest?.index ? `tiro ${slowest.index}` : undefined}
       />
-      <Card
-        icon={<HeartbeatIcon className="h-4 w-4" />}
+      <StatTile
+        icon={<HeartbeatIcon />}
         label="FC máx"
-        value={analysis.totals.max_hr ? `${analysis.totals.max_hr} bpm` : "—"}
+        value={analysis.totals.max_hr ? `${analysis.totals.max_hr}` : "—"}
+        unit={analysis.totals.max_hr ? "bpm" : undefined}
         sub={
           analysis.analysis?.rpe_estimate
             ? `RPE ${analysis.analysis.rpe_estimate}`
@@ -524,31 +645,50 @@ function Cards({ analysis }: { analysis: WorkoutAnalysis }) {
   );
 }
 
-function Card({
+function StatTile({
   icon,
   label,
   value,
+  unit,
   sub,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
+  unit?: string;
   sub?: string;
 }) {
   return (
-    <div className="bg-card px-4 py-3">
-      <div className="text-[10px] uppercase tracking-[0.2em] text-ink/60 flex items-center gap-1.5">
+    <div className="flex flex-col rounded-2xl bg-card p-4 sm:p-5">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground [&_svg]:size-3.5 [&_svg]:shrink-0">
         {icon}
-        {label}
+        <span className="truncate">{label}</span>
       </div>
-      <div className="text-xl sm:text-2xl font-bold font-mono mt-1">{value}</div>
+      <div className="mt-3 font-display text-3xl normal-case sm:text-4xl">
+        {value}
+        {unit && <Unit>{unit}</Unit>}
+      </div>
       {sub && (
-        <div className="text-[10px] uppercase tracking-[0.15em] text-ink/40 mt-0.5">
-          {sub}
-        </div>
+        <div className="mt-1.5 truncate text-xs text-muted-foreground">{sub}</div>
       )}
     </div>
   );
+}
+
+/**
+ * Tokens useThemeColors doesn't expose (success for the target band, popover
+ * for the tooltip), read the same way and re-read when the OS theme flips.
+ */
+function useExtraColors() {
+  const dark = useDarkMode();
+  return useMemo(() => {
+    const style = getComputedStyle(document.documentElement);
+    return {
+      success: style.getPropertyValue("--success").trim(),
+      popover: style.getPropertyValue("--popover").trim(),
+    };
+    // `dark` is the cache key: the computed values change when it flips.
+  }, [dark]);
 }
 
 type ChartPoint = {
@@ -573,6 +713,8 @@ function PaceChart({
 }) {
   const [showPower, setShowPower] = useState(false);
   const [showCadence, setShowCadence] = useState(false);
+  const c = useThemeColors();
+  const extra = useExtraColors();
 
   const data: ChartPoint[] = useMemo(
     () =>
@@ -629,70 +771,80 @@ function PaceChart({
       ? `Alvo ${paceFromSec(targetMin)}–${paceFromSec(targetMax)}/km`
       : null;
 
+  const axisTick = { fontSize: 11, fill: c.mutedForeground };
+
   return (
-    <div className="border border-line rounded-lg p-2 sm:p-4 bg-card shadow-sm">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-2 pb-2 text-[10px] uppercase tracking-[0.15em] text-ink/60">
+    <div className="rounded-2xl bg-card px-1 pt-4 pb-2 sm:px-4 sm:pt-6 sm:pb-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 pb-4 text-xs text-muted-foreground sm:px-2">
         <LegendItem label="Pace">
-          <span className="inline-block w-4 h-0.5 bg-ink align-middle" />
+          <span className="inline-block h-1 w-4 rounded-full bg-chart-1" />
         </LegendItem>
         {repsLabel && (
           <LegendItem label={repsLabel}>
-            <span className="inline-block w-3 h-3 bg-ink/10 border border-ink/20 align-middle" />
+            <span className="inline-block size-3 rounded-sm bg-foreground/10" />
           </LegendItem>
         )}
         {targetLabel && (
           <LegendItem label={targetLabel}>
-            <span className="inline-block w-4 h-2 align-middle border border-dashed border-[#16a34a] bg-[#16a34a]/20" />
+            <span className="inline-block h-2.5 w-4 rounded-sm border border-dashed border-success bg-success/15" />
           </LegendItem>
         )}
         {hasHr && (
           <LegendItem label="FC">
-            <span className="inline-block w-4 h-2 align-middle bg-[#dc2626]/25 border-b border-[#dc2626]/60" />
+            <span className="inline-block h-2.5 w-4 rounded-sm border-t-2 border-chart-2 bg-chart-2/20" />
           </LegendItem>
         )}
         {hasEle && (
           <LegendItem label="Elevação">
-            <span className="inline-block w-4 h-2 align-middle bg-ink/15" />
+            <span className="inline-block h-2.5 w-4 rounded-sm bg-chart-3/40" />
           </LegendItem>
         )}
-        {hasPower && (
-          <LegendToggle
-            label="Potência"
-            color="#7c3aed"
-            active={showPower}
-            onToggle={() => setShowPower((v) => !v)}
-          />
-        )}
-        {hasCadence && (
-          <LegendToggle
-            label="Cadência"
-            color="#0d9488"
-            active={showCadence}
-            onToggle={() => setShowCadence((v) => !v)}
-          />
+        {(hasPower || hasCadence) && (
+          <span className="flex items-center gap-1 sm:ml-auto">
+            {hasPower && (
+              <LegendToggle
+                label="Potência"
+                swatch="bg-chart-5"
+                active={showPower}
+                onToggle={() => setShowPower((v) => !v)}
+              />
+            )}
+            {hasCadence && (
+              <LegendToggle
+                label="Cadência"
+                swatch="bg-chart-4"
+                active={showCadence}
+                onToggle={() => setShowCadence((v) => !v)}
+              />
+            )}
+          </span>
         )}
       </div>
       <ResponsiveContainer width="100%" height={360}>
         <ComposedChart
           data={data}
-          margin={{ top: 16, right: 8, bottom: 8, left: 0 }}
+          margin={{ top: 16, right: 4, bottom: 4, left: 0 }}
           onMouseMove={(state: { activeLabel?: string | number }) => {
             const v = state?.activeLabel;
             if (v != null && v !== "") onHover(Number(v));
           }}
           onMouseLeave={() => onHover(null)}
         >
-          <CartesianGrid stroke="currentColor" strokeOpacity={0.08} />
+          <CartesianGrid
+            vertical={false}
+            stroke={c.foreground}
+            strokeOpacity={0.06}
+          />
           {hasEle && (
             <Area
               yAxisId="ele"
               type="monotone"
               dataKey="ele"
-              stroke="currentColor"
-              strokeOpacity={0.25}
+              stroke={c.chart3}
+              strokeOpacity={0.6}
               strokeWidth={1}
-              fill="currentColor"
-              fillOpacity={0.08}
+              fill={c.chart3}
+              fillOpacity={0.22}
               connectNulls
               isAnimationActive={false}
               activeDot={false}
@@ -703,11 +855,11 @@ function PaceChart({
               yAxisId="hr"
               type="monotone"
               dataKey="hr"
-              stroke="#dc2626"
-              strokeOpacity={0.5}
-              strokeWidth={1}
-              fill="#dc2626"
-              fillOpacity={0.14}
+              stroke={c.chart2}
+              strokeOpacity={0.7}
+              strokeWidth={1.5}
+              fill={c.chart2}
+              fillOpacity={0.1}
               connectNulls
               isAnimationActive={false}
               activeDot={false}
@@ -718,10 +870,10 @@ function PaceChart({
               yAxisId="pace"
               y1={targetMin}
               y2={targetMax}
-              fill="#16a34a"
-              fillOpacity={0.14}
-              stroke="#16a34a"
-              strokeOpacity={0.5}
+              fill={extra.success}
+              fillOpacity={0.12}
+              stroke={extra.success}
+              strokeOpacity={0.6}
               strokeDasharray="4 4"
             />
           )}
@@ -731,13 +883,14 @@ function PaceChart({
               yAxisId="pace"
               x1={r.start_km}
               x2={r.end_km}
-              fill="currentColor"
-              fillOpacity={0.07}
+              fill={c.foreground}
+              fillOpacity={0.05}
               label={{
                 value: r.index ? `${r.index}` : undefined,
                 position: "insideTop",
                 fontSize: 11,
-                fill: "currentColor",
+                fontWeight: 600,
+                fill: c.mutedForeground,
               }}
             />
           ))}
@@ -746,10 +899,10 @@ function PaceChart({
               yAxisId="pace"
               x1={highlight.startKm}
               x2={highlight.endKm}
-              fill="#f97316"
+              fill={c.chart5}
               fillOpacity={0.18}
-              stroke="#f97316"
-              strokeOpacity={0.6}
+              stroke={c.chart5}
+              strokeOpacity={0.7}
             />
           )}
           <XAxis
@@ -758,9 +911,9 @@ function PaceChart({
             domain={["dataMin", "dataMax"]}
             allowDataOverflow
             tickFormatter={(v: number) => `${v.toFixed(0)}`}
-            tick={{ fontSize: 11, fill: "currentColor" }}
-            stroke="currentColor"
-            strokeOpacity={0.3}
+            tick={axisTick}
+            axisLine={false}
+            tickLine={false}
             unit=" km"
           />
           <YAxis
@@ -768,9 +921,9 @@ function PaceChart({
             reversed
             domain={[lo, hi]}
             tickFormatter={(v: number) => paceFromSec(v)}
-            tick={{ fontSize: 11, fill: "currentColor" }}
-            stroke="currentColor"
-            strokeOpacity={0.3}
+            tick={axisTick}
+            axisLine={false}
+            tickLine={false}
             width={44}
           />
           {hasHr && (
@@ -779,16 +932,32 @@ function PaceChart({
               orientation="right"
               domain={[hrLo, hrHi]}
               tickFormatter={(v: number) => `${Math.round(v)}`}
-              tick={{ fontSize: 11, fill: "#dc2626" }}
-              stroke="#dc2626"
-              strokeOpacity={0.3}
+              tick={{ ...axisTick, fill: c.chart2 }}
+              axisLine={false}
+              tickLine={false}
               width={32}
             />
           )}
-          {hasEle && <YAxis yAxisId="ele" hide domain={[eleMin, eleHi]} />}
-          {hasPower && <YAxis yAxisId="power" hide domain={[0, "dataMax + 40"]} />}
+          {/* Hidden axes get width 0, or they still reserve space on the
+              left and push the pace ticks off-canvas. */}
+          {hasEle && (
+            <YAxis yAxisId="ele" hide width={0} domain={[eleMin, eleHi]} />
+          )}
+          {hasPower && (
+            <YAxis
+              yAxisId="power"
+              hide
+              width={0}
+              domain={[0, "dataMax + 40"]}
+            />
+          )}
           {hasCadence && (
-            <YAxis yAxisId="cadence" hide domain={["dataMin - 40", "dataMax + 10"]} />
+            <YAxis
+              yAxisId="cadence"
+              hide
+              width={0}
+              domain={["dataMin - 40", "dataMax + 10"]}
+            />
           )}
           <Tooltip
             formatter={((value: number, name: string) => {
@@ -808,21 +977,28 @@ function PaceChart({
               }
             }) as never}
             labelFormatter={((v: number) => `${Number(v).toFixed(2)} km`) as never}
+            cursor={{ stroke: c.mutedForeground, strokeOpacity: 0.5 }}
             contentStyle={{
-              background: "var(--color-paper, #fff)",
-              border: "2px solid currentColor",
-              borderRadius: 0,
-              fontFamily: "ui-monospace, monospace",
+              background: extra.popover,
+              border: `1px solid ${c.border}`,
+              borderRadius: 12,
+              boxShadow: "0 8px 24px rgb(0 0 0 / 0.12)",
               fontSize: 12,
+              fontVariantNumeric: "tabular-nums",
+              padding: "8px 12px",
             }}
+            labelStyle={{ color: c.foreground, fontWeight: 600, marginBottom: 2 }}
+            itemStyle={{ color: c.foreground, padding: 0 }}
           />
           <Line
             yAxisId="pace"
             type="monotone"
             dataKey="pace"
-            stroke="currentColor"
-            strokeWidth={1.5}
+            stroke={c.chart1}
+            strokeWidth={2}
+            strokeLinejoin="round"
             dot={false}
+            activeDot={{ r: 4, fill: c.chart1, stroke: c.card, strokeWidth: 2 }}
             connectNulls
             isAnimationActive={false}
           />
@@ -831,9 +1007,9 @@ function PaceChart({
               yAxisId="power"
               type="monotone"
               dataKey="power"
-              stroke="#7c3aed"
-              strokeWidth={1}
-              strokeOpacity={0.8}
+              stroke={c.chart5}
+              strokeWidth={1.5}
+              strokeOpacity={0.85}
               dot={false}
               connectNulls
               isAnimationActive={false}
@@ -844,9 +1020,9 @@ function PaceChart({
               yAxisId="cadence"
               type="monotone"
               dataKey="cadence"
-              stroke="#0d9488"
-              strokeWidth={1}
-              strokeOpacity={0.8}
+              stroke={c.chart4}
+              strokeWidth={1.5}
+              strokeOpacity={0.85}
               dot={false}
               connectNulls
               isAnimationActive={false}
@@ -856,8 +1032,8 @@ function PaceChart({
             dataKey="km"
             height={24}
             travellerWidth={8}
-            stroke="currentColor"
-            fill="var(--color-paper-2, #eee)"
+            stroke={c.chart3}
+            fill={c.background}
             tickFormatter={((v: number) => `${Number(v).toFixed(1)}`) as never}
           />
         </ComposedChart>
@@ -881,33 +1057,31 @@ function LegendItem({
   );
 }
 
-/** Clickable legend chip that shows/hides an optional series. */
+/** Clickable legend pill that shows/hides an optional series. */
 function LegendToggle({
   label,
-  color,
+  swatch,
   active,
   onToggle,
 }: {
   label: string;
-  color: string;
+  /** Background class of the series color, e.g. `bg-chart-4`. */
+  swatch: string;
   active: boolean;
   onToggle: () => void;
 }) {
   return (
-    <button
-      onClick={onToggle}
-      className={
-        "flex items-center gap-1.5 uppercase tracking-[0.15em] " +
-        (active ? "" : "opacity-40 hover:opacity-70")
-      }
+    <Toggle
+      size="sm"
+      variant="outline"
+      pressed={active}
+      onPressedChange={onToggle}
       title={active ? `Ocultar ${label}` : `Mostrar ${label}`}
+      className="h-7 gap-1.5 px-2.5 text-xs"
     >
-      <span
-        className="inline-block w-4 h-0.5 align-middle"
-        style={{ background: color }}
-      />
+      <span className={cn("inline-block h-1 w-3 rounded-full", swatch)} />
       {label}
-    </button>
+    </Toggle>
   );
 }
 
@@ -940,95 +1114,148 @@ function RepTable({
     else groups.push({ kind: s.kind, rows: [s] });
   }
   const multi = groups.length > 1;
-  const colCount = hasTarget ? 8 : 7;
+  const colCount = hasTarget ? 9 : 8;
+  const title = multi
+    ? workBandLabel(undefined)
+    : workBandLabel(
+        groups[0]!.kind,
+        groups[0]!.kind === "rep" ? repDistanceM : undefined,
+      );
 
   return (
-    <div className="border border-line rounded-lg overflow-x-auto bg-card shadow-sm">
-      <table className="w-full text-sm font-mono">
-        <thead>
-          <tr className="text-[10px] uppercase tracking-[0.15em] text-ink/50 border-b border-line">
-            <Th>#</Th>
-            <Th>Início</Th>
-            <Th>Trecho (km)</Th>
-            <Th>Tempo</Th>
-            <Th>Pace</Th>
-            {hasTarget && <Th>vs alvo</Th>}
-            <Th>FC méd</Th>
-            <Th>FC máx</Th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-ink/15">
-          {groups.map((g, gi) => (
-            <Fragment key={gi}>
-              {multi && (
-                <tr className="bg-paper-2 border-t border-line">
-                  <td
-                    colSpan={colCount}
-                    className="px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-ink/60 font-semibold"
-                  >
-                    {workBandLabel(
-                      g.kind,
-                      g.kind === "rep" ? repDistanceM : undefined,
-                    )}
-                  </td>
-                </tr>
-              )}
-              {g.rows.map((s, i) => {
-                const start = elapsedAtKm(series, s.start_km);
-                // The single target band describes the easy/tempo portion; in a
-                // mixed workout it's meaningless for the (much faster) strides.
-                const showVs = hasTarget && !(multi && s.kind === "rep");
-                const vs = showVs ? vsTargetSec(s.avg_pace_sec_per_km, tp) : null;
-                const key = `rep:${gi}:${s.index ?? i}`;
-                const canSelect =
-                  selectable && s.start_km != null && s.end_km != null;
-                return (
-                  <tr
-                    key={`${g.kind}-${s.index ?? i}`}
-                    onClick={
-                      canSelect
-                        ? () => onToggle(key, s.start_km!, s.end_km!)
-                        : undefined
-                    }
-                    className={rowClass(canSelect, selectedKey === key)}
-                  >
-                    <Td className="font-semibold">{s.index ?? i + 1}</Td>
-                    <Td>{start != null ? duration(start) : "—"}</Td>
-                    <Td>
-                      {s.start_km != null && s.end_km != null
-                        ? `${s.start_km.toFixed(2)} → ${s.end_km.toFixed(2)}`
-                        : "—"}
-                    </Td>
-                    <Td>{duration(s.duration_sec)}</Td>
-                    <Td className="font-semibold">
-                      {paceFromSec(s.avg_pace_sec_per_km)}/km
-                    </Td>
-                    {hasTarget && (
-                      <Td
-                        className={
-                          vs == null
-                            ? ""
-                            : vs > 0
-                              ? "text-red-700"
-                              : "text-green-700"
-                        }
+    <div>
+      <SectionTitle>{title}</SectionTitle>
+      <div className="overflow-x-auto rounded-2xl bg-card">
+        <table className="w-full text-sm tabular-nums">
+          <thead>
+            <tr className="border-b border-border">
+              <Th>#</Th>
+              <Th>Pace</Th>
+              <Th>
+                <span className="sr-only">Pace relativo</span>
+              </Th>
+              {hasTarget && <Th>vs alvo</Th>}
+              <Th>Tempo</Th>
+              <Th>Início</Th>
+              <Th>Trecho (km)</Th>
+              <Th>FC méd</Th>
+              <Th>FC máx</Th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {groups.map((g, gi) => {
+              // Relative pace bars scale within the group: strides and easy
+              // kilometres would otherwise squash each other.
+              const paces = g.rows.map((s) => s.avg_pace_sec_per_km);
+              const fastest = Math.min(...paces);
+              const slowest = Math.max(...paces);
+              return (
+                <Fragment key={gi}>
+                  {multi && (
+                    <tr>
+                      <td
+                        colSpan={colCount}
+                        className="px-5 pt-5 pb-2 text-sm font-semibold"
                       >
-                        {vs == null
-                          ? "—"
-                          : vs === 0
-                            ? "no alvo"
-                            : `${vs > 0 ? "+" : ""}${vs}s`}
-                      </Td>
-                    )}
-                    <Td>{s.avg_hr ? Math.round(s.avg_hr) : "—"}</Td>
-                    <Td>{s.max_hr ? Math.round(s.max_hr) : "—"}</Td>
-                  </tr>
-                );
-              })}
-            </Fragment>
-          ))}
-        </tbody>
-      </table>
+                        {workBandLabel(
+                          g.kind,
+                          g.kind === "rep" ? repDistanceM : undefined,
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  {g.rows.map((s, i) => {
+                    const start = elapsedAtKm(series, s.start_km);
+                    // The single target band describes the easy/tempo portion; in a
+                    // mixed workout it's meaningless for the (much faster) strides.
+                    const showVs = hasTarget && !(multi && s.kind === "rep");
+                    const vs = showVs
+                      ? vsTargetSec(s.avg_pace_sec_per_km, tp)
+                      : null;
+                    const key = `rep:${gi}:${s.index ?? i}`;
+                    const canSelect =
+                      selectable && s.start_km != null && s.end_km != null;
+                    const isFastest =
+                      g.rows.length > 1 && s.avg_pace_sec_per_km === fastest;
+                    const frac =
+                      slowest > fastest
+                        ? (slowest - s.avg_pace_sec_per_km) / (slowest - fastest)
+                        : 1;
+                    return (
+                      <tr
+                        key={`${g.kind}-${s.index ?? i}`}
+                        onClick={
+                          canSelect
+                            ? () => onToggle(key, s.start_km!, s.end_km!)
+                            : undefined
+                        }
+                        className={rowClass(canSelect, selectedKey === key)}
+                      >
+                        <Td className="font-semibold">{s.index ?? i + 1}</Td>
+                        <Td className="font-semibold">
+                          <span className="inline-flex items-center gap-1.5">
+                            {paceFromSec(s.avg_pace_sec_per_km)}/km
+                            {isFastest && (
+                              <Badge
+                                variant="volt"
+                                title="Mais rápido"
+                                className="size-5 px-0"
+                              >
+                                <LightningIcon weight="fill" />
+                              </Badge>
+                            )}
+                          </span>
+                        </Td>
+                        <Td className="w-full min-w-24">
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-foreground/5">
+                            <div
+                              className={cn(
+                                "h-full rounded-full",
+                                isFastest
+                                  ? "bg-volt"
+                                  : "bg-chart-1 dark:bg-foreground/40",
+                              )}
+                              style={{ width: `${30 + 70 * frac}%` }}
+                            />
+                          </div>
+                        </Td>
+                        {hasTarget && (
+                          <Td
+                            className={
+                              vs == null
+                                ? "text-muted-foreground"
+                                : vs > 0
+                                  ? "text-destructive"
+                                  : "text-success"
+                            }
+                          >
+                            {vs == null
+                              ? "—"
+                              : vs === 0
+                                ? "no alvo"
+                                : `${vs > 0 ? "+" : ""}${vs}s`}
+                          </Td>
+                        )}
+                        <Td>{duration(s.duration_sec)}</Td>
+                        <Td className="text-muted-foreground">
+                          {start != null ? duration(start) : "—"}
+                        </Td>
+                        <Td className="text-muted-foreground">
+                          {s.start_km != null && s.end_km != null
+                            ? `${s.start_km.toFixed(2)} → ${s.end_km.toFixed(2)}`
+                            : "—"}
+                        </Td>
+                        <Td>{s.avg_hr ? Math.round(s.avg_hr) : "—"}</Td>
+                        <Td>{s.max_hr ? Math.round(s.max_hr) : "—"}</Td>
+                      </tr>
+                    );
+                  })}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -1045,53 +1272,77 @@ const PATTERN_LABEL: Record<string, string> = {
 function Coach({ analysis }: { analysis: WorkoutAnalysis }) {
   const an = analysis.analysis;
   if (!an) return null;
+  const hasMeta =
+    an.pattern || an.target_hit != null || an.hr_drift_bpm != null;
   return (
-    <div className="border border-line rounded-lg p-5 flex flex-col gap-4 bg-paper-2">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.2em] text-ink/60">
-        {an.pattern && (
-          <span>padrão: {PATTERN_LABEL[an.pattern] ?? an.pattern}</span>
+    <div>
+      <SectionTitle>Análise</SectionTitle>
+      <div className="flex flex-col gap-2">
+        {hasMeta && (
+          <div className="mb-2 flex flex-wrap gap-2 text-sm">
+            {an.pattern && (
+              <span className="rounded-full bg-card px-3.5 py-1.5">
+                <span className="text-muted-foreground">padrão:</span>{" "}
+                {PATTERN_LABEL[an.pattern] ?? an.pattern}
+              </span>
+            )}
+            {an.target_hit != null && (
+              <span className="rounded-full bg-card px-3.5 py-1.5">
+                <span className="text-muted-foreground">alvo:</span>{" "}
+                <span className={an.target_hit ? "text-success" : "text-destructive"}>
+                  {an.target_hit ? "atingido" : "não atingido"}
+                </span>
+              </span>
+            )}
+            {an.hr_drift_bpm != null && (
+              <span className="rounded-full bg-card px-3.5 py-1.5 tabular-nums">
+                <span className="text-muted-foreground">drift fc:</span>{" "}
+                {an.hr_drift_bpm} bpm
+              </span>
+            )}
+          </div>
         )}
-        {an.target_hit != null && (
-          <span>alvo: {an.target_hit ? "atingido" : "não atingido"}</span>
+
+        {an.highlights && an.highlights.length > 0 && (
+          <div className="rounded-2xl bg-card p-5 sm:p-6">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-success">
+              <SparkleIcon weight="fill" className="size-4" /> pontos fortes
+            </h3>
+            <AnalysisList items={an.highlights} />
+          </div>
         )}
-        {an.hr_drift_bpm != null && <span>drift fc: {an.hr_drift_bpm} bpm</span>}
+
+        {an.issues && an.issues.length > 0 && (
+          <div className="rounded-2xl bg-card p-5 sm:p-6">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-destructive">
+              <WarningIcon weight="fill" className="size-4" /> problemas
+            </h3>
+            <AnalysisList items={an.issues} />
+          </div>
+        )}
+
+        {an.next_workout_suggestion && (
+          <div className="rounded-2xl bg-primary p-5 text-primary-foreground sm:p-6">
+            <h3 className="mb-2 text-sm font-semibold opacity-70">
+              próximo treino
+            </h3>
+            <p className="text-base leading-relaxed">
+              {an.next_workout_suggestion}
+            </p>
+          </div>
+        )}
       </div>
-
-      {an.highlights && an.highlights.length > 0 && (
-        <div>
-          <h3 className="text-[10px] uppercase tracking-[0.2em] text-green-700 mb-1.5 flex items-center gap-1.5">
-            <SparkleIcon className="h-3.5 w-3.5" /> pontos fortes
-          </h3>
-          <ul className="text-sm list-disc pl-5 space-y-1">
-            {an.highlights.map((h, i) => (
-              <li key={i}>{h}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {an.issues && an.issues.length > 0 && (
-        <div>
-          <h3 className="text-[10px] uppercase tracking-[0.2em] text-red-700 mb-1.5 flex items-center gap-1.5">
-            <WarningIcon className="h-3.5 w-3.5" /> problemas
-          </h3>
-          <ul className="text-sm list-disc pl-5 space-y-1">
-            {an.issues.map((h, i) => (
-              <li key={i}>{h}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {an.next_workout_suggestion && (
-        <div>
-          <h3 className="text-[10px] uppercase tracking-[0.2em] text-ink/60 mb-1.5">
-            próximo treino
-          </h3>
-          <p className="text-sm">{an.next_workout_suggestion}</p>
-        </div>
-      )}
     </div>
+  );
+}
+
+function AnalysisList({ items }: { items: string[] }) {
+  return (
+    <ul className="list-disc space-y-2 pl-5 text-base leading-relaxed marker:text-muted-foreground">
+      {items.map((h, i) => (
+        <li key={i}>{h}</li>
+      ))}
+    </ul>
   );
 }
 
@@ -1110,53 +1361,59 @@ function BestEfforts({
   onToggle: (key: string, startKm: number, endKm: number) => void;
 }) {
   if (!efforts || efforts.length === 0) return null;
-  const hasHr = efforts.some((e) => e.hr != null);
   const anyApprox = efforts.some((e) => e.src === "splits");
   return (
     <div>
-      <h3 className="text-[10px] uppercase tracking-[0.2em] text-ink/60 mb-2 flex items-baseline gap-2">
+      <SectionTitle className="flex items-center gap-3">
         Melhores marcas
+        <Badge variant="volt" className="size-6 px-0">
+          <TrophyIcon weight="fill" />
+        </Badge>
         {anyApprox && (
           <span
             title="Sem as amostras desta corrida, a janela só pode começar num quilômetro fechado — o tempo real é igual ou alguns segundos melhor"
-            className="text-ink/40 tracking-[0.15em]"
+            className="font-sans text-xs font-medium normal-case tracking-normal text-muted-foreground"
           >
             aprox
           </span>
         )}
-      </h3>
-      <div className="border border-line rounded-lg overflow-x-auto bg-card shadow-sm">
-        <table className="w-full text-sm font-mono">
-          <thead>
-            <tr className="text-[10px] uppercase tracking-[0.15em] text-ink/50 border-b border-line">
-              <Th>Distância</Th>
-              <Th>Tempo</Th>
-              <Th>Pace</Th>
-              {hasHr && <Th>FC méd</Th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-ink/15">
-            {efforts.map((e) => {
-              const key = `be:${e.m}`;
-              return (
-                <tr
-                  key={e.m}
-                  onClick={
-                    selectable
-                      ? () => onToggle(key, e.startKm, e.startKm + e.m / 1000)
-                      : undefined
-                  }
-                  className={rowClass(selectable, selectedKey === key)}
-                >
-                  <Td>{distanceLabel(e.m)}</Td>
-                  <Td>{duration(e.t)}</Td>
-                  <Td>{paceFromSec(Math.round(e.t / (e.m / 1000)))}/km</Td>
-                  {hasHr && <Td>{e.hr != null ? `${e.hr} bpm` : "—"}</Td>}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      </SectionTitle>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        {efforts.map((e) => {
+          const key = `be:${e.m}`;
+          const selected = selectedKey === key;
+          const body = (
+            <>
+              <span className="text-sm font-semibold">{distanceLabel(e.m)}</span>
+              <span className="mt-3 font-display text-4xl normal-case">
+                {duration(e.t)}
+              </span>
+              <span className="mt-2 text-xs text-muted-foreground tabular-nums">
+                {paceFromSec(Math.round(e.t / (e.m / 1000)))}/km
+                {e.hr != null && <> · {e.hr} bpm</>}
+              </span>
+            </>
+          );
+          const tile = cn(
+            "flex flex-col items-start rounded-2xl bg-card p-4 text-left sm:p-5",
+            selected && "ring-2 ring-chart-5 ring-inset",
+          );
+          return selectable ? (
+            <button
+              key={e.m}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onToggle(key, e.startKm, e.startKm + e.m / 1000)}
+              className={cn(tile, "cursor-pointer transition-colors hover:bg-accent")}
+            >
+              {body}
+            </button>
+          ) : (
+            <div key={e.m} className={tile}>
+              {body}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -1164,12 +1421,16 @@ function BestEfforts({
 
 /** Shared row styling for selectable, highlightable table rows. */
 function rowClass(selectable: boolean, selected: boolean) {
-  if (selected) return "bg-orange-100 cursor-pointer";
-  return selectable ? "hover:bg-paper-2 cursor-pointer" : "";
+  if (selected) return "bg-chart-5/15 cursor-pointer";
+  return selectable ? "hover:bg-accent cursor-pointer transition-colors" : "";
 }
 
 function Th({ children }: { children: React.ReactNode }) {
-  return <th className="text-left font-medium px-3 py-2.5">{children}</th>;
+  return (
+    <th className="px-3 py-3 text-left text-xs font-medium whitespace-nowrap text-muted-foreground first:pl-5 last:pr-5">
+      {children}
+    </th>
+  );
 }
 function Td({
   children,
@@ -1178,7 +1439,16 @@ function Td({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <td className={`px-3 py-2.5 ${className}`}>{children}</td>;
+  return (
+    <td
+      className={cn(
+        "px-3 py-3.5 whitespace-nowrap first:pl-5 last:pr-5",
+        className,
+      )}
+    >
+      {children}
+    </td>
+  );
 }
 
 function Status({
@@ -1192,8 +1462,8 @@ function Status({
     <p
       className={
         tone === "error"
-          ? "border border-line rounded-lg p-5 bg-paper-2 font-mono text-sm"
-          : "text-ink/60 font-mono text-sm border-2 border-dashed border-ink/20 p-5"
+          ? "rounded-2xl bg-destructive/10 p-5 text-sm text-destructive"
+          : "rounded-2xl bg-card p-5 text-sm leading-relaxed text-muted-foreground"
       }
     >
       {children}

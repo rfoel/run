@@ -1,7 +1,5 @@
-import { Toggle } from "@base-ui/react/toggle";
-import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { HeartbeatIcon, TrendDownIcon, TrendUpIcon } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   CartesianGrid,
   Line,
@@ -12,16 +10,14 @@ import {
   YAxis,
 } from "recharts";
 import { Link } from "react-router-dom";
+import { cn } from "cn";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useActivities, useRecords } from "../lib/queries.ts";
 import { fitnessTrend, type TrendPoint } from "../lib/fitness.ts";
 import { paceFromSec } from "../lib/format.ts";
+import { useThemeColors } from "../lib/theme.ts";
 import { Skeleton } from "./Skeleton.tsx";
 import type { AllTimeRecord } from "../lib/api.ts";
-
-// One series, so one hue and no legend — the heading says what is plotted. This
-// is the same orange the heatmap uses; the warm graphite that the rest of the UI
-// wears failed the chroma floor for a data mark (it reads as ink, not data).
-const LINE_COLOR = "#ea580c";
 
 type Range = 12 | 24 | 0; // 0 = everything
 const RANGES: Range[] = [12, 24, 0];
@@ -30,6 +26,8 @@ const RANGE_LABELS: Record<Range, string> = {
   24: "24 meses",
   0: "tudo",
 };
+
+const SECTION_TITLE = "font-display text-2xl md:text-3xl";
 
 export default function Trend() {
   const [range, setRange] = useState<Range>(24);
@@ -44,59 +42,59 @@ export default function Trend() {
   if (isPending) return <TrendSkeleton />;
   if (error) {
     return (
-      <p className="border border-line rounded-lg bg-card px-5 py-4 font-mono text-sm text-red-700">
+      <p className="rounded-2xl bg-card px-5 py-4 text-sm text-destructive">
         {String(error)}
       </p>
     );
   }
 
   return (
-    <section className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xs uppercase tracking-[0.2em] text-ink/60">
-          Ritmo a batimento fixo
-        </h2>
-        <ToggleGroup
-          value={[String(range)]}
-          onValueChange={(v) => {
-            const next = v[0];
-            if (next != null) setRange(Number(next) as Range);
-          }}
-          className="flex gap-0.5 text-[10px] uppercase tracking-[0.2em] font-medium"
-        >
-          {RANGES.map((r) => (
-            <Toggle
-              key={r}
-              value={String(r)}
-              aria-label={RANGE_LABELS[r]}
-              className="px-2 py-1 rounded-md text-ink/60 hover:text-ink data-[pressed]:bg-accent data-[pressed]:text-white"
-            >
-              {RANGE_LABELS[r]}
-            </Toggle>
-          ))}
-        </ToggleGroup>
+    <section className="flex flex-col gap-10 md:gap-14">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className={SECTION_TITLE}>Ritmo a batimento fixo</h2>
+          <ToggleGroup
+            value={[String(range)]}
+            onValueChange={(v) => {
+              const next = v[0];
+              if (next != null) setRange(Number(next) as Range);
+            }}
+          >
+            {RANGES.map((r) => (
+              <ToggleGroupItem
+                key={r}
+                value={String(r)}
+                aria-label={RANGE_LABELS[r]}
+                className="px-3.5"
+              >
+                {RANGE_LABELS[r]}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
+
+        {!trend ? (
+          <p className="rounded-2xl bg-card px-5 py-4 text-sm text-muted-foreground">
+            Não há corridas com frequência cardíaca suficientes nesse período.
+          </p>
+        ) : (
+          <>
+            <Headline trend={trend} />
+            <Chart points={trend.points} />
+            <p className="max-w-prose text-sm leading-relaxed text-muted-foreground">
+              Cada ponto é a mediana do mês do ritmo que você sustentaria a{" "}
+              {trend.refHr} bpm — velocidade dividida pelo batimento, que remove
+              a decisão de quão forte correr. Ficar mais rápido no mesmo
+              batimento é o que significa estar mais em forma. Não corrige
+              altimetria nem calor, então leia como tendência, não como medida.
+              Meses com menos de 3 corridas na faixa ficam de fora, e a linha
+              corta onde você parou de correr.
+            </p>
+          </>
+        )}
       </div>
 
-      {!trend ? (
-        <p className="border border-line rounded-lg bg-card px-5 py-4 font-mono text-sm text-ink/60">
-          Não há corridas com frequência cardíaca suficientes nesse período.
-        </p>
-      ) : (
-        <>
-          <Headline trend={trend} />
-          <Chart points={trend.points} />
-          <p className="text-xs text-ink/50 leading-relaxed">
-            Cada ponto é a mediana do mês do ritmo que você sustentaria a{" "}
-            {trend.refHr} bpm — velocidade dividida pelo batimento, que remove a
-            decisão de quão forte correr. Ficar mais rápido no mesmo batimento é
-            o que significa estar mais em forma. Não corrige altimetria nem
-            calor, então leia como tendência, não como medida. Meses com menos de
-            3 corridas na faixa ficam de fora, e a linha corta onde você parou de
-            correr.
-          </p>
-          <MonthTable points={trend.points} />
-        </>
-      )}
+      {trend && <MonthTable points={trend.points} />}
 
       <Records />
     </section>
@@ -108,9 +106,13 @@ function Records() {
 
   if (isPending) {
     return (
-      <div className="flex flex-col gap-2">
-        <Skeleton className="h-4 w-24" />
-        <Skeleton className="h-48 w-full" />
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-7 w-40" />
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-2xl" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -119,53 +121,55 @@ function Records() {
   const anyApprox = data.some((r) => r.src === "splits");
 
   return (
-    <div className="flex flex-col gap-2">
-      <h3 className="text-xs uppercase tracking-[0.2em] text-ink/60">
-        Recordes
-      </h3>
-      <ul className="border border-line rounded-lg divide-y divide-line bg-card overflow-hidden">
+    <div className="flex flex-col gap-4">
+      <h3 className={SECTION_TITLE}>Recordes</h3>
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {data.map((r) => (
           <li key={r.meters}>
             <Link
               to={`/corridas/${r.source}/${encodeURIComponent(r.externalId)}`}
               viewTransition
-              className="px-5 py-3 flex items-baseline justify-between gap-4 hover:bg-paper-2"
+              className="flex h-full flex-col gap-3 rounded-2xl bg-card p-4 transition-colors hover:bg-accent md:p-5"
             >
-              <span className="flex items-baseline gap-2 min-w-0">
-                <span className="text-sm w-28 shrink-0">{r.label}</span>
-                <span className="font-mono text-base tabular-nums">
-                  {formatRecord(r)}
+              <span className="flex items-center justify-between gap-2">
+                <span className="truncate text-xs font-medium text-muted-foreground">
+                  {r.label}
                 </span>
                 {r.src === "splits" && (
                   <span
                     title="Calculado a partir dos splits por km — nunca mais rápido que o real, às vezes alguns segundos mais lento"
-                    className="text-[10px] uppercase tracking-[0.15em] text-ink/40 shrink-0"
+                    className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground"
                   >
                     aprox
                   </span>
                 )}
               </span>
-              <span className="font-mono text-xs text-ink/60 shrink-0 tabular-nums text-right">
-                {paceFromSec(r.paceSecPerKm)}/km
-                <span className="text-ink/40">
-                  {" · "}
-                  {r.startDate.slice(0, 7).split("-").reverse().join("/")}
+              <span className="font-display text-4xl md:text-5xl">
+                {formatRecord(r)}
+              </span>
+              <span className="text-xs tabular-nums text-muted-foreground">
+                <span className="font-semibold text-foreground">
+                  {paceFromSec(r.paceSecPerKm)}
                 </span>
+                /km
+                {" · "}
+                {r.startDate.slice(0, 7).split("-").reverse().join("/")}
               </span>
             </Link>
           </li>
         ))}
       </ul>
-      <p className="text-xs text-ink/50 leading-relaxed">
+      <p className="max-w-prose text-sm leading-relaxed text-muted-foreground">
         Melhor janela de cada distância em todo o histórico, clicável pra abrir a
         corrida.
         {anyApprox && (
           <>
             {" "}
-            As marcadas <span className="uppercase tracking-[0.15em]">aprox</span>{" "}
-            vêm dos splits por km, porque a corrida foi importada sem as amostras
-            e a janela só pode começar num quilômetro fechado — o tempo real é
-            igual ou alguns segundos melhor.
+            As marcadas{" "}
+            <span className="text-xs font-semibold uppercase">aprox</span> vêm
+            dos splits por km, porque a corrida foi importada sem as amostras e a
+            janela só pode começar num quilômetro fechado — o tempo real é igual
+            ou alguns segundos melhor.
           </>
         )}
       </p>
@@ -186,6 +190,25 @@ function formatRecord(r: AllTimeRecord): string {
   return `${Math.floor(s / 3600)}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
 }
 
+function StatTile({
+  label,
+  className,
+  children,
+}: {
+  label: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn("flex flex-col gap-3 rounded-2xl bg-card p-4 md:p-5", className)}>
+      <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        {label}
+      </p>
+      {children}
+    </div>
+  );
+}
+
 function Headline({
   trend,
 }: {
@@ -197,67 +220,86 @@ function Headline({
   const Icon = faster ? TrendUpIcon : TrendDownIcon;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-line border border-line rounded-lg overflow-hidden">
-      <div className="bg-card px-5 py-4">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-ink/50 mb-1">
-          Ritmo atual
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <StatTile label="Ritmo atual" className="col-span-2 sm:col-span-1">
+        <p className="flex items-baseline gap-1.5">
+          <span className="font-display text-6xl md:text-7xl">
+            {paceFromSec(withData[withData.length - 1]?.paceSecPerKm)}
+          </span>
+          <span className="text-sm font-semibold text-muted-foreground">/km</span>
         </p>
-        <p className="text-2xl font-mono tabular-nums">
-          {paceFromSec(withData[withData.length - 1]?.paceSecPerKm)}
-          <span className="text-sm text-ink/50">/km</span>
-        </p>
-      </div>
-      <div className="bg-card px-5 py-4">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-ink/50 mb-1">
-          No período
-        </p>
+      </StatTile>
+      <StatTile label="No período">
         {delta == null ? (
-          <p className="text-2xl font-mono text-ink/40">--</p>
+          <p className="font-display text-5xl text-muted-foreground md:text-7xl">
+            --
+          </p>
         ) : (
           // Icon plus the words "mais rápido"/"mais lento" carry the direction;
           // the colour only reinforces it.
-          <p
-            className={
-              "text-2xl font-mono tabular-nums flex items-baseline gap-2 " +
-              (faster ? "text-green-700" : "text-red-700")
-            }
-          >
-            <Icon className="h-5 w-5 shrink-0 self-center" />
-            {Math.abs(Math.round(delta))}s
-            <span className="text-sm">
-              /km {faster ? "mais rápido" : "mais lento"}
+          <div className={faster ? "text-success" : "text-destructive"}>
+            <p className="flex items-baseline gap-1.5">
+              <Icon weight="bold" className="size-6 shrink-0 self-center md:size-7" />
+              <span className="font-display text-5xl md:text-7xl">
+                {Math.abs(Math.round(delta))}
+              </span>
+              <span className="text-sm font-semibold">s/km</span>
+            </p>
+            <p className="mt-1 text-sm font-semibold">
+              {faster ? "mais rápido" : "mais lento"}
+            </p>
+          </div>
+        )}
+      </StatTile>
+      <StatTile
+        label={
+          <>
+            <HeartbeatIcon weight="bold" className="size-3.5" />
+            Referência
+          </>
+        }
+      >
+        <div>
+          <p className="flex items-baseline gap-1.5">
+            <span className="font-display text-5xl md:text-7xl">
+              {trend.refHr}
+            </span>
+            <span className="text-sm font-semibold text-muted-foreground">
+              bpm
             </span>
           </p>
-        )}
-      </div>
-      <div className="bg-card px-5 py-4">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-ink/50 mb-1 flex items-center gap-1">
-          <HeartbeatIcon className="h-3 w-3" />
-          Referência
-        </p>
-        <p className="text-2xl font-mono tabular-nums">
-          {trend.refHr}
-          <span className="text-sm text-ink/50"> bpm</span>
-        </p>
-        <p className="text-[10px] text-ink/40 mt-1">
-          {trend.sampled} corridas na faixa
-        </p>
-      </div>
+          <p className="mt-1 text-sm text-muted-foreground tabular-nums">
+            {trend.sampled} corridas na faixa
+          </p>
+        </div>
+      </StatTile>
     </div>
   );
 }
 
 function Chart({ points }: { points: TrendPoint[] }) {
+  const colors = useThemeColors();
+  let lastIndex = -1;
+  points.forEach((p, i) => {
+    if (p.paceSecPerKm != null) lastIndex = i;
+  });
+  const ticks = paceTicks(points);
+
   return (
-    <div className="border border-line rounded-lg bg-card p-3">
+    <div className="rounded-2xl bg-card px-2 pt-6 pb-3 md:px-4 md:pt-8">
       <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={points} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-          <CartesianGrid stroke="currentColor" strokeOpacity={0.08} />
+        <LineChart data={points} margin={{ top: 8, right: 16, bottom: 0, left: 4 }}>
+          <CartesianGrid
+            vertical={false}
+            stroke={colors.foreground}
+            strokeOpacity={0.07}
+          />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 11 }}
-            stroke="currentColor"
-            strokeOpacity={0.3}
+            tick={{ fontSize: 12, fill: colors.mutedForeground }}
+            axisLine={false}
+            tickLine={false}
+            tickMargin={10}
             interval="preserveStartEnd"
             minTickGap={28}
           />
@@ -265,23 +307,52 @@ function Chart({ points }: { points: TrendPoint[] }) {
             // Reversed so a faster pace sits higher: improving reads as "up".
             reversed
             domain={["dataMin - 10", "dataMax + 10"]}
+            ticks={ticks}
             tickFormatter={(v: number) => paceFromSec(v)}
-            tick={{ fontSize: 11 }}
-            stroke="currentColor"
-            strokeOpacity={0.3}
-            width={48}
+            tick={{ fontSize: 12, fill: colors.mutedForeground }}
+            axisLine={false}
+            tickLine={false}
+            tickMargin={6}
+            width={44}
           />
-          <Tooltip content={<PaceTooltip />} />
+          <Tooltip
+            content={<PaceTooltip color={colors.chart1} />}
+            cursor={{ stroke: colors.mutedForeground, strokeOpacity: 0.4, strokeDasharray: "3 3" }}
+          />
           <Line
             type="monotone"
             dataKey="paceSecPerKm"
-            stroke={LINE_COLOR}
-            strokeWidth={2}
+            stroke={colors.chart1}
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
             // A month without enough running breaks the line instead of being
             // interpolated across.
             connectNulls={false}
-            dot={{ r: 4, fill: LINE_COLOR, stroke: "var(--color-card)", strokeWidth: 2 }}
-            activeDot={{ r: 6, fill: LINE_COLOR, stroke: "var(--color-card)", strokeWidth: 2 }}
+            // No dots along the line, except the latest month (emphasised) and
+            // any month isolated between gaps, which would otherwise vanish.
+            dot={({ cx, cy, index }) => {
+              const isLast = index === lastIndex;
+              const isolated =
+                points[index]?.paceSecPerKm != null &&
+                points[index - 1]?.paceSecPerKm == null &&
+                points[index + 1]?.paceSecPerKm == null;
+              if (cx == null || cy == null || (!isLast && !isolated)) {
+                return <g key={index} />;
+              }
+              return (
+                <circle
+                  key={index}
+                  cx={cx}
+                  cy={cy}
+                  r={isLast ? 6 : 3.5}
+                  fill={colors.chart1}
+                  stroke={colors.card}
+                  strokeWidth={isLast ? 3 : 0}
+                />
+              );
+            }}
+            activeDot={{ r: 6, fill: colors.chart1, stroke: colors.card, strokeWidth: 3 }}
           />
         </LineChart>
       </ResponsiveContainer>
@@ -289,27 +360,44 @@ function Chart({ points }: { points: TrendPoint[] }) {
   );
 }
 
+/**
+ * Round pace ticks (every 15 or 30 s) inside the same ±10 s domain, so the axis
+ * reads 5:30, 6:00… instead of landing on the domain's odd edges.
+ */
+function paceTicks(points: TrendPoint[]): number[] | undefined {
+  const paces = points.flatMap((p) => (p.paceSecPerKm == null ? [] : [p.paceSecPerKm]));
+  if (paces.length === 0) return undefined;
+  const lo = Math.min(...paces) - 10;
+  const hi = Math.max(...paces) + 10;
+  const step = hi - lo > 120 ? 30 : 15;
+  const ticks: number[] = [];
+  for (let t = Math.ceil(lo / step) * step; t <= hi; t += step) ticks.push(t);
+  return ticks.length >= 2 ? ticks : undefined;
+}
+
 function PaceTooltip({
   active,
   payload,
+  color,
 }: {
   active?: boolean;
   payload?: { payload: TrendPoint }[];
+  color: string;
 }) {
   const point = payload?.[0]?.payload;
   if (!active || !point || point.paceSecPerKm == null) return null;
   return (
-    <div className="bg-card border border-line rounded-lg px-3 py-2 shadow-sm">
+    <div className="rounded-xl bg-popover px-3 py-2 text-popover-foreground shadow-lg ring-1 ring-foreground/5">
       {/* Value leads, label follows — the reader already knows the month. */}
-      <p className="font-mono text-sm tabular-nums flex items-center gap-2">
+      <p className="flex items-center gap-2 text-sm font-semibold tabular-nums">
         <span
           aria-hidden
-          className="inline-block w-3 h-0.5 shrink-0"
-          style={{ background: LINE_COLOR }}
+          className="inline-block size-2 shrink-0 rounded-full"
+          style={{ background: color }}
         />
         {paceFromSec(point.paceSecPerKm)}/km
       </p>
-      <p className="text-xs text-ink/60 mt-0.5">
+      <p className="mt-0.5 text-xs text-muted-foreground">
         {point.label} · {point.runs} corridas
       </p>
     </div>
@@ -320,19 +408,21 @@ function PaceTooltip({
 function MonthTable({ points }: { points: TrendPoint[] }) {
   const rows = points.filter((p) => p.paceSecPerKm != null).reverse();
   return (
-    <div className="flex flex-col gap-2">
-      <h3 className="text-xs uppercase tracking-[0.2em] text-ink/60">
-        Por mês
-      </h3>
-      <ul className="border border-line rounded-lg divide-y divide-line bg-card overflow-hidden">
+    <div className="flex flex-col gap-4">
+      <h3 className={SECTION_TITLE}>Por mês</h3>
+      <ul className="divide-y divide-border overflow-hidden rounded-2xl bg-card px-4 md:px-5 dark:divide-foreground/10">
         {rows.map((p) => (
           <li
             key={p.month}
-            className="px-5 py-2.5 flex items-baseline justify-between gap-4"
+            className="flex items-baseline justify-between gap-4 py-3.5"
           >
-            <span className="text-sm">{p.label}</span>
-            <span className="font-mono text-xs text-ink/60 tabular-nums">
-              {paceFromSec(p.paceSecPerKm)}/km · {p.runs} corridas
+            <span className="text-sm font-medium">{p.label}</span>
+            <span className="flex items-baseline gap-3 text-sm tabular-nums">
+              <span className="text-muted-foreground">{p.runs} corridas</span>
+              <span className="w-16 text-right font-semibold">
+                {paceFromSec(p.paceSecPerKm)}
+                <span className="font-normal text-muted-foreground">/km</span>
+              </span>
             </span>
           </li>
         ))}
@@ -343,20 +433,26 @@ function MonthTable({ points }: { points: TrendPoint[] }) {
 
 function TrendSkeleton() {
   return (
-    <section className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-2">
-        <Skeleton className="h-4 w-48" />
-        <Skeleton className="h-6 w-40" />
+    <section className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Skeleton className="h-7 w-64" />
+        <Skeleton className="h-10 w-60 rounded-full" />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-line border border-line rounded-lg overflow-hidden">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="bg-card px-5 py-4">
-            <Skeleton className="h-3 w-20 mb-2" />
-            <Skeleton className="h-7 w-16" />
+          <div
+            key={i}
+            className={cn(
+              "rounded-2xl bg-card p-4 md:p-5",
+              i === 0 && "col-span-2 sm:col-span-1",
+            )}
+          >
+            <Skeleton className="mb-3 h-3 w-20" />
+            <Skeleton className="h-12 w-28" />
           </div>
         ))}
       </div>
-      <Skeleton className="h-[300px] w-full" />
+      <Skeleton className="h-[340px] w-full rounded-2xl" />
     </section>
   );
 }

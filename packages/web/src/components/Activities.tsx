@@ -1,19 +1,23 @@
-import { AlertDialog } from "@base-ui/react/alert-dialog";
-import { ToggleGroup } from "@base-ui/react/toggle-group";
-import { Toggle } from "@base-ui/react/toggle";
 import {
   ArrowsClockwiseIcon,
-  GaugeIcon,
   HeartbeatIcon,
-  HourglassIcon,
-  PathIcon,
-  PersonSimpleRunIcon,
-  RulerIcon,
-  TimerIcon,
   TrashIcon,
   WarningIcon,
 } from "@phosphor-icons/react";
 import { useState } from "react";
+import { cn } from "cn";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { type Activity, type Stat } from "../lib/api.ts";
 import {
   useActivities,
@@ -35,6 +39,10 @@ const RANGE_LABELS: Record<Range, string> = {
   year: "ano",
   total: "total",
 };
+
+/** "5:27/km" -> "5:27", so the unit can be typeset separately. */
+const paceValue = (meters: number, sec: number) =>
+  pace(meters, sec).replace("/km", "");
 
 export default function Activities({
   unlocked,
@@ -64,128 +72,155 @@ export default function Activities({
   }
 
   const active: Stat | undefined = stats?.[range];
+  const hasRuns = !!active && active.count > 0;
 
   return (
-    <section>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xs uppercase tracking-[0.2em] text-ink/60">
-          Totais
-        </h2>
-        <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex flex-col gap-10 md:gap-12">
+      <section className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="mr-auto font-display text-2xl md:text-3xl">Totais</h2>
           <ToggleGroup
             value={[range]}
             onValueChange={(v) => {
               const next = v[0] as Range | undefined;
               if (next) setRange(next);
             }}
-            className="flex gap-0.5 text-[10px] uppercase tracking-[0.2em] font-medium"
+            className="order-last w-full sm:order-none sm:w-fit"
           >
             {RANGES.map((r) => (
-              <Toggle
+              <ToggleGroupItem
                 key={r}
                 value={r}
                 aria-label={RANGE_LABELS[r]}
-                className="px-2 py-1 rounded-md text-ink/60 hover:text-ink data-[pressed]:bg-accent data-[pressed]:text-white"
+                className="flex-1 px-4 capitalize sm:flex-none"
               >
                 {RANGE_LABELS[r]}
-              </Toggle>
+              </ToggleGroupItem>
             ))}
           </ToggleGroup>
           {unlocked && (
-            <button
+            <Button
+              variant="secondary"
+              size="lg"
               onClick={() => sync.mutate(30)}
               disabled={syncing}
-              className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-medium border border-line rounded-lg px-3 py-1 hover:bg-accent hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
+              className="px-4"
             >
               <ArrowsClockwiseIcon
-                className={"h-3.5 w-3.5 " + (syncing ? "animate-spin" : "")}
+                data-icon="inline-start"
+                className={cn(syncing && "animate-spin")}
               />
-              <span>{syncing ? "sincronizando…" : "sincronizar"}</span>
-            </button>
+              {syncing ? "Sincronizando…" : "Sincronizar"}
+            </Button>
           )}
         </div>
-      </div>
 
-      {syncResult && (
-        <div className="border border-line rounded-lg p-3 mb-4 bg-paper-2 font-mono text-xs flex gap-4 flex-wrap">
-          <span>buscadas {syncResult.fetched}</span>
-          <span>importadas {syncResult.imported}</span>
-          <span>ignoradas {syncResult.skipped}</span>
-          <span>vinculadas {syncResult.linked}</span>
-          {syncResult.errors.length > 0 && (
-            <span className="text-red-700 flex items-center gap-1">
-              <WarningIcon className="h-3.5 w-3.5" />
-              erros {syncResult.errors.length}
-            </span>
-          )}
+        {syncResult && (
+          <div className="flex flex-wrap gap-x-6 gap-y-2 rounded-2xl bg-card px-5 py-4 text-sm tabular-nums">
+            <SyncCount label="buscadas" value={syncResult.fetched} />
+            <SyncCount label="importadas" value={syncResult.imported} />
+            <SyncCount label="ignoradas" value={syncResult.skipped} />
+            <SyncCount label="vinculadas" value={syncResult.linked} />
+            {syncResult.errors.length > 0 && (
+              <span className="flex items-center gap-1.5 font-semibold text-destructive">
+                <WarningIcon className="size-4" weight="bold" />
+                erros {syncResult.errors.length}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* NRC-style summary: one huge distance, the rest as a stat grid. */}
+        <div>
+          <div className="font-display text-[6.5rem] leading-[0.85] sm:text-[9rem] md:text-[11rem]">
+            {active ? (active.distance / 1000).toFixed(1) : "0"}
+          </div>
+          <div className="mt-2 text-sm font-semibold text-muted-foreground">
+            Km
+          </div>
         </div>
-      )}
 
-      <div className="grid grid-cols-3 gap-px bg-line border border-line rounded-lg shadow-sm overflow-hidden mb-10">
-        <StatBox
-          label="Corridas"
-          icon={<PersonSimpleRunIcon className="h-4 w-4" />}
-          value={active ? String(active.count) : "0"}
-        />
-        <StatBox
-          label="Km"
-          icon={<PathIcon className="h-4 w-4" />}
-          value={active ? (active.distance / 1000).toFixed(1) : "0"}
-        />
-        <StatBox
-          label="Tempo"
-          icon={<TimerIcon className="h-4 w-4" />}
-          value={active ? duration(active.movingTime) : "0"}
-        />
-        <StatBox
-          label="Média km"
-          icon={<RulerIcon className="h-4 w-4" />}
-          value={
-            active && active.count > 0
-              ? (active.distance / active.count / 1000).toFixed(2)
-              : "—"
-          }
-        />
-        <StatBox
-          label="Média tempo"
-          icon={<HourglassIcon className="h-4 w-4" />}
-          value={
-            active && active.count > 0
-              ? duration(active.movingTime / active.count)
-              : "—"
-          }
-        />
-        <StatBox
-          label="Pace médio"
-          icon={<GaugeIcon className="h-4 w-4" />}
-          value={
-            active && active.distance > 0
-              ? pace(active.distance, active.movingTime)
-              : "—"
-          }
-        />
-      </div>
-
-      <h2 className="text-xs uppercase tracking-[0.2em] mb-3 text-ink/60">
-        Recentes
-      </h2>
-      <ul className="border border-line rounded-lg divide-y divide-line bg-card shadow-sm overflow-hidden">
-        {items.slice(0, 100).map((a) => (
-          <ActivityRow
-            key={`${a.source}:${a.externalId}`}
-            activity={a}
-            unlocked={unlocked}
-            onSelect={() => onOpenActivity(a.source, a.externalId)}
-            onPrefetch={() => prefetch(a.source, a.externalId)}
+        <dl className="grid grid-cols-3 gap-x-4 gap-y-6 md:grid-cols-5">
+          <SummaryStat label="Corridas" value={active ? String(active.count) : "0"} />
+          <SummaryStat
+            label="Tempo"
+            value={active ? duration(active.movingTime) : "0"}
           />
-        ))}
-      </ul>
-      {items.length > 100 && (
-        <p className="text-xs uppercase tracking-[0.2em] text-ink/50 mt-4">
-          Mostrando 100 de {items.length}
-        </p>
-      )}
-    </section>
+          <SummaryStat
+            label="Pace médio"
+            value={
+              active && active.distance > 0
+                ? paceValue(active.distance, active.movingTime)
+                : "—"
+            }
+            unit={active && active.distance > 0 ? "/km" : undefined}
+          />
+          <SummaryStat
+            label="Média km"
+            value={
+              hasRuns ? (active.distance / active.count / 1000).toFixed(2) : "—"
+            }
+            unit={hasRuns ? "km" : undefined}
+          />
+          <SummaryStat
+            label="Média tempo"
+            value={hasRuns ? duration(active.movingTime / active.count) : "—"}
+          />
+        </dl>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="font-display text-2xl md:text-3xl">Recentes</h2>
+        <ul className="flex flex-col gap-2">
+          {items.slice(0, 100).map((a) => (
+            <ActivityRow
+              key={`${a.source}:${a.externalId}`}
+              activity={a}
+              unlocked={unlocked}
+              onSelect={() => onOpenActivity(a.source, a.externalId)}
+              onPrefetch={() => prefetch(a.source, a.externalId)}
+            />
+          ))}
+        </ul>
+        {items.length > 100 && (
+          <p className="text-center text-xs font-medium text-muted-foreground">
+            Mostrando 100 de {items.length}
+          </p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function SyncCount({ label, value }: { label: string; value: number }) {
+  return (
+    <span className="text-muted-foreground">
+      {label} <span className="font-semibold text-foreground">{value}</span>
+    </span>
+  );
+}
+
+function SummaryStat({
+  label,
+  value,
+  unit,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col-reverse gap-1.5">
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="flex items-baseline gap-1">
+        <span className="font-display text-4xl normal-case md:text-5xl">{value}</span>
+        {unit && (
+          <span className="text-sm font-semibold text-muted-foreground">
+            {unit}
+          </span>
+        )}
+      </dd>
+    </div>
   );
 }
 
@@ -202,55 +237,86 @@ function ActivityRow({
 }) {
   return (
     <li
-      className="px-4 py-3 hover:bg-paper-2"
+      className="relative rounded-2xl bg-card p-4 transition-colors hover:bg-accent md:px-6 md:py-5"
       onMouseEnter={onPrefetch}
       onFocus={onPrefetch}
       onTouchStart={onPrefetch}
     >
-      {/* Name + icons */}
-      <div className="flex items-start gap-2 mb-0.5">
-        <button
-          onClick={onSelect}
-          className="font-semibold text-left hover:underline underline-offset-2 flex-1"
-        >
-          {a.name}
-        </button>
-        <div className="flex items-center gap-1 shrink-0 pt-0.5">
+      {/* Date + sport, with the per-run actions on the right */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs font-medium text-muted-foreground first-letter:uppercase">
+          {date(a.startDate)} · {a.sportType}
+        </div>
+        <div className="relative z-10 flex shrink-0 items-center gap-2 text-muted-foreground">
           {isTreadmill(a) && <TreadmillIcon />}
           <StravaLink source={a.source} externalId={a.externalId} />
+          {unlocked && <DeleteActivityButton activity={a} />}
         </div>
       </div>
 
-      {/* Date + sport */}
-      <div className="text-xs uppercase tracking-wider text-ink/50 mb-1">
-        {date(a.startDate)} · {a.sportType}
-      </div>
+      {/* The name's button stretches over the whole tile (after:inset-0). */}
+      <button
+        onClick={onSelect}
+        className="mt-1 block text-left font-semibold leading-snug md:text-lg outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-3 focus-visible:after:ring-ring/50"
+      >
+        {a.name}
+      </button>
 
-      {/* Stats */}
-      <div className="font-mono text-sm flex items-center gap-x-2 flex-wrap">
-        <button
-          onClick={onSelect}
-          className="font-semibold hover:underline underline-offset-2"
-        >
-          {km(a.distance)} <span className="text-ink/40">km</span>
-        </button>
-        <span className="text-ink/30">·</span>
-        <span className="text-ink/60 text-xs">{duration(a.movingTime)}</span>
-        <span className="text-ink/30">·</span>
-        <span className="text-ink/60 text-xs">{pace(a.distance, a.movingTime)}</span>
-        {a.avgHr && (
-          <>
-            <span className="text-ink/30">·</span>
-            <span className="text-ink/60 text-xs flex items-center gap-0.5">
-              <HeartbeatIcon className="h-3 w-3" />
-              {Math.round(a.avgHr)} bpm
-            </span>
-          </>
-        )}
+      {/* Stats: big distance, then time / pace / HR */}
+      <div className="mt-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 sm:justify-start sm:gap-x-6 md:gap-x-10">
+        <div className="flex items-baseline gap-1">
+          <span className="font-display text-[2.75rem] md:text-6xl">
+            {km(a.distance)}
+          </span>
+          <span className="text-sm font-semibold text-muted-foreground">km</span>
+        </div>
+        <div className="flex gap-x-4 sm:gap-x-5 md:gap-x-8">
+          <RowStat label="Tempo" value={duration(a.movingTime)} />
+          <RowStat
+            label="Pace"
+            value={paceValue(a.distance, a.movingTime)}
+            unit={a.distance > 0 ? "/km" : undefined}
+          />
+          {a.avgHr && (
+            <RowStat
+              label={
+                <>
+                  <HeartbeatIcon className="size-3.5" weight="bold" />
+                  bpm
+                </>
+              }
+              value={String(Math.round(a.avgHr))}
+            />
+          )}
+        </div>
       </div>
-
-      {unlocked && <DeleteActivityButton activity={a} />}
     </li>
+  );
+}
+
+function RowStat({
+  label,
+  value,
+  unit,
+}: {
+  label: React.ReactNode;
+  value: string;
+  unit?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-base font-semibold tabular-nums md:text-lg">
+        {value}
+        {unit && (
+          <span className="ml-0.5 text-xs font-medium text-muted-foreground">
+            {unit}
+          </span>
+        )}
+      </span>
+      <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+        {label}
+      </span>
+    </div>
   );
 }
 
@@ -272,66 +338,41 @@ function DeleteActivityButton({ activity }: { activity: Activity }) {
   }
 
   return (
-    <AlertDialog.Root open={open} onOpenChange={setOpen}>
-      <AlertDialog.Trigger
-        className="text-[10px] uppercase tracking-[0.2em] text-ink/40 hover:text-ink mt-2 flex items-center gap-1 ml-auto"
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="xs"
+            className="text-muted-foreground hover:bg-background hover:text-foreground"
+          />
+        }
         aria-label="Excluir corrida"
       >
-        <TrashIcon className="h-3.5 w-3.5" />
-        excluir
-      </AlertDialog.Trigger>
-      <AlertDialog.Portal>
-        <AlertDialog.Backdrop className="fixed inset-0 bg-ink/40 z-40" />
-        <AlertDialog.Popup className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-card border border-line rounded-lg shadow-lg w-[min(92vw,24rem)] p-6 flex flex-col gap-4 outline-none">
-          <AlertDialog.Title className="text-xs uppercase tracking-[0.2em] text-ink/60 flex items-center gap-2">
-            <TrashIcon className="h-4 w-4" />
+        <TrashIcon data-icon="inline-start" />
+        Excluir
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2 font-display text-2xl">
+            <TrashIcon className="size-5" weight="bold" />
             Excluir corrida
-          </AlertDialog.Title>
-          <AlertDialog.Description className="font-mono text-sm">
+          </AlertDialogTitle>
+          <AlertDialogDescription className="font-semibold text-foreground">
             {activity.name} — {date(activity.startDate)}
-          </AlertDialog.Description>
-          <p className="font-mono text-xs text-ink/60">
+          </AlertDialogDescription>
+          <p className="mt-1 text-sm text-muted-foreground">
             Stats serão recalculados. Treino vinculado volta para "planejado". Re-sync vai trazer a corrida de novo.
           </p>
-          <div className="flex gap-2 justify-end">
-            <AlertDialog.Close
-              className="text-xs uppercase tracking-[0.2em] font-medium px-3 py-2 text-ink/60 hover:text-ink"
-              disabled={busy}
-            >
-              cancelar
-            </AlertDialog.Close>
-            <button
-              type="button"
-              onClick={confirm}
-              disabled={busy}
-              className="text-xs uppercase tracking-[0.2em] font-medium bg-accent text-white px-4 py-2 disabled:opacity-40"
-            >
-              {busy ? "excluindo…" : "excluir"}
-            </button>
-          </div>
-        </AlertDialog.Popup>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
-  );
-}
-
-function StatBox({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon?: React.ReactNode;
-}) {
-  return (
-    <div className="bg-card px-3 py-3">
-      <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.15em] sm:tracking-[0.2em] text-ink/60 flex items-center gap-1 leading-tight">
-        {icon}
-        <span>{label}</span>
-      </div>
-      <div className="text-xl sm:text-2xl font-bold font-mono mt-1 leading-none">{value}</div>
-    </div>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+          <Button variant="destructive" onClick={confirm} disabled={busy}>
+            {busy ? "Excluindo…" : "Excluir"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -346,8 +387,8 @@ function Status({
     <p
       className={
         tone === "error"
-          ? "border border-line rounded-lg p-5 bg-paper-2 font-mono text-sm"
-          : "text-ink/60 font-mono text-sm"
+          ? "rounded-2xl bg-card p-5 text-sm text-destructive"
+          : "text-sm text-muted-foreground"
       }
     >
       {children}

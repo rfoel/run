@@ -1,3 +1,5 @@
+import { cn } from "cn";
+
 type Props = {
   source: string;
   externalId: string;
@@ -13,7 +15,10 @@ export default function StravaLink({ source, externalId, className }: Props) {
       rel="noopener noreferrer"
       title="Abrir no Strava"
       aria-label="Abrir no Strava"
-      className={"inline-flex shrink-0 " + (className ?? "")}
+      className={cn(
+        "inline-flex shrink-0 rounded-full text-muted-foreground transition-colors hover:text-foreground",
+        className,
+      )}
       onClick={(e) => e.stopPropagation()}
     >
       <svg

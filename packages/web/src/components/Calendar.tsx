@@ -14,7 +14,8 @@ import { duration, km, localIso, pace } from "../lib/format.ts";
 import { PLAN_TYPE_COLORS, PLAN_TYPE_LABELS, TypeBadge } from "./TypeBadge.tsx";
 import { TreadmillIcon, isTreadmill } from "./TreadmillIcon.tsx";
 import StravaLink from "./StravaLink.tsx";
-
+import { Button } from "@/components/ui/button";
+import { cn } from "cn";
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
@@ -102,101 +103,124 @@ export default function Calendar({
 
   return (
     <section>
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <h2 className="font-mono text-base font-semibold uppercase tracking-wider">
-          {monthLabel}
-        </h2>
-        <div className="flex gap-1 text-[10px] uppercase tracking-[0.2em] font-medium">
-          <button
+      <div className="mb-5 flex items-center justify-between gap-4 md:mb-6">
+        <h2 className="font-display text-2xl md:text-3xl">{monthLabel}</h2>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant="secondary"
+            size="icon-lg"
             onClick={() => shift(-1)}
             aria-label="Mês anterior"
-            className="px-3 py-1 border border-line rounded-lg hover:bg-accent hover:text-white flex items-center"
           >
-            <CaretLeftIcon className="h-3.5 w-3.5" />
-          </button>
-          <button
+            <CaretLeftIcon weight="bold" />
+          </Button>
+          <Button
+            variant="secondary"
+            size="lg"
+            className="px-4"
             onClick={jumpToday}
-            className="px-3 py-1 border border-line rounded-lg hover:bg-accent hover:text-white"
           >
-            hoje
-          </button>
-          <button
+            Hoje
+          </Button>
+          <Button
+            variant="secondary"
+            size="icon-lg"
             onClick={() => shift(1)}
             aria-label="Próximo mês"
-            className="px-3 py-1 border border-line rounded-lg hover:bg-accent hover:text-white flex items-center"
           >
-            <CaretRightIcon className="h-3.5 w-3.5" />
-          </button>
+            <CaretRightIcon weight="bold" />
+          </Button>
         </div>
       </div>
 
       {loading && (
-        <p className="text-ink/60 font-mono text-xs mb-3">Carregando…</p>
+        <p className="mb-3 text-sm text-muted-foreground">Carregando…</p>
       )}
       {error && (
-        <p className="border border-line rounded-lg p-3 bg-paper-2 font-mono text-xs mb-3">
+        <p className="mb-3 rounded-2xl bg-card p-4 text-sm text-destructive">
           {error}
         </p>
       )}
 
       <div
-        className="border border-line rounded-lg touch-pan-y bg-card shadow-sm overflow-hidden"
+        className="touch-pan-y"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        <div className="grid grid-cols-7 gap-px bg-line">
+        <div className="mb-2 grid grid-cols-7 gap-1 sm:gap-2">
           {WEEKDAYS.map((d) => (
             <div
               key={d}
-              className="bg-card px-1 sm:px-2 py-1.5 sm:py-2 text-[9px] sm:text-[10px] uppercase tracking-[0.15em] sm:tracking-[0.2em] text-ink/60 font-medium text-center sm:text-left"
+              className="text-center text-xs font-medium text-muted-foreground sm:px-2 sm:text-left"
             >
               <span className="sm:hidden">{d.slice(0, 1)}</span>
               <span className="hidden sm:inline">{d}</span>
             </div>
           ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {grid.map((day) => {
             const iso = localIso(day);
             const inMonth = day.getMonth() === month.m;
             const isToday = iso === today;
             const isSelected = iso === selected;
             const slot = byDate.get(iso);
-
-            const bg = isSelected
-              ? "bg-accent text-white"
-              : !inMonth
-                ? "bg-paper-2 text-ink/45"
-                : "bg-card";
+            const tone: Tone = isSelected
+              ? "selected"
+              : inMonth
+                ? "default"
+                : "outside";
 
             return (
               <button
                 key={iso}
                 onClick={() => setSelected(isSelected ? null : iso)}
-                className={`min-h-[64px] sm:min-h-[92px] p-1 sm:p-1.5 flex flex-col gap-0.5 sm:gap-1 text-left min-w-0 ${bg}`}
+                aria-pressed={isSelected}
+                className={cn(
+                  "flex min-h-[68px] min-w-0 flex-col items-center gap-1 rounded-sm p-1 text-left transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:min-h-[112px] sm:items-stretch sm:gap-1.5 sm:rounded-xl sm:p-2",
+                  tone === "selected" && "bg-primary text-primary-foreground",
+                  tone === "default" && "bg-card hover:bg-accent",
+                  tone === "outside" &&
+                    "bg-card/40 text-muted-foreground hover:bg-card",
+                )}
               >
-                <div className="flex items-baseline justify-between gap-1 min-w-0">
-                  {isToday && !isSelected ? (
-                    <span className="font-mono text-[11px] sm:text-xs bg-accent text-white px-1 sm:px-1.5 py-0.5 font-bold rounded-md">
-                      {day.getDate()}
-                    </span>
-                  ) : (
-                    <span className="font-mono text-[11px] sm:text-xs">{day.getDate()}</span>
-                  )}
-                  {slot && slot.runs.length > 0 && (
-                    <span className="hidden sm:inline font-mono text-[10px] opacity-60 truncate">
-                      {km(totalDistance(slot.runs))}k
+                <div className="flex min-w-0 items-center justify-between gap-1">
+                  <span
+                    className={cn(
+                      "inline-flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums sm:size-7 sm:text-sm",
+                      isToday && "bg-volt font-bold text-volt-foreground",
+                    )}
+                  >
+                    {day.getDate()}
+                  </span>
+                  {slot && slot.runs.length > 1 && (
+                    <span
+                      className={cn(
+                        "hidden truncate text-xs font-semibold tabular-nums sm:inline",
+                        tone === "selected"
+                          ? "text-primary-foreground/70"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {km(totalDistance(slot.runs))} km
                     </span>
                   )}
                 </div>
-                <div className="flex flex-col gap-0.5 min-w-0">
+                <div
+                  className={cn(
+                    "flex w-full min-w-0 flex-col gap-1",
+                    tone === "outside" && "opacity-60",
+                  )}
+                >
                   {slot?.plans.map((p) => (
-                    <PlanPill
-                      key={p.id}
-                      plan={p}
-                      inverted={isSelected}
-                    />
+                    <PlanPill key={p.id} plan={p} />
                   ))}
                   {slot?.runs.map((a) => (
-                    <RunPill key={`${a.source}:${a.externalId}`} run={a} inverted={isSelected} />
+                    <RunPill
+                      key={`${a.source}:${a.externalId}`}
+                      run={a}
+                      tone={tone}
+                    />
                   ))}
                 </div>
               </button>
@@ -217,44 +241,63 @@ export default function Calendar({
   );
 }
 
-function PlanPill({ plan, inverted }: { plan: PlannedRun; inverted: boolean }) {
+type Tone = "default" | "outside" | "selected";
+
+function PlanPill({ plan }: { plan: PlannedRun }) {
   const suffix =
     plan.status === "done" ? " ✓" : plan.status === "skipped" ? " ✗" : "";
   return (
     <span
       title={planTooltip(plan)}
-      style={inverted ? undefined : { backgroundColor: PLAN_TYPE_COLORS[plan.type] }}
-      className={
-        "font-mono text-[9px] sm:text-[10px] uppercase tracking-wider px-1 sm:px-1.5 py-0.5 truncate rounded-md " +
-        (inverted ? "bg-white/20 text-white" : "text-white")
-      }
+      style={{ backgroundColor: PLAN_TYPE_COLORS[plan.type] }}
+      className="block h-1.5 truncate rounded-full sm:h-auto sm:px-2 sm:py-0.5 sm:text-[10px] sm:leading-tight sm:font-bold sm:tracking-wide sm:text-white sm:uppercase"
     >
-      {PLAN_TYPE_LABELS[plan.type]}
-      {plan.distance ? (
-        <span className="hidden sm:inline"> {km(plan.distance)}k</span>
-      ) : null}
-      {suffix}
+      {/* Mobile columns are too narrow for the label, so it's just a type-
+          colored bar there; the day detail spells it out. */}
+      <span className="sr-only sm:not-sr-only">
+        {PLAN_TYPE_LABELS[plan.type]}
+        {plan.distance ? (
+          <span className="tabular-nums"> {km(plan.distance)}k</span>
+        ) : null}
+        {suffix}
+      </span>
     </span>
   );
 }
 
-function RunPill({ run, inverted }: { run: Activity; inverted: boolean }) {
+function RunPill({ run, tone }: { run: Activity; tone: Tone }) {
+  const sub =
+    tone === "selected" ? "text-primary-foreground/70" : "text-muted-foreground";
   return (
     <span
       title={run.name}
-      className={
-        "font-mono text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 truncate border rounded-md " +
-        (inverted
-          ? "border-white/40 text-white"
-          : "border-line text-ink/80 bg-card")
-      }
-    >
-      {isTreadmill(run) && (
-        <TreadmillIcon className="inline h-2.5 w-2.5 mr-0.5 align-text-bottom" />
+      className={cn(
+        "flex min-w-0 flex-col items-center rounded-sm px-0.5 py-1 sm:items-start sm:rounded-md sm:px-2 sm:py-1.5",
+        tone === "selected" && "bg-primary-foreground/15",
+        tone === "default" && "bg-background",
+        tone === "outside" && "bg-card",
       )}
-      <span className="sm:hidden">{km(run.distance)}k</span>
-      <span className="hidden sm:inline">
-        {km(run.distance)}k · {pace(run.distance, run.movingTime)}
+    >
+      <span className="flex min-w-0 max-w-full items-baseline gap-0.5">
+        {isTreadmill(run) && (
+          <TreadmillIcon
+            className={cn("hidden h-3 w-3 shrink-0 self-center sm:inline", sub)}
+          />
+        )}
+        <span className="truncate font-display text-[15px] leading-none sm:text-xl">
+          {km(run.distance)}
+        </span>
+        <span className={cn("hidden text-[10px] font-semibold sm:inline", sub)}>
+          km
+        </span>
+      </span>
+      <span
+        className={cn(
+          "hidden max-w-full truncate text-[11px] tabular-nums sm:block",
+          sub,
+        )}
+      >
+        {pace(run.distance, run.movingTime)}
       </span>
     </span>
   );
@@ -280,34 +323,43 @@ function DayDetail({
   });
   const empty = slot.plans.length === 0 && slot.runs.length === 0;
   return (
-    <div className="mt-6 border border-line rounded-lg p-5 bg-card shadow-sm">
-      <div className="text-xs uppercase tracking-[0.2em] text-ink/60 mb-3">
-        {label}
-      </div>
+    <div className="mt-8 rounded-2xl bg-card p-5 sm:p-6">
+      <div className="mb-5 font-display text-2xl md:text-3xl">{label}</div>
       {empty && (
-        <p className="font-mono text-sm text-ink/60">
+        <p className="text-sm text-muted-foreground">
           Nada planejado e nenhuma corrida.
         </p>
       )}
       {slot.plans.length > 0 && (
-        <div className="mb-4">
-          <h3 className="text-[10px] uppercase tracking-[0.2em] text-ink/60 mb-2">
+        <div className="mb-6 last:mb-0">
+          <h3 className="mb-2 text-xs font-medium text-muted-foreground">
             Planejado
           </h3>
-          <ul className="border border-line rounded-lg divide-y divide-line bg-card shadow-sm overflow-hidden">
+          <ul className="flex flex-col gap-2">
             {slot.plans.map((p) => (
               <li
                 key={p.id}
-                className="px-4 py-3 flex items-start justify-between gap-4"
+                className="flex flex-col gap-2 rounded-xl bg-background px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
               >
-                <div>
+                <div className="min-w-0">
                   <TypeBadge type={p.type} className="mr-2" />
                   {p.notes && <span className="text-sm">{p.notes}</span>}
                 </div>
-                <div className="text-right font-mono text-sm">
-                  <div>{p.distance ? `${km(p.distance)} km` : "—"}</div>
+                <div className="shrink-0 sm:text-right">
+                  <div className="font-display text-2xl">
+                    {p.distance ? (
+                      <>
+                        {km(p.distance)}
+                        <span className="ml-0.5 font-sans text-xs font-semibold text-muted-foreground normal-case">
+                          km
+                        </span>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </div>
                   {p.paceTargetSec && (
-                    <div className="text-ink/60 text-xs">
+                    <div className="mt-1 text-xs text-muted-foreground tabular-nums">
                       {paceLabel(p.paceTargetSec)}
                     </div>
                   )}
@@ -319,36 +371,47 @@ function DayDetail({
       )}
       {slot.runs.length > 0 && (
         <div>
-          <h3 className="text-[10px] uppercase tracking-[0.2em] text-ink/60 mb-2">
+          <h3 className="mb-2 text-xs font-medium text-muted-foreground">
             Corrida
           </h3>
-          <ul className="border border-line rounded-lg divide-y divide-line bg-card shadow-sm overflow-hidden">
+          <ul className="flex flex-col gap-2">
             {slot.runs.map((a) => (
               <li
                 key={`${a.source}:${a.externalId}`}
-                className="px-4 py-3 flex items-start justify-between gap-4 hover:bg-paper-2"
+                className="flex flex-col gap-1 rounded-xl bg-background px-4 py-3 transition-colors hover:bg-accent sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                 onMouseEnter={() => onPrefetch(a.source, a.externalId)}
                 onFocus={() => onPrefetch(a.source, a.externalId)}
                 onTouchStart={() => onPrefetch(a.source, a.externalId)}
               >
-                <div className="font-semibold truncate flex items-center gap-2 min-w-0">
+                <div className="flex min-w-0 items-center gap-2 font-semibold">
                   <button
                     onClick={() => onOpenActivity(a.source, a.externalId)}
-                    className="truncate text-left hover:underline underline-offset-2"
+                    className="truncate text-left underline-offset-2 hover:underline"
                   >
                     {a.name}
                   </button>
-                  {isTreadmill(a) && <TreadmillIcon />}
-                  <StravaLink source={a.source} externalId={a.externalId} />
+                  {isTreadmill(a) && (
+                    <TreadmillIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  )}
+                  <StravaLink
+                    source={a.source}
+                    externalId={a.externalId}
+                    className="text-muted-foreground hover:text-foreground"
+                  />
                 </div>
                 <button
                   onClick={() => onOpenActivity(a.source, a.externalId)}
-                  className="text-right font-mono text-sm shrink-0"
+                  className="shrink-0 text-left sm:text-right"
                 >
-                  <div>
-                    {km(a.distance)} km · {duration(a.movingTime)}
+                  <div className="font-display text-3xl">
+                    {km(a.distance)}
+                    <span className="ml-0.5 font-sans text-xs font-semibold text-muted-foreground normal-case">
+                      km
+                    </span>
                   </div>
-                  <div className="text-ink/60 text-xs flex items-center justify-end gap-2">
+                  <div className="mt-1 flex items-center gap-1.5 sm:justify-end text-xs text-muted-foreground tabular-nums">
+                    <span>{duration(a.movingTime)}</span>
+                    <span>·</span>
                     <span>{pace(a.distance, a.movingTime)}</span>
                     {a.avgHr && (
                       <>
