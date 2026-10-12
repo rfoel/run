@@ -10,6 +10,7 @@ import { userPk, USER_ID } from "./user.ts";
 import type { StoredBest } from "./bestEfforts.ts";
 import type { Metrics, Split } from "./track.ts";
 import { scopesForDate, statsKey } from "./stats.ts";
+import { routeThumb } from "./routeThumb.ts";
 
 export type { Split } from "./track.ts";
 
@@ -34,6 +35,12 @@ export type Activity = {
   hasHr: boolean;
   splits: Split[];
   polyline?: string;
+  /**
+   * The route simplified to a few dozen points (encoded at precision 4), for
+   * the thumbnails in the run list and calendar. Unlike `polyline` it is small
+   * enough to ship with list responses.
+   */
+  thumb?: string;
   /** True for runs with no GPS track (treadmill / manual). */
   indoor?: boolean;
   /**
@@ -80,6 +87,7 @@ export function buildActivity(args: {
     hasHr: args.metrics.hasHr,
     splits: args.metrics.splits,
     polyline: args.metrics.polyline,
+    thumb: routeThumb(args.metrics.polyline),
     indoor: args.metrics.polyline ? undefined : true,
     bestEfforts: args.bestEfforts?.length ? args.bestEfforts : undefined,
     createdAt: now,
@@ -209,6 +217,25 @@ export async function setActivityBestEfforts(
   );
 }
 
+export async function setActivityThumb(
+  source: ActivitySource,
+  externalId: string,
+  thumb: string,
+  userId: string = USER_ID,
+) {
+  await ddb.send(
+    new UpdateCommand({
+      TableName: tableName(),
+      Key: { pk: userPk(userId), sk: activitySk(source, externalId) },
+      UpdateExpression: "SET thumb = :t, updatedAt = :now",
+      ExpressionAttributeValues: {
+        ":t": thumb,
+        ":now": new Date().toISOString(),
+      },
+    }),
+  );
+}
+
 export async function getActivity(
   source: ActivitySource,
   externalId: string,
@@ -323,6 +350,8 @@ const SUMMARY_FIELDS = [
   "avgCadence",
   "hasHr",
   "indoor",
+  // A few dozen points; what the list and calendar draw the route from.
+  "thumb",
   // Projected despite the "summary" framing: it's a handful of numbers, and
   // having it here is what lets /records aggregate in one query.
   "bestEfforts",

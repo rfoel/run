@@ -13,6 +13,7 @@ import {
 import { duration, km, localIso, pace } from "../lib/format.ts";
 import { PLAN_TYPE_COLORS, PLAN_TYPE_LABELS, TypeBadge } from "./TypeBadge.tsx";
 import { TreadmillIcon, isTreadmill } from "./TreadmillIcon.tsx";
+import RouteThumb from "./RouteThumb.tsx";
 import StravaLink from "./StravaLink.tsx";
 import {
   ComplianceMeta,
@@ -305,33 +306,46 @@ function RunPill({ run, tone }: { run: Activity; tone: Tone }) {
     <span
       title={run.name}
       className={cn(
-        "flex min-w-0 flex-col items-center rounded-sm px-0.5 py-1 sm:items-start sm:rounded-md sm:px-2 sm:py-1.5",
+        "flex min-w-0 items-center justify-center gap-1.5 rounded-sm px-0.5 py-1 sm:justify-between sm:rounded-md sm:px-2 sm:py-1.5",
         tone === "selected" && "bg-primary-foreground/15",
         tone === "default" && "bg-background",
         tone === "outside" && "bg-card",
       )}
     >
-      <span className="flex min-w-0 max-w-full items-baseline gap-0.5">
-        {isTreadmill(run) && (
-          <TreadmillIcon
-            className={cn("hidden h-3 w-3 shrink-0 self-center sm:inline", sub)}
-          />
-        )}
-        <span className="truncate font-display text-[15px] leading-none sm:text-xl">
-          {km(run.distance)}
+      <span className="flex min-w-0 flex-col items-center sm:items-start">
+        <span className="flex min-w-0 max-w-full items-baseline gap-0.5">
+          {isTreadmill(run) && (
+            <TreadmillIcon
+              className={cn("hidden h-3 w-3 shrink-0 self-center sm:inline", sub)}
+            />
+          )}
+          <span className="truncate font-display text-[15px] leading-none sm:text-xl">
+            {km(run.distance)}
+          </span>
+          <span className={cn("hidden text-[10px] font-semibold sm:inline", sub)}>
+            km
+          </span>
         </span>
-        <span className={cn("hidden text-[10px] font-semibold sm:inline", sub)}>
-          km
+        <span
+          className={cn(
+            "hidden max-w-full truncate text-[11px] tabular-nums sm:block",
+            sub,
+          )}
+        >
+          {pace(run.distance, run.movingTime)}
         </span>
       </span>
-      <span
+      {/* Desktop only: a phone's day tile is too narrow for a route. */}
+      <RouteThumb
+        thumb={run.thumb}
+        strokeWidth={2}
         className={cn(
-          "hidden max-w-full truncate text-[11px] tabular-nums sm:block",
-          sub,
+          "hidden size-8 sm:block",
+          tone === "selected" && "text-primary-foreground",
+          tone === "default" && "text-foreground dark:text-volt",
+          tone === "outside" && "text-muted-foreground",
         )}
-      >
-        {pace(run.distance, run.movingTime)}
-      </span>
+      />
     </span>
   );
 }
@@ -431,6 +445,10 @@ function DayDetail({
                 onTouchStart={() => onPrefetch(a.source, a.externalId)}
               >
                 <div className="flex min-w-0 items-center gap-2 font-semibold">
+                  <RouteThumb
+                    thumb={a.thumb}
+                    className="mr-1 size-12 text-foreground dark:text-volt"
+                  />
                   <button
                     onClick={() => onOpenActivity(a.source, a.externalId)}
                     className="truncate text-left underline-offset-2 hover:underline"

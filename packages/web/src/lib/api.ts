@@ -48,6 +48,8 @@ export type Activity = {
   maxHr?: number;
   avgCadence?: number;
   polyline?: string;
+  /** The route simplified for thumbnails (precision 4), shipped with lists. */
+  thumb?: string;
   indoor?: boolean;
   /** Computed at ingest — see @run/core/bestEfforts. */
   bestEfforts?: StoredBest[];

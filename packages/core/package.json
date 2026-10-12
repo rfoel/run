@@ -21,7 +21,8 @@
     "./parsers/garmin": "./src/parsers/garmin.ts",
     "./parsers/gpx": "./src/parsers/gpx.ts",
     "./workoutText": "./src/workoutText.ts",
-    "./workoutTypes": "./src/workoutTypes.ts"
+    "./workoutTypes": "./src/workoutTypes.ts",
+    "./routeThumb": "./src/routeThumb.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

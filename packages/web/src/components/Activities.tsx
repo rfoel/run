@@ -28,6 +28,7 @@ import {
 } from "../lib/queries.ts";
 import { ActivitiesSkeleton } from "./Skeleton.tsx";
 import { date, duration, km, pace } from "../lib/format.ts";
+import RouteThumb from "./RouteThumb.tsx";
 import StravaLink from "./StravaLink.tsx";
 import { TreadmillIcon, isTreadmill } from "./TreadmillIcon.tsx";
 
@@ -237,59 +238,65 @@ function ActivityRow({
 }) {
   return (
     <li
-      className="relative rounded-2xl bg-card p-4 transition-colors hover:bg-accent md:px-6 md:py-5"
+      className="relative flex items-center gap-4 rounded-2xl bg-card p-4 transition-colors hover:bg-accent md:gap-6 md:px-6 md:py-5"
       onMouseEnter={onPrefetch}
       onFocus={onPrefetch}
       onTouchStart={onPrefetch}
     >
-      {/* Date + sport, with the per-run actions on the right */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-xs font-medium text-muted-foreground first-letter:uppercase">
-          {date(a.startDate)} · {a.sportType}
+      <div className="min-w-0 flex-1">
+        {/* Date + sport, with the per-run actions on the right */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-xs font-medium text-muted-foreground first-letter:uppercase">
+            {date(a.startDate)} · {a.sportType}
+          </div>
+          <div className="relative z-10 flex shrink-0 items-center gap-2 text-muted-foreground">
+            {isTreadmill(a) && <TreadmillIcon />}
+            <StravaLink source={a.source} externalId={a.externalId} />
+            {unlocked && <DeleteActivityButton activity={a} />}
+          </div>
         </div>
-        <div className="relative z-10 flex shrink-0 items-center gap-2 text-muted-foreground">
-          {isTreadmill(a) && <TreadmillIcon />}
-          <StravaLink source={a.source} externalId={a.externalId} />
-          {unlocked && <DeleteActivityButton activity={a} />}
-        </div>
-      </div>
 
-      {/* The name's button stretches over the whole tile (after:inset-0). */}
-      <button
-        onClick={onSelect}
-        className="mt-1 block text-left font-semibold leading-snug md:text-lg outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-3 focus-visible:after:ring-ring/50"
-      >
-        {a.name}
-      </button>
+        {/* The name's button stretches over the whole tile (after:inset-0). */}
+        <button
+          onClick={onSelect}
+          className="mt-1 block text-left font-semibold leading-snug md:text-lg outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-3 focus-visible:after:ring-ring/50"
+        >
+          {a.name}
+        </button>
 
-      {/* Stats: big distance, then time / pace / HR */}
-      <div className="mt-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 sm:justify-start sm:gap-x-6 md:gap-x-10">
-        <div className="flex items-baseline gap-1">
-          <span className="font-display text-[2.75rem] md:text-6xl">
-            {km(a.distance)}
-          </span>
-          <span className="text-sm font-semibold text-muted-foreground">km</span>
-        </div>
-        <div className="flex gap-x-4 sm:gap-x-5 md:gap-x-8">
-          <RowStat label="Tempo" value={duration(a.movingTime)} />
-          <RowStat
-            label="Pace"
-            value={paceValue(a.distance, a.movingTime)}
-            unit={a.distance > 0 ? "/km" : undefined}
-          />
-          {a.avgHr && (
+        {/* Stats: big distance, then time / pace / HR */}
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 sm:justify-start sm:gap-x-6 md:gap-x-10">
+          <div className="flex items-baseline gap-1">
+            <span className="font-display text-[2.75rem] md:text-6xl">
+              {km(a.distance)}
+            </span>
+            <span className="text-sm font-semibold text-muted-foreground">km</span>
+          </div>
+          <div className="flex gap-x-4 sm:gap-x-5 md:gap-x-8">
+            <RowStat label="Tempo" value={duration(a.movingTime)} />
             <RowStat
-              label={
-                <>
-                  <HeartbeatIcon className="size-3.5" weight="bold" />
-                  bpm
-                </>
-              }
-              value={String(Math.round(a.avgHr))}
+              label="Pace"
+              value={paceValue(a.distance, a.movingTime)}
+              unit={a.distance > 0 ? "/km" : undefined}
             />
-          )}
+            {a.avgHr && (
+              <RowStat
+                label={
+                  <>
+                    <HeartbeatIcon className="size-3.5" weight="bold" />
+                    bpm
+                  </>
+                }
+                value={String(Math.round(a.avgHr))}
+              />
+            )}
+          </div>
         </div>
       </div>
+      <RouteThumb
+        thumb={a.thumb}
+        className="size-16 text-foreground md:size-24 dark:text-volt"
+      />
     </li>
   );
 }
