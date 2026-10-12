@@ -19,11 +19,11 @@ import { Skeleton } from "./Skeleton.tsx";
 const LINE_OPACITY = { dark: 0.22, light: 0.18 };
 const LINE_WEIGHT = 2.5;
 
-// The map fills what is left of the viewport under the shell: header, the big
-// page title, this page's heading row and the floating dock at the bottom — so
+// The map fills what is left of the viewport under the shell: the big page
+// title, this page's heading row and the floating dock at the bottom — so
 // the map's corners (zoom, totals chip) never sit under the dock.
 const MAP_HEIGHT =
-  "h-[calc(100svh-17.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] md:h-[calc(100svh-24rem)] min-h-80";
+  "h-[calc(100svh-15.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] md:h-[calc(100svh-22rem)] min-h-80";
 
 // Leaflet's zoom buttons, flattened into the theme.
 const CONTROLS =

@@ -27,8 +27,8 @@ import {
 } from "react-router-dom";
 import Activities from "./components/Activities.tsx";
 import Calendar from "./components/Calendar.tsx";
-import Logo from "./components/Logo.tsx";
 import Plan from "./components/Plan.tsx";
+import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -77,6 +77,10 @@ const TABS: Record<Tab, TabMeta> = {
 
 const TAB_ORDER: Tab[] = ["calendar", "activities", "plan", "map", "trend"];
 
+/** The floating glass surface shared by the dock and the lock bubble. */
+const GLASS =
+  "pointer-events-auto rounded-full border border-foreground/10 bg-background/65 shadow-[0_12px_40px_-12px_rgb(0_0_0/0.45)] backdrop-blur-2xl backdrop-saturate-150 dark:bg-card/75";
+
 // Routes live on the data router (router.tsx); the unlocked state stays here
 // in the layout and reaches route elements through context.
 const UnlockContext = createContext(false);
@@ -115,29 +119,9 @@ export default function App() {
 
   return (
     <div className="min-h-full overflow-x-clip pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-32">
-      {/* Navigation lives in the floating dock, so the top is just the logo
-          and the lock, and it scrolls away with the page. */}
-      <header className="pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4 sm:px-6 md:h-16">
-          <Link to="/calendario" viewTransition className="shrink-0">
-            <Logo className="h-5 w-auto md:h-6" />
-          </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={unlocked ? lock : () => setUnlockOpen(true)}
-            title={unlocked ? "Trancar (limpa senha)" : "Destrancar ações de escrita"}
-            aria-label={unlocked ? "Trancar" : "Destrancar"}
-          >
-            {unlocked ? (
-              <LockOpenIcon className="size-5" />
-            ) : (
-              <LockIcon className="size-5" />
-            )}
-          </Button>
-        </div>
-      </header>
-      <main className="mx-auto max-w-5xl px-4 pt-2 pb-10 sm:px-6 md:pt-6">
+      {/* No top bar: the logo lives in the page's monogram background, and
+          navigation and the lock float at the bottom. */}
+      <main className="mx-auto max-w-5xl px-4 pt-[calc(env(safe-area-inset-top)+2rem)] pb-10 sm:px-6 md:pt-14">
         {isTabRoot && (
           <h1 className="font-display mb-6 text-6xl md:mb-10 md:text-8xl">
             {TABS[activeTab].label}
@@ -149,33 +133,53 @@ export default function App() {
       </main>
       {/* A floating, translucent dock on every screen size; the page scrolls
           under it. Phones get a full-width tab bar, wider screens a compact
-          pill with icon and label side by side. */}
+          pill with icon and label side by side. The lock is its own bubble
+          beside it. */}
       <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-6">
-        <div className="pointer-events-auto mx-auto grid max-w-md grid-cols-5 gap-1 rounded-full border border-foreground/10 bg-background/65 p-1.5 shadow-[0_12px_40px_-12px_rgb(0_0_0/0.45)] backdrop-blur-2xl backdrop-saturate-150 md:flex md:max-w-fit md:p-2 dark:bg-card/75">
-          {TAB_ORDER.map((t) => {
-            const { label, Icon, path } = TABS[t];
-            const selected = t === activeTab;
-            return (
-              <Link
-                key={t}
-                to={path}
-                viewTransition
-                aria-current={selected ? "page" : undefined}
-                className={
-                  "flex flex-col items-center gap-0.5 rounded-full py-2 text-[10px] font-semibold transition-colors md:flex-row md:gap-2 md:px-5 md:py-2.5 md:text-sm " +
-                  (selected
-                    ? "bg-foreground/10 text-foreground"
-                    : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground active:bg-foreground/5")
-                }
-              >
-                <Icon
-                  className="size-[22px] md:size-5"
-                  weight={selected ? "fill" : "regular"}
-                />
-                {label}
-              </Link>
-            );
-          })}
+        <div className="mx-auto flex max-w-md items-center gap-2 md:max-w-fit">
+          <div className={cn(GLASS, "grid flex-1 grid-cols-5 gap-1 p-1.5 md:flex md:p-2")}>
+            {TAB_ORDER.map((t) => {
+              const { label, Icon, path } = TABS[t];
+              const selected = t === activeTab;
+              return (
+                <Link
+                  key={t}
+                  to={path}
+                  viewTransition
+                  aria-current={selected ? "page" : undefined}
+                  className={
+                    "flex flex-col items-center gap-0.5 rounded-full py-2 text-[10px] font-semibold transition-colors md:flex-row md:gap-2 md:px-5 md:py-2.5 md:text-sm " +
+                    (selected
+                      ? "bg-foreground/10 text-foreground"
+                      : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground active:bg-foreground/5")
+                  }
+                >
+                  <Icon
+                    className="size-[22px] md:size-5"
+                    weight={selected ? "fill" : "regular"}
+                  />
+                  {label}
+                </Link>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={unlocked ? lock : () => setUnlockOpen(true)}
+            title={unlocked ? "Trancar (limpa senha)" : "Destrancar ações de escrita"}
+            aria-label={unlocked ? "Trancar" : "Destrancar"}
+            className={cn(
+              GLASS,
+              "flex size-16 shrink-0 items-center justify-center transition-colors hover:bg-foreground/5 md:size-[58px]",
+              unlocked ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {unlocked ? (
+              <LockOpenIcon className="size-6 md:size-5" weight="bold" />
+            ) : (
+              <LockIcon className="size-6 md:size-5" />
+            )}
+          </button>
         </div>
       </nav>
       <ScrollRestoration />
