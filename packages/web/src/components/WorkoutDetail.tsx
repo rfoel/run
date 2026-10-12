@@ -359,6 +359,8 @@ function Hero({
 
   return (
     <header className="flex flex-col gap-6">
+      {/* React hoists this into <head>. */}
+      <title>{`${a.name} · ${kmFmt(a.distance)} km · run`}</title>
       <div className="min-w-0">
         <p className="text-sm text-muted-foreground first-letter:uppercase">
           {date(a.startDate)}

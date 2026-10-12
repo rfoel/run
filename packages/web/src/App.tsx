@@ -119,13 +119,17 @@ export default function App() {
 
   return (
     <div className="min-h-full overflow-x-clip pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-32">
-      {/* No top bar: the logo lives in the page's monogram background,
-          navigation floats at the bottom and the lock in the top corner. */}
+      {/* No top bar: navigation floats at the bottom and the lock in the top
+          corner. */}
       <main className="mx-auto max-w-5xl px-4 pt-[calc(env(safe-area-inset-top)+2rem)] pb-10 sm:px-6 md:pt-14">
         {isTabRoot && (
-          <h1 className="font-display mb-6 text-6xl md:mb-10 md:text-8xl">
-            {TABS[activeTab].label}
-          </h1>
+          <>
+            {/* React hoists this into <head>; the detail page sets its own. */}
+            <title>{`${TABS[activeTab].label} · run`}</title>
+            <h1 className="font-display mb-6 text-6xl md:mb-10 md:text-8xl">
+              {TABS[activeTab].label}
+            </h1>
+          </>
         )}
         <UnlockContext.Provider value={unlocked}>
           <Outlet />
