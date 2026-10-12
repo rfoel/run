@@ -33,6 +33,18 @@ export const date = (iso: string) =>
     day: "numeric",
   });
 
+/** "Hoje · 07:12", "Ontem · 18:40", else "dom., 11 de out. · 07:30". */
+export function runWhen(iso: string): string {
+  const d = new Date(iso);
+  const time = d.toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
+  const daysAgo = Math.round(
+    (new Date(localIso(new Date())).getTime() - new Date(localIso(d)).getTime()) /
+      86_400_000,
+  );
+  const day = daysAgo === 0 ? "Hoje" : daysAgo === 1 ? "Ontem" : date(iso);
+  return `${day} · ${time}`;
+}
+
 /** Local-timezone YYYY-MM-DD (toISOString would shift across midnight UTC). */
 export function localIso(d: Date) {
   const y = d.getFullYear();

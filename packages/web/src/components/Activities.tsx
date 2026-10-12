@@ -2,9 +2,11 @@ import {
   ArrowsClockwiseIcon,
   HeartbeatIcon,
   TrashIcon,
+  TrophyIcon,
   WarningIcon,
 } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { aggregateRecords } from "@run/core/bestEfforts";
 import { cn } from "cn";
 import {
   AlertDialog,
@@ -16,6 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { type Activity, type Stat } from "../lib/api.ts";
@@ -27,7 +30,7 @@ import {
   useSyncGarmin,
 } from "../lib/queries.ts";
 import { ActivitiesSkeleton } from "./Skeleton.tsx";
-import { date, duration, km, pace } from "../lib/format.ts";
+import { date, duration, km, pace, runWhen } from "../lib/format.ts";
 import RouteThumb from "./RouteThumb.tsx";
 import StravaLink from "./StravaLink.tsx";
 import { TreadmillIcon, isTreadmill } from "./TreadmillIcon.tsx";
@@ -170,25 +173,12 @@ export default function Activities({
         </dl>
       </section>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="font-display text-2xl md:text-3xl">Recentes</h2>
-        <ul className="flex flex-col gap-2">
-          {items.slice(0, 100).map((a) => (
-            <ActivityRow
-              key={`${a.source}:${a.externalId}`}
-              activity={a}
-              unlocked={unlocked}
-              onSelect={() => onOpenActivity(a.source, a.externalId)}
-              onPrefetch={() => prefetch(a.source, a.externalId)}
-            />
-          ))}
-        </ul>
-        {items.length > 100 && (
-          <p className="text-center text-xs font-medium text-muted-foreground">
-            Mostrando 100 de {items.length}
-          </p>
-        )}
-      </section>
+      <RunFeed
+        items={items}
+        unlocked={unlocked}
+        onOpenActivity={onOpenActivity}
+        onPrefetch={prefetch}
+      />
     </div>
   );
 }
@@ -225,47 +215,169 @@ function SummaryStat({
   );
 }
 
+/** Runs shown at first, and added per "Mostrar mais". */
+const PAGE = 60;
+
+const SPORT_LABELS: Record<string, string> = {
+  treadmill_running: "Esteira",
+  indoor_running: "Esteira",
+  trail_running: "Trilha",
+  track_running: "Pista",
+};
+
+/** Local "YYYY-MM" of a run, so a late-evening run stays in its own month. */
+const monthKey = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const monthLabel = (key: string) =>
+  new Date(`${key}-01T12:00:00`).toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
+
+/**
+ * The run list as a feed grouped by month, NRC-style: each month opens with
+ * its totals (over every run that month, not just the ones shown). Runs that
+ * hold an all-time record get a volt trophy.
+ */
+function RunFeed({
+  items,
+  unlocked,
+  onOpenActivity,
+  onPrefetch,
+}: {
+  items: Activity[];
+  unlocked: boolean;
+  onOpenActivity: (source: string, externalId: string) => void;
+  onPrefetch: (source: string, externalId: string) => void;
+}) {
+  const [shown, setShown] = useState(PAGE);
+
+  const { months, records } = useMemo(() => {
+    const totals = new Map<string, { km: number; runs: number }>();
+    for (const a of items) {
+      const key = monthKey(a.startDate);
+      const t = totals.get(key) ?? { km: 0, runs: 0 };
+      t.km += a.distance / 1000;
+      t.runs++;
+      totals.set(key, t);
+    }
+    // The list carries every run's best efforts, so the record holders come
+    // for free; only distances from 1K up, where a "record" means something.
+    const records = new Map<string, string[]>();
+    for (const r of aggregateRecords(items)) {
+      if (r.meters < 1000) continue;
+      const key = `${r.source}#${r.externalId}`;
+      records.set(key, [...(records.get(key) ?? []), r.label]);
+    }
+    return { months: totals, records };
+  }, [items]);
+
+  const groups: Array<{ key: string; runs: Activity[] }> = [];
+  for (const a of items.slice(0, shown)) {
+    const key = monthKey(a.startDate);
+    const last = groups[groups.length - 1];
+    if (last?.key === key) last.runs.push(a);
+    else groups.push({ key, runs: [a] });
+  }
+
+  return (
+    <div className="flex flex-col gap-10">
+      {groups.map((g) => {
+        const t = months.get(g.key)!;
+        return (
+          <section key={g.key} className="flex flex-col gap-3">
+            <header className="flex items-baseline justify-between gap-4">
+              <h2 className="font-display text-2xl md:text-3xl">
+                {monthLabel(g.key)}
+              </h2>
+              <p className="text-sm tabular-nums text-muted-foreground">
+                <span className="font-semibold text-foreground">
+                  {t.km.toFixed(1).replace(".", ",")} km
+                </span>{" "}
+                · {t.runs} {t.runs === 1 ? "corrida" : "corridas"}
+              </p>
+            </header>
+            <ul className="flex flex-col gap-2">
+              {g.runs.map((a) => (
+                <ActivityRow
+                  key={`${a.source}:${a.externalId}`}
+                  activity={a}
+                  records={records.get(`${a.source}#${a.externalId}`)}
+                  unlocked={unlocked}
+                  onSelect={() => onOpenActivity(a.source, a.externalId)}
+                  onPrefetch={() => onPrefetch(a.source, a.externalId)}
+                />
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+      {items.length > shown && (
+        <Button
+          variant="secondary"
+          className="self-center"
+          onClick={() => setShown((n) => n + PAGE)}
+        >
+          Mostrar mais
+          <span className="font-normal text-muted-foreground">
+            {shown} de {items.length}
+          </span>
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function ActivityRow({
   activity: a,
+  records,
   unlocked,
   onSelect,
   onPrefetch,
 }: {
   activity: Activity;
+  records?: string[];
   unlocked: boolean;
   onSelect: () => void;
   onPrefetch: () => void;
 }) {
+  const sport = SPORT_LABELS[a.sportType] ?? (isTreadmill(a) ? "Esteira" : undefined);
   return (
     <li
-      className="relative flex items-center gap-4 rounded-2xl bg-card p-4 transition-colors hover:bg-accent md:gap-6 md:px-6 md:py-5"
+      className="relative flex items-center gap-4 rounded-2xl bg-card p-3 pr-4 transition-colors hover:bg-accent md:gap-5 md:p-4 md:pr-6"
       onMouseEnter={onPrefetch}
       onFocus={onPrefetch}
       onTouchStart={onPrefetch}
     >
-      {/* The route first, NRC-style; a treadmill run keeps the slot so the
-          text still lines up with its neighbours. */}
-      {a.thumb ? (
-        <RouteThumb
-          thumb={a.thumb}
-          className="size-16 text-foreground md:size-24 dark:text-volt"
-        />
-      ) : (
-        isTreadmill(a) && (
-          <div className="flex size-16 shrink-0 items-center justify-center md:size-24">
-            <TreadmillIcon className="size-8 text-muted-foreground md:size-10" />
-          </div>
-        )
-      )}
-      <div className="min-w-0 flex-1">
-        {/* Date + sport, with the per-run actions on the right */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-xs font-medium text-muted-foreground first-letter:uppercase">
-            {date(a.startDate)} · {a.sportType}
-          </div>
-          <div className="relative z-10 flex shrink-0 items-center gap-2 text-muted-foreground">
-            {/* Only when the route slot isn't already showing it. */}
-            {isTreadmill(a) && a.thumb && <TreadmillIcon />}
+      {/* The route, framed like a map tile. Treadmill runs keep the frame. */}
+      <div className="flex size-20 shrink-0 items-center justify-center rounded-xl bg-background p-2.5 md:size-24 md:p-3">
+        {a.thumb ? (
+          <RouteThumb
+            thumb={a.thumb}
+            strokeWidth={1.75}
+            className="size-full text-foreground dark:text-volt"
+          />
+        ) : (
+          isTreadmill(a) && (
+            <TreadmillIcon className="size-8 text-muted-foreground md:size-9" />
+          )
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate text-xs font-medium text-muted-foreground first-letter:uppercase">
+            {runWhen(a.startDate)}
+          </span>
+          {sport && (
+            <Badge variant="secondary" className="h-4.5 px-1.5 text-[10px]">
+              {sport}
+            </Badge>
+          )}
+          <div className="relative z-10 ml-auto flex shrink-0 items-center gap-2 text-muted-foreground">
             <StravaLink source={a.source} externalId={a.externalId} />
             {unlocked && <DeleteActivityButton activity={a} />}
           </div>
@@ -274,66 +386,81 @@ function ActivityRow({
         {/* The name's button stretches over the whole tile (after:inset-0). */}
         <button
           onClick={onSelect}
-          className="mt-1 block text-left font-semibold leading-snug md:text-lg outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-3 focus-visible:after:ring-ring/50"
+          className="truncate text-left font-semibold leading-snug outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-3 focus-visible:after:ring-ring/50 md:text-lg"
         >
           {a.name}
         </button>
 
-        {/* Stats: big distance, then time / pace / HR */}
-        <div className="mt-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 sm:justify-start sm:gap-x-6 md:gap-x-10">
+        <div className="mt-1 flex flex-col gap-1.5 sm:flex-row sm:items-end sm:gap-8">
           <div className="flex items-baseline gap-1">
-            <span className="font-display text-[2.75rem] md:text-6xl">
+            <span className="font-display text-4xl leading-none md:text-5xl">
               {km(a.distance)}
             </span>
             <span className="text-sm font-semibold text-muted-foreground">km</span>
           </div>
-          <div className="flex gap-x-4 sm:gap-x-5 md:gap-x-8">
-            <RowStat label="Tempo" value={duration(a.movingTime)} />
+          <dl className="flex items-baseline gap-x-3.5 text-sm tabular-nums sm:gap-x-6 md:text-base">
             <RowStat
               label="Pace"
               value={paceValue(a.distance, a.movingTime)}
               unit={a.distance > 0 ? "/km" : undefined}
             />
+            <RowStat label="Tempo" value={duration(a.movingTime)} />
             {a.avgHr && (
               <RowStat
-                label={
-                  <>
-                    <HeartbeatIcon className="size-3.5" weight="bold" />
-                    bpm
-                  </>
-                }
+                label="FC média"
+                icon={<HeartbeatIcon className="size-3.5" weight="bold" />}
                 value={String(Math.round(a.avgHr))}
+                unit="bpm"
               />
             )}
-          </div>
+          </dl>
         </div>
+
+        {records && records.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {records.map((label) => (
+              <Badge key={label} variant="volt" className="gap-1">
+                <TrophyIcon weight="fill" />
+                Recorde {label}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
     </li>
   );
 }
 
+/**
+ * A stat with its label under it on wider screens. On phones only the values
+ * fit on one line, so the label hides and an icon, if any, leads the value.
+ */
 function RowStat({
   label,
+  icon,
   value,
   unit,
 }: {
-  label: React.ReactNode;
+  label: string;
+  icon?: React.ReactNode;
   value: string;
   unit?: string;
 }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-base font-semibold tabular-nums md:text-lg">
+    <div className="flex flex-col-reverse gap-0.5">
+      <dt className="hidden items-center gap-1 text-xs font-medium text-muted-foreground sm:flex">
+        {icon}
+        {label}
+      </dt>
+      <dd className="flex items-baseline gap-0.5 font-semibold">
+        {icon && (
+          <span className="self-center text-muted-foreground sm:hidden">{icon}</span>
+        )}
         {value}
         {unit && (
-          <span className="ml-0.5 text-xs font-medium text-muted-foreground">
-            {unit}
-          </span>
+          <span className="text-xs font-medium text-muted-foreground">{unit}</span>
         )}
-      </span>
-      <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-        {label}
-      </span>
+      </dd>
     </div>
   );
 }

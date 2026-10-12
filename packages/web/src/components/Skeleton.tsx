@@ -5,7 +5,7 @@ export function Skeleton({ className = "" }: { className?: string }) {
 }
 
 // Mirrors the Activities layout (heading + range toggle, the huge period km,
-// the five-stat row, then the run list) so real data doesn't shift anything.
+// the five-stat row, then the month-grouped run feed) so real data doesn't shift anything.
 export function ActivitiesSkeleton() {
   return (
     <div className="flex flex-col gap-10 md:gap-12">
@@ -27,9 +27,26 @@ export function ActivitiesSkeleton() {
           ))}
         </div>
       </section>
-      <section className="flex flex-col gap-4">
-        <Skeleton className="h-7 w-32 md:h-8" />
-        <ListSkeleton rows={6} />
+      <section className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between gap-4">
+          <Skeleton className="h-7 w-44 md:h-8" />
+          <Skeleton className="h-4 w-28" />
+        </div>
+        <ul className="flex flex-col gap-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <li
+              key={i}
+              className="flex items-center gap-4 rounded-2xl bg-card p-3 pr-4 md:gap-5 md:p-4 md:pr-6"
+            >
+              <Skeleton className="size-20 shrink-0 rounded-xl md:size-24" />
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <Skeleton className="h-3 w-28" />
+                <Skeleton className="h-5 w-2/3 max-w-xs" />
+                <Skeleton className="h-9 w-24 md:h-11" />
+              </div>
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   );
