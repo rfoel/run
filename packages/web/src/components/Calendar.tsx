@@ -314,11 +314,6 @@ function RunPill({ run, tone }: { run: Activity; tone: Tone }) {
     >
       <span className="flex min-w-0 flex-col items-center sm:items-start">
         <span className="flex min-w-0 max-w-full items-baseline gap-0.5">
-          {isTreadmill(run) && (
-            <TreadmillIcon
-              className={cn("hidden h-3 w-3 shrink-0 self-center sm:inline", sub)}
-            />
-          )}
           <span className="truncate font-display text-[15px] leading-none sm:text-xl">
             {km(run.distance)}
           </span>
@@ -335,17 +330,24 @@ function RunPill({ run, tone }: { run: Activity; tone: Tone }) {
           {pace(run.distance, run.movingTime)}
         </span>
       </span>
-      {/* Desktop only: a phone's day tile is too narrow for a route. */}
-      <RouteThumb
-        thumb={run.thumb}
-        strokeWidth={2}
-        className={cn(
-          "hidden size-8 sm:block",
-          tone === "selected" && "text-primary-foreground",
-          tone === "default" && "text-foreground dark:text-volt",
-          tone === "outside" && "text-muted-foreground",
-        )}
-      />
+      {/* Desktop only: a phone's day tile is too narrow for a route. A
+          treadmill run has no route, so its slot shows the treadmill. */}
+      {run.thumb ? (
+        <RouteThumb
+          thumb={run.thumb}
+          strokeWidth={2}
+          className={cn(
+            "hidden size-8 sm:block",
+            tone === "selected" && "text-primary-foreground",
+            tone === "default" && "text-foreground dark:text-volt",
+            tone === "outside" && "text-muted-foreground",
+          )}
+        />
+      ) : (
+        isTreadmill(run) && (
+          <TreadmillIcon className={cn("hidden size-6 shrink-0 sm:block", sub)} />
+        )
+      )}
     </span>
   );
 }
@@ -445,19 +447,24 @@ function DayDetail({
                 onTouchStart={() => onPrefetch(a.source, a.externalId)}
               >
                 <div className="flex min-w-0 items-center gap-2 font-semibold">
-                  <RouteThumb
-                    thumb={a.thumb}
-                    className="mr-1 size-12 text-foreground dark:text-volt"
-                  />
+                  {a.thumb ? (
+                    <RouteThumb
+                      thumb={a.thumb}
+                      className="mr-1 size-12 text-foreground dark:text-volt"
+                    />
+                  ) : (
+                    isTreadmill(a) && (
+                      <span className="mr-1 flex size-12 shrink-0 items-center justify-center">
+                        <TreadmillIcon className="size-7 text-muted-foreground" />
+                      </span>
+                    )
+                  )}
                   <button
                     onClick={() => onOpenActivity(a.source, a.externalId)}
                     className="truncate text-left underline-offset-2 hover:underline"
                   >
                     {a.name}
                   </button>
-                  {isTreadmill(a) && (
-                    <TreadmillIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  )}
                   <StravaLink
                     source={a.source}
                     externalId={a.externalId}
