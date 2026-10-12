@@ -243,6 +243,20 @@ function ActivityRow({
       onFocus={onPrefetch}
       onTouchStart={onPrefetch}
     >
+      {/* The route first, NRC-style; a treadmill run keeps the slot so the
+          text still lines up with its neighbours. */}
+      {a.thumb ? (
+        <RouteThumb
+          thumb={a.thumb}
+          className="size-16 text-foreground md:size-24 dark:text-volt"
+        />
+      ) : (
+        isTreadmill(a) && (
+          <div className="flex size-16 shrink-0 items-center justify-center md:size-24">
+            <TreadmillIcon className="size-8 text-muted-foreground md:size-10" />
+          </div>
+        )
+      )}
       <div className="min-w-0 flex-1">
         {/* Date + sport, with the per-run actions on the right */}
         <div className="flex items-center justify-between gap-2">
@@ -250,7 +264,8 @@ function ActivityRow({
             {date(a.startDate)} · {a.sportType}
           </div>
           <div className="relative z-10 flex shrink-0 items-center gap-2 text-muted-foreground">
-            {isTreadmill(a) && <TreadmillIcon />}
+            {/* Only when the route slot isn't already showing it. */}
+            {isTreadmill(a) && a.thumb && <TreadmillIcon />}
             <StravaLink source={a.source} externalId={a.externalId} />
             {unlocked && <DeleteActivityButton activity={a} />}
           </div>
@@ -293,10 +308,6 @@ function ActivityRow({
           </div>
         </div>
       </div>
-      <RouteThumb
-        thumb={a.thumb}
-        className="size-16 text-foreground md:size-24 dark:text-volt"
-      />
     </li>
   );
 }
