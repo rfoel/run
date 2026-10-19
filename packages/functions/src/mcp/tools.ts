@@ -1,10 +1,13 @@
+import polyline from "@mapbox/polyline";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import {
   findActivitiesOnDate,
+  getActivity,
   listActivities,
   type Activity,
+  type ActivitySource,
 } from "@run/core/activity";
 import { aggregateRecords } from "@run/core/bestEfforts";
 import {
@@ -42,8 +45,14 @@ import {
   weeklySummaries,
   type PaceRange,
 } from "@run/core/training";
+import { simplifyRoute } from "@run/core/routeThumb";
 import { addDays, daysBetween, mondayOf } from "@run/core/weeks";
-import { getManyAnalyses, getManyExtras } from "@run/core/workout";
+import {
+  getAnalysis,
+  getExtras,
+  getManyAnalyses,
+  getManyExtras,
+} from "@run/core/workout";
 import { describeWorkout, workoutDistance } from "@run/core/workoutText";
 import { pushPlansToGarmin, removePlansFromGarmin } from "../garmin/push.ts";
 
@@ -72,6 +81,12 @@ const paceRange = (r: PaceRange) => ({
 const runKey = (a: { source: string; externalId: string }) =>
   `${a.source}#${a.externalId}`;
 
+/** How the tools name a run ("garmin/23571335802"); get_activity takes it back. */
+const activityId = (a: { source: string; externalId: string }) =>
+  `${a.source}/${a.externalId}`;
+
+const WEB_URL = "https://run.rfoel.dev";
+
 /** A plan as the coach should see it: no caches or Garmin internals. */
 function planView(p: PlannedRun) {
   return {
@@ -94,6 +109,7 @@ function planView(p: PlannedRun) {
     on_garmin: !!p.garminWorkoutId,
     actual: p.actualExternalId
       ? {
+          id: `${p.actualSource}/${p.actualExternalId}`,
           name: p.actualName,
           km: p.actualDistance ? Math.round(p.actualDistance / 10) / 100 : undefined,
           pace:
@@ -233,6 +249,7 @@ function runLine(a: Activity, extras: ExtrasMap, analyses: AnalysesMap) {
     : undefined;
   return [
     a.startDate.slice(0, 10),
+    activityId(a),
     a.name,
     `${km.toFixed(2)}km`,
     `${Math.round(a.movingTime / 60)}min`,
@@ -444,10 +461,132 @@ async function getPlanCompliance(from: string, to: string) {
     unplanned_runs: runs
       .filter((r) => !linked.has(runKey(r)))
       .map((r) => ({
+        id: activityId(r),
         date: r.startDate.slice(0, 10),
         name: r.name,
         km: Math.round(r.distance / 10) / 100,
       })),
+  };
+}
+
+// --- one run -----------------------------------------------------------------
+
+const SOURCES: ActivitySource[] = ["garmin", "strava", "apple", "manual"];
+
+/** A run by "source/externalId", or by a bare external id from any source. */
+async function findActivity(id: string) {
+  const slash = id.indexOf("/");
+  if (slash >= 0) {
+    const source = id.slice(0, slash) as ActivitySource;
+    if (!SOURCES.includes(source)) throw new Error(`unknown source: ${source}`);
+    return getActivity(source, id.slice(slash + 1));
+  }
+  const found = await Promise.all(SOURCES.map((s) => getActivity(s, id)));
+  return found.find(Boolean);
+}
+
+/** Enough points for a recognisable map, small enough for a tool result. */
+const ROUTE_POINTS = 200;
+const round5 = (n: number) => Math.round(n * 1e5) / 1e5;
+
+/** The GPS route as plain [lat, lng] points, or null without one. */
+function routeView(a: Activity) {
+  if (!a.polyline) return null;
+  const full = polyline.decode(a.polyline);
+  const points = simplifyRoute(full, { tolerance: 0.001, maxPoints: ROUTE_POINTS });
+  if (points.length === 0) return null;
+  const lats = full.map((p) => p[0]);
+  const lngs = full.map((p) => p[1]);
+  return {
+    points: points.map(([lat, lng]) => [round5(lat), round5(lng)]),
+    bbox: {
+      south: Math.min(...lats),
+      west: Math.min(...lngs),
+      north: Math.max(...lats),
+      east: Math.max(...lngs),
+    },
+    note: `[lat, lng], simplified from ${full.length} GPS points. Draw it as a line over OpenStreetMap tiles (e.g. Leaflet), or send web_url for the interactive map.`,
+  };
+}
+
+async function activityDetail(a: Activity) {
+  const date = a.startDate.slice(0, 10);
+  const [extras, stored, plans] = await Promise.all([
+    getExtras(a.source, a.externalId),
+    getAnalysis(a.source, a.externalId),
+    listPlans({ from: date, to: date }),
+  ]);
+  const plan = plans.find(
+    (p) => p.actualSource === a.source && p.actualExternalId === a.externalId,
+  );
+  const an = stored?.analysis;
+  const km = a.distance / 1000;
+  const splits = a.splits ?? [];
+  const laps = extras?.laps ?? [];
+  return {
+    id: activityId(a),
+    start: a.startDate,
+    name: a.name,
+    sport: a.sportType,
+    km: Math.round(km * 100) / 100,
+    moving_time: clock(a.movingTime),
+    pace: km > 0 ? `${pace(a.movingTime / km)}/km` : undefined,
+    avg_hr: a.avgHr ? Math.round(a.avgHr) : undefined,
+    max_hr: a.maxHr ? Math.round(a.maxHr) : undefined,
+    elevation_gain_m: Math.round(a.elevationGain),
+    // The last split is whatever is left after the full kilometers.
+    splits: splits.map((s, i) => {
+      const meters = i === splits.length - 1 ? a.distance - 1000 * i : 1000;
+      return [
+        `km ${i + 1}`,
+        meters > 0 ? `${pace(s.movingSec / (meters / 1000))}/km` : "",
+        s.avgHr ? `${Math.round(s.avgHr)}bpm` : "",
+        s.elevationDelta ? `${s.elevationDelta > 0 ? "+" : ""}${Math.round(s.elevationDelta)}m` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+    }),
+    laps:
+      laps.length > 1
+        ? laps.map((l) =>
+            [
+              `lap ${l.index}`,
+              l.intensity,
+              `${Math.round(l.distance)}m`,
+              clock(l.duration),
+              l.paceSecPerKm ? `${pace(l.paceSecPerKm)}/km` : "",
+              l.avgHr ? `${Math.round(l.avgHr)}bpm` : "",
+            ]
+              .filter(Boolean)
+              .join(" "),
+          )
+        : undefined,
+    hr_zones_min: extras?.hrZones?.map((z) => ({
+      zone: z.zone,
+      from_bpm: z.low,
+      min: Math.round(z.secs / 60),
+    })),
+    rpe: extras?.feedback?.rpe,
+    training_load: extras?.physio?.trainingLoad,
+    training_effect: extras?.physio?.aerobicTE != null
+      ? `${extras.physio.aerobicTE}/${extras.physio.anaerobicTE ?? 0}`
+      : undefined,
+    weather: extras?.weather,
+    analysis: an
+      ? {
+          title: an.title,
+          type: an.type,
+          pattern: an.analysis?.pattern,
+          hr_drift_bpm: an.analysis?.hr_drift_bpm,
+          target_hit: an.analysis?.target_hit,
+          highlights: an.analysis?.highlights,
+          issues: an.analysis?.issues,
+          next_workout_suggestion: an.analysis?.next_workout_suggestion,
+        }
+      : null,
+    plan: plan ? planView(plan) : null,
+    web_url: `${WEB_URL}/corridas/${a.source}/${encodeURIComponent(a.externalId)}`,
+    route: routeView(a),
   };
 }
 
@@ -529,6 +668,15 @@ const inputs = {
       .describe("How many Monday–Sunday weeks of history to summarize (default 8)"),
   }),
   get_training_zones: z.object({}),
+  get_activity: z.object({
+    id: z
+      .string()
+      .optional()
+      .describe('Run id as the other tools list it, e.g. "garmin/23571335802"; a bare Garmin or Strava id works too'),
+    date: isoDate
+      .optional()
+      .describe("Every run that day instead, when the id is unknown"),
+  }),
   get_plan_compliance: z.object({
     from: isoDate.optional().describe("Default: Monday four weeks ago"),
     to: isoDate.optional().describe("Default: today"),
@@ -623,6 +771,8 @@ const descriptions: Record<keyof typeof inputs, string> = {
     "Start here before any planning. Today's date and the Monday a new plan starts on; the active training block and its current week; Garmin's own view (training status, acute/chronic load and ratio, load balance by type, today's readiness and recovery time, sleep, HRV, resting HR, VO2max); Monday–Sunday weekly summaries (km, longest run, Garmin load, minutes in Z4–5, RPE, planned vs done); the last 3 weeks of runs with load, training effect, RPE and analysis verdict; insights from recent run analyses; and the upcoming planned runs.",
   get_training_zones:
     "Pace and heart-rate targets derived from the athlete's own data: Daniels training paces (easy/marathon/threshold/interval/repetition) from Garmin's race predictions (or recent best efforts), the HR zones configured on the watch with LTHR and max HR, the aerobic trend (pace at a fixed HR), and recent vs all-time records. Use these numbers for every target instead of guessing.",
+  get_activity:
+    "One run in full: summary, per-km splits, watch laps, HR zones, RPE, training effect, weather, its analysis and linked plan, web_url (its page with the interactive map), and the GPS route as [lat, lng] points (null for treadmill runs). Find it by id (as listed by get_training_context and get_plan_compliance) or by date.",
   get_plan_compliance:
     "How the plan went: per Monday–Sunday week, block phase and target km vs planned and done km and counts of done/partial/skipped/missed runs; every plan with its actual run and compliance (volume %, target hit, pacing pattern, RPE); and runs done without a plan. Use this to adapt the next weeks.",
   list_planned_runs:
@@ -653,6 +803,7 @@ const descriptions: Record<keyof typeof inputs, string> = {
 const annotations: Record<keyof typeof inputs, ToolAnnotations> = {
   get_training_context: { readOnlyHint: true },
   get_training_zones: { readOnlyHint: true },
+  get_activity: { readOnlyHint: true },
   get_plan_compliance: { readOnlyHint: true },
   list_planned_runs: { readOnlyHint: true },
   create_planned_run: { readOnlyHint: false, destructiveHint: false },
@@ -703,6 +854,18 @@ async function runTool(
     }
     case "get_training_zones":
       return await getTrainingZones();
+    case "get_activity": {
+      const i = inputs.get_activity.parse(input);
+      if (i.id) {
+        const a = await findActivity(i.id);
+        if (!a) throw new Error(`activity not found: ${i.id}`);
+        return await activityDetail(a);
+      }
+      if (i.date) {
+        return await Promise.all((await findActivitiesOnDate(i.date)).map(activityDetail));
+      }
+      throw new Error("pass id or date");
+    }
     case "get_plan_compliance": {
       const i = inputs.get_plan_compliance.parse(input);
       return await getPlanCompliance(

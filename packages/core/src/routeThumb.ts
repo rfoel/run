@@ -51,13 +51,15 @@ function simplify(pts: XY[], epsilon: number): number[] {
 }
 
 /**
- * Encoded thumbnail polyline from a stored (precision-5) route polyline, or
- * undefined when there's no route to draw.
+ * A route reduced to its shape: Douglas–Peucker at `tolerance` (a share of the
+ * route's bounding-box diagonal), then thinned to at most `maxPoints`. Empty
+ * when there is no route to draw.
  */
-export function routeThumb(encoded: string | undefined): string | undefined {
-  if (!encoded) return undefined;
-  const latLngs = polyline.decode(encoded);
-  if (latLngs.length < 2) return undefined;
+export function simplifyRoute(
+  latLngs: Array<[number, number]>,
+  { tolerance, maxPoints }: { tolerance: number; maxPoints: number },
+): Array<[number, number]> {
+  if (latLngs.length < 2) return [];
 
   // Equirectangular projection around the route: fine at running scale, and
   // it makes the tolerance a real distance rather than degrees.
@@ -69,15 +71,26 @@ export function routeThumb(encoded: string | undefined): string | undefined {
     Math.max(...xs) - Math.min(...xs),
     Math.max(...ys) - Math.min(...ys),
   );
-  if (diagonal === 0) return undefined;
+  if (diagonal === 0) return [];
 
-  let kept = simplify(xy, diagonal * TOLERANCE);
-  if (kept.length > MAX_POINTS) {
-    const step = Math.ceil(kept.length / MAX_POINTS);
+  let kept = simplify(xy, diagonal * tolerance);
+  if (kept.length > maxPoints) {
+    const step = Math.ceil(kept.length / maxPoints);
     kept = kept.filter((_, i) => i % step === 0 || i === kept.length - 1);
   }
-  return polyline.encode(
-    kept.map((i) => latLngs[i]!),
-    THUMB_PRECISION,
-  );
+  return kept.map((i) => latLngs[i]!);
+}
+
+/**
+ * Encoded thumbnail polyline from a stored (precision-5) route polyline, or
+ * undefined when there's no route to draw.
+ */
+export function routeThumb(encoded: string | undefined): string | undefined {
+  if (!encoded) return undefined;
+  const route = simplifyRoute(polyline.decode(encoded), {
+    tolerance: TOLERANCE,
+    maxPoints: MAX_POINTS,
+  });
+  if (route.length === 0) return undefined;
+  return polyline.encode(route, THUMB_PRECISION);
 }

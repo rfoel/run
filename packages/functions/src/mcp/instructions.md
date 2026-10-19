@@ -72,6 +72,12 @@ EDITING EXISTING PLANS:
 - "What's on tomorrow / this week" → list_planned_runs.
 - Always list_planned_runs first when you need an id, dates, or to confirm what exists.
 
+ONE RUN:
+- Details of a specific run (splits, laps, analysis, route) → get_activity with its id
+  (listed in get_training_context recent_runs and get_plan_compliance) or its date.
+- Map of a run: send its web_url (interactive map). If the client can render a map or
+  chart, draw route.points as a line too. Treadmill runs have no route.
+
 SYNCING WITH HISTORY:
 - After creating plans whose dates overlap days the athlete has already run,
   call link_past_activities once to link those runs to their plans.
