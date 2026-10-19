@@ -6,6 +6,7 @@ import {
   WarningIcon,
 } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { aggregateRecords } from "@run/core/bestEfforts";
 import { cn } from "cn";
 import {
@@ -218,6 +219,40 @@ function SummaryStat({
 /** Runs shown at first, and added per "Mostrar mais". */
 const PAGE = 60;
 
+/** Feed orders, as they appear in the URL (`?ordem=`). */
+type Sort = "recentes" | "antigas" | "distancia" | "pace" | "tempo";
+const SORTS: Sort[] = ["recentes", "antigas", "distancia", "pace", "tempo"];
+const SORT_LABELS: Record<Sort, string> = {
+  recentes: "Recentes",
+  antigas: "Antigas",
+  distancia: "Distância",
+  pace: "Pace",
+  tempo: "Tempo",
+};
+
+/** Seconds per meter; runs with no distance sort last. */
+const paceKey = (a: Activity) =>
+  a.distance > 0 ? a.movingTime / a.distance : Infinity;
+
+/**
+ * The runs in the given order. The list comes newest first and the sort is
+ * stable, so ties keep the newest run on top.
+ */
+function sortRuns(items: Activity[], sort: Sort): Activity[] {
+  switch (sort) {
+    case "recentes":
+      return items;
+    case "antigas":
+      return [...items].reverse();
+    case "distancia":
+      return [...items].sort((a, b) => b.distance - a.distance);
+    case "pace":
+      return [...items].sort((a, b) => paceKey(a) - paceKey(b));
+    case "tempo":
+      return [...items].sort((a, b) => b.movingTime - a.movingTime);
+  }
+}
+
 const SPORT_LABELS: Record<string, string> = {
   treadmill_running: "Esteira",
   indoor_running: "Esteira",
@@ -240,7 +275,8 @@ const monthLabel = (key: string) =>
 /**
  * The run list as a feed grouped by month, NRC-style: each month opens with
  * its totals (over every run that month, not just the ones shown). Runs that
- * hold an all-time record get a volt trophy.
+ * hold an all-time record get a volt trophy. Sorted by anything but date, the
+ * months make no sense, so it becomes a flat ranking.
  */
 function RunFeed({
   items,
@@ -254,6 +290,24 @@ function RunFeed({
   onPrefetch: (source: string, externalId: string) => void;
 }) {
   const [shown, setShown] = useState(PAGE);
+  const [params, setParams] = useSearchParams();
+  const param = params.get("ordem") as Sort | null;
+  const sort: Sort = param && SORTS.includes(param) ? param : "recentes";
+  const byDate = sort === "recentes" || sort === "antigas";
+
+  const sorted = useMemo(() => sortRuns(items, sort), [items, sort]);
+
+  function changeSort(next: Sort) {
+    setShown(PAGE);
+    setParams(
+      (p) => {
+        if (next === "recentes") p.delete("ordem");
+        else p.set("ordem", next);
+        return p;
+      },
+      { replace: true },
+    );
+  }
 
   const { months, records } = useMemo(() => {
     const totals = new Map<string, { km: number; runs: number }>();
@@ -275,46 +329,78 @@ function RunFeed({
     return { months: totals, records };
   }, [items]);
 
+  const visible = sorted.slice(0, shown);
   const groups: Array<{ key: string; runs: Activity[] }> = [];
-  for (const a of items.slice(0, shown)) {
-    const key = monthKey(a.startDate);
-    const last = groups[groups.length - 1];
-    if (last?.key === key) last.runs.push(a);
-    else groups.push({ key, runs: [a] });
+  if (byDate) {
+    for (const a of visible) {
+      const key = monthKey(a.startDate);
+      const last = groups[groups.length - 1];
+      if (last?.key === key) last.runs.push(a);
+      else groups.push({ key, runs: [a] });
+    }
   }
+
+  const runList = (runs: Activity[]) => (
+    <ul className="flex flex-col gap-2">
+      {runs.map((a) => (
+        <ActivityRow
+          key={`${a.source}:${a.externalId}`}
+          activity={a}
+          records={records.get(`${a.source}#${a.externalId}`)}
+          unlocked={unlocked}
+          onSelect={() => onOpenActivity(a.source, a.externalId)}
+          onPrefetch={() => onPrefetch(a.source, a.externalId)}
+        />
+      ))}
+    </ul>
+  );
 
   return (
     <div className="flex flex-col gap-10">
-      {groups.map((g) => {
-        const t = months.get(g.key)!;
-        return (
-          <section key={g.key} className="flex flex-col gap-3">
-            <header className="flex items-baseline justify-between gap-4">
-              <h2 className="font-display text-2xl md:text-3xl">
-                {monthLabel(g.key)}
-              </h2>
-              <p className="text-sm tabular-nums text-muted-foreground">
-                <span className="font-semibold text-foreground">
-                  {t.km.toFixed(1).replace(".", ",")} km
-                </span>{" "}
-                · {t.runs} {t.runs === 1 ? "corrida" : "corridas"}
-              </p>
-            </header>
-            <ul className="flex flex-col gap-2">
-              {g.runs.map((a) => (
-                <ActivityRow
-                  key={`${a.source}:${a.externalId}`}
-                  activity={a}
-                  records={records.get(`${a.source}#${a.externalId}`)}
-                  unlocked={unlocked}
-                  onSelect={() => onOpenActivity(a.source, a.externalId)}
-                  onPrefetch={() => onPrefetch(a.source, a.externalId)}
-                />
-              ))}
-            </ul>
-          </section>
-        );
-      })}
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="mr-auto font-display text-2xl md:text-3xl">Corridas</h2>
+        <ToggleGroup
+          value={[sort]}
+          onValueChange={(v) => {
+            const next = v[0] as Sort | undefined;
+            if (next) changeSort(next);
+          }}
+          className="w-full sm:w-fit"
+        >
+          {SORTS.map((s) => (
+            <ToggleGroupItem
+              key={s}
+              value={s}
+              aria-label={`Ordenar por ${SORT_LABELS[s].toLowerCase()}`}
+              className="flex-1 px-2 sm:flex-none sm:px-4"
+            >
+              {SORT_LABELS[s]}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </div>
+
+      {byDate
+        ? groups.map((g) => {
+            const t = months.get(g.key)!;
+            return (
+              <section key={g.key} className="flex flex-col gap-3">
+                <header className="flex items-baseline justify-between gap-4">
+                  <h2 className="font-display text-2xl md:text-3xl">
+                    {monthLabel(g.key)}
+                  </h2>
+                  <p className="text-sm tabular-nums text-muted-foreground">
+                    <span className="font-semibold text-foreground">
+                      {t.km.toFixed(1).replace(".", ",")} km
+                    </span>{" "}
+                    · {t.runs} {t.runs === 1 ? "corrida" : "corridas"}
+                  </p>
+                </header>
+                {runList(g.runs)}
+              </section>
+            );
+          })
+        : runList(visible)}
       {items.length > shown && (
         <Button
           variant="secondary"
