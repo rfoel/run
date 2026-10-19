@@ -33,7 +33,10 @@ export const date = (iso: string) =>
     day: "numeric",
   });
 
-/** "Hoje · 07:12", "Ontem · 18:40", else "dom., 11 de out. · 07:30". */
+/**
+ * "Hoje · 07:12", "Ontem · 18:40", else "dom., 11 de out. de 2026 · 07:30".
+ * Always with the year: sorted by distance or pace, the feed mixes years.
+ */
 export function runWhen(iso: string): string {
   const d = new Date(iso);
   const time = d.toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
@@ -41,7 +44,17 @@ export function runWhen(iso: string): string {
     (new Date(localIso(new Date())).getTime() - new Date(localIso(d)).getTime()) /
       86_400_000,
   );
-  const day = daysAgo === 0 ? "Hoje" : daysAgo === 1 ? "Ontem" : date(iso);
+  const day =
+    daysAgo === 0
+      ? "Hoje"
+      : daysAgo === 1
+        ? "Ontem"
+        : d.toLocaleDateString(LOCALE, {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          });
   return `${day} · ${time}`;
 }
 

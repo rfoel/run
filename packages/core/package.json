@@ -13,6 +13,7 @@
     "./heatmap": "./src/heatmap.ts",
     "./plan": "./src/plan.ts",
     "./stats": "./src/stats.ts",
+    "./statsScope": "./src/statsScope.ts",
     "./track": "./src/track.ts",
     "./training": "./src/training.ts",
     "./user": "./src/user.ts",

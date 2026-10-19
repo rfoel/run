@@ -8,6 +8,7 @@ import {
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { aggregateRecords } from "@run/core/bestEfforts";
+import { scopesForDate } from "@run/core/statsScope";
 import { cn } from "cn";
 import {
   AlertDialog,
@@ -45,6 +46,28 @@ const RANGE_LABELS: Record<Range, string> = {
   total: "total",
 };
 
+/** The range as it appears in the URL (`?periodo=`); "total" is the default. */
+const RANGE_PARAMS: Record<Range, string> = {
+  week: "semana",
+  month: "mes",
+  year: "ano",
+  total: "total",
+};
+
+/** Index of each range's scope in scopesForDate, which buckets the stats. */
+const SCOPE_INDEX: Record<Range, number> = { total: 0, year: 1, month: 2, week: 3 };
+
+/**
+ * The runs in the current week, month or year, bucketed exactly like the
+ * stored totals (UTC, ISO weeks) so the feed always matches the summary.
+ */
+function runsInRange(items: Activity[], range: Range): Activity[] {
+  if (range === "total") return items;
+  const i = SCOPE_INDEX[range];
+  const current = scopesForDate(new Date().toISOString())[i];
+  return items.filter((a) => scopesForDate(a.startDate)[i] === current);
+}
+
 /** "5:27/km" -> "5:27", so the unit can be typeset separately. */
 const paceValue = (meters: number, sec: number) =>
   pace(meters, sec).replace("/km", "");
@@ -56,7 +79,9 @@ export default function Activities({
   unlocked: boolean;
   onOpenActivity: (source: string, externalId: string) => void;
 }) {
-  const [range, setRange] = useState<Range>("total");
+  const [params, setParams] = useSearchParams();
+  const range =
+    RANGES.find((r) => RANGE_PARAMS[r] === params.get("periodo")) ?? "total";
   const activitiesQ = useActivities({ limit: 1000 });
   const statsQ = useStats();
   const sync = useSyncGarmin();
@@ -69,6 +94,18 @@ export default function Activities({
   const loadError = activitiesQ.error ?? statsQ.error;
   const syncResult = sync.data ?? null;
   const syncing = sync.isPending;
+  const runs = useMemo(() => runsInRange(items, range), [items, range]);
+
+  function changeRange(next: Range) {
+    setParams(
+      (p) => {
+        if (next === "total") p.delete("periodo");
+        else p.set("periodo", RANGE_PARAMS[next]);
+        return p;
+      },
+      { replace: true },
+    );
+  }
 
   if (loading) return <ActivitiesSkeleton />;
   if (loadError) return <Status tone="error">{String(loadError)}</Status>;
@@ -88,7 +125,7 @@ export default function Activities({
             value={[range]}
             onValueChange={(v) => {
               const next = v[0] as Range | undefined;
-              if (next) setRange(next);
+              if (next) changeRange(next);
             }}
             className="order-last w-full sm:order-none sm:w-fit"
           >
@@ -174,8 +211,12 @@ export default function Activities({
         </dl>
       </section>
 
+      {/* Keyed by range so "Mostrar mais" starts over with each period. */}
       <RunFeed
+        key={range}
         items={items}
+        runs={runs}
+        range={range}
         unlocked={unlocked}
         onOpenActivity={onOpenActivity}
         onPrefetch={prefetch}
@@ -230,6 +271,13 @@ const SORT_LABELS: Record<Sort, string> = {
   tempo: "Tempo",
 };
 
+const RANGE_EMPTY: Record<Range, string> = {
+  week: "nesta semana",
+  month: "neste mês",
+  year: "neste ano",
+  total: "ainda",
+};
+
 /** Seconds per meter; runs with no distance sort last. */
 const paceKey = (a: Activity) =>
   a.distance > 0 ? a.movingTime / a.distance : Infinity;
@@ -276,15 +324,20 @@ const monthLabel = (key: string) =>
  * The run list as a feed grouped by month, NRC-style: each month opens with
  * its totals (over every run that month, not just the ones shown). Runs that
  * hold an all-time record get a volt trophy. Sorted by anything but date, the
- * months make no sense, so it becomes a flat ranking.
+ * months make no sense, so it becomes a flat ranking. `runs` are the ones in
+ * the selected period; month totals and records still come from all `items`.
  */
 function RunFeed({
   items,
+  runs,
+  range,
   unlocked,
   onOpenActivity,
   onPrefetch,
 }: {
   items: Activity[];
+  runs: Activity[];
+  range: Range;
   unlocked: boolean;
   onOpenActivity: (source: string, externalId: string) => void;
   onPrefetch: (source: string, externalId: string) => void;
@@ -295,7 +348,7 @@ function RunFeed({
   const sort: Sort = param && SORTS.includes(param) ? param : "recentes";
   const byDate = sort === "recentes" || sort === "antigas";
 
-  const sorted = useMemo(() => sortRuns(items, sort), [items, sort]);
+  const sorted = useMemo(() => sortRuns(runs, sort), [runs, sort]);
 
   function changeSort(next: Sort) {
     setShown(PAGE);
@@ -380,7 +433,9 @@ function RunFeed({
         </ToggleGroup>
       </div>
 
-      {byDate
+      {runs.length === 0 ? (
+        <Status>Nenhuma corrida {RANGE_EMPTY[range]}.</Status>
+      ) : byDate
         ? groups.map((g) => {
             const t = months.get(g.key)!;
             return (
@@ -401,7 +456,7 @@ function RunFeed({
             );
           })
         : runList(visible)}
-      {items.length > shown && (
+      {runs.length > shown && (
         <Button
           variant="secondary"
           className="self-center"
@@ -409,7 +464,7 @@ function RunFeed({
         >
           Mostrar mais
           <span className="font-normal text-muted-foreground">
-            {shown} de {items.length}
+            {shown} de {runs.length}
           </span>
         </Button>
       )}
