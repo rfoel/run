@@ -143,6 +143,24 @@ Tabs: **Calendário**, **Corridas**, **Plano**, **Mapa** (heatmap of every run +
 cities), and **Evolução** (pace at a fixed heart rate over time). All are open;
 write actions are behind the write password.
 
+## iOS
+
+`ios/` is a native SwiftUI app (iOS 26, Liquid Glass) over the same API: run
+feed with route thumbnails, run detail (map, pace/HR charts, splits, laps,
+analysis), the plan by week, and stats + records. The next planned run rides
+above the tab bar. Garmin sync asks for the write password once and keeps it
+in the Keychain. A widget (home and lock screen) shows tomorrow's planned run
+the day before it, and the last run otherwise; it fetches the API itself and
+refreshes at midnight and hourly. Code shared by both targets lives in
+`ios/Shared`. Sideloaded with the personal dev team, not on the App Store:
+
+```sh
+ios/reinstall.sh   # build + install on the iPhone (also re-signs an expired profile)
+```
+
+In the simulator, Debug builds take `-tab plan|summary|search` and
+`-open <source>/<externalId>` launch arguments to open a screen for screenshots.
+
 ## Setup
 
 ```sh
