@@ -217,7 +217,8 @@ enum API {
         return data
     }
 
-    static func activities(limit: Int = 1000) async throws -> [Activity] {
+    /// The whole history by default (the server caps nothing; ~0.6 KB a run).
+    static func activities(limit: Int = 100_000) async throws -> [Activity] {
         try await get("activities", ["limit": String(limit)], as: Items<Activity>.self).items
     }
 

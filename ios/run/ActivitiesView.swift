@@ -229,35 +229,149 @@ struct RouteThumb: View {
 struct SearchView: View {
     @Environment(Store.self) private var store
     @State private var query = ""
+    @State private var answer: AskAnswer?
+    @State private var answered = ""
+    @State private var asking = false
+    @State private var askError: String?
+
+    private static let suggestions = [
+        "Qual foi minha corrida mais rápida?",
+        "Qual foi minha corrida mais longa?",
+        "Qual foi meu pace no último mês?",
+        "Meu melhor 5 km",
+        "Quantos km corri este ano?",
+    ]
 
     var body: some View {
         NavigationStack {
-            List(results) { a in
-                NavigationLink(value: a) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(a.name).font(.headline)
-                        Text("\(Fmt.runWhen(a.date)) · \(Fmt.km(a.distance)) km · \(Fmt.pace(a.paceSecPerKm))/km")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+            List {
+                if Ask.isAvailable && query.isEmpty && answer == nil {
+                    Section("Pergunte") {
+                        ForEach(Self.suggestions, id: \.self) { s in
+                            Button {
+                                query = s
+                                Task { await ask() }
+                            } label: {
+                                Label(s, systemImage: "sparkle.magnifyingglass")
+                            }
+                        }
+                    }
+                }
+                if asking {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text("Pensando…").foregroundStyle(.secondary)
+                    }
+                } else if let askError {
+                    Label(askError, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.secondary)
+                } else if let answer {
+                    Section { AnswerCard(answer: answer) }
+                    if !answer.items.isEmpty {
+                        Section(answer.itemsTitle) {
+                            ForEach(answer.items.prefix(100)) { SearchRow(activity: $0.activity, note: $0.note) }
+                        }
+                    }
+                }
+                if answer == nil && !nameMatches.isEmpty {
+                    Section(Ask.isAvailable ? "Pelo nome" : "") {
+                        ForEach(nameMatches) { SearchRow(activity: $0) }
                     }
                 }
             }
             .overlay {
-                if !query.isEmpty && results.isEmpty { ContentUnavailableView.search(text: query) }
+                if !query.isEmpty && !asking && answer == nil && askError == nil && nameMatches.isEmpty && !Ask.isAvailable {
+                    ContentUnavailableView.search(text: query)
+                }
             }
             .navigationTitle("Buscar")
             .navigationDestination(for: Activity.self) { ActivityDetailView(activity: $0) }
-            .searchable(text: $query, prompt: "Nome da corrida")
+            .searchable(text: $query, prompt: Ask.isAvailable ? "Pergunte ou busque pelo nome" : "Nome da corrida")
+            .onSubmit(of: .search) { Task { await ask() } }
+            .onChange(of: query) {
+                // Editing the question drops the old answer.
+                if query != answered {
+                    answer = nil
+                    askError = nil
+                }
+            }
         }
         .task {
+            Ask.prewarm()
             if !store.loadedFeed { await store.loadFeed() }
+            #if DEBUG
+            // `-ask "<question>"` asks it on launch, for screenshots.
+            if let q = UserDefaults.standard.string(forKey: "ask"), answer == nil {
+                query = q
+                await ask()
+            }
+            #endif
         }
     }
 
-    private var results: [Activity] {
+    private var nameMatches: [Activity] {
         guard !query.isEmpty else { return [] }
         return FeedSort.date.sorted(store.activities).filter {
             $0.name.localizedStandardContains(query)
+        }
+    }
+
+    private func ask() async {
+        let question = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard Ask.isAvailable, !question.isEmpty, !asking else { return }
+        asking = true
+        askError = nil
+        defer { asking = false }
+        do {
+            let q = try await Ask.interpret(question)
+            if !store.loadedFeed { await store.loadFeed() }
+            answered = question
+            answer = Ask.answer(q, question: question, runs: store.activities)
+        } catch {
+            askError = "Não entendi a pergunta. Tente de outro jeito."
+        }
+    }
+}
+
+private struct AnswerCard: View {
+    let answer: AskAnswer
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(answer.headline)
+                    .font(.display(56))
+                    .monospacedDigit()
+                if let unit = answer.unit {
+                    Text(unit).font(.title3.weight(.semibold)).foregroundStyle(.secondary)
+                }
+            }
+            Text(answer.caption)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 6)
+    }
+}
+
+private struct SearchRow: View {
+    let activity: Activity
+    var note: String?
+
+    var body: some View {
+        NavigationLink(value: activity) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(activity.name).font(.headline)
+                    Text("\(Fmt.runWhen(activity.date)) · \(Fmt.km(activity.distance)) km · \(Fmt.pace(activity.paceSecPerKm))/km")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                if let note {
+                    Text(note).font(.subheadline.weight(.semibold).monospacedDigit())
+                }
+            }
         }
     }
 }
