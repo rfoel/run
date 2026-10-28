@@ -36,7 +36,10 @@ struct ContentView: View {
         }
         .tabBarMinimizeBehavior(.onScrollDown)
         .tabViewBottomAccessory {
-            NextRunAccessory { tab = .plan }
+            NextRunAccessory {
+                store.openPlanID = store.nextRun?.id
+                tab = .plan
+            }
         }
         .onOpenURL(perform: open)
         .task {
@@ -47,11 +50,12 @@ struct ContentView: View {
 }
 
 extension ContentView {
-    /// Widget taps: `run://plan`, `run://activity/<source>/<externalId>`.
+    /// Widget taps: `run://plan[/<id>]`, `run://activity/<source>/<externalId>`.
     private func open(_ url: URL) {
         switch url.host() {
         case "plan":
             tab = .plan
+            store.openPlanID = url.pathComponents.dropFirst().first
         case "activity":
             tab = .runs
             store.openActivityID = url.pathComponents.dropFirst().joined(separator: "/")

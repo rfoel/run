@@ -103,7 +103,7 @@ struct NextRunWidgetView: View {
 
     private var url: URL? {
         switch entry.content {
-        case .tomorrow: URL(string: "run://plan")
+        case .tomorrow(let run): URL(string: "run://plan/\(run.id)")
         case .last(let a, _): URL(string: "run://activity/\(a.source)/\(a.externalId)")
         case .empty: URL(string: "run://")
         }

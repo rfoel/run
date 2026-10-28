@@ -2,9 +2,10 @@ import SwiftUI
 
 struct PlanView: View {
     @Environment(Store.self) private var store
+    @State private var path = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ZStack {
                 AppBackground()
                 content
@@ -15,8 +16,18 @@ struct PlanView: View {
         }
         .task {
             if !store.loadedPlan { await store.loadPlan() }
+            openPending()
             if !store.loadedFeed { await store.loadFeed() }
         }
+        .onChange(of: store.openPlanID) { openPending() }
+        .onChange(of: store.plans) { openPending() }
+    }
+
+    /// Push the planned run a widget or accessory tap asked for, once the plan has it.
+    private func openPending() {
+        guard let id = store.openPlanID, let run = store.plans.first(where: { $0.id == id }) else { return }
+        path = NavigationPath([run])
+        store.openPlanID = nil
     }
 
     @ViewBuilder private var content: some View {

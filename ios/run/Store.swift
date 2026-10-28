@@ -30,6 +30,16 @@ final class Store {
         #endif
     }()
 
+    /// A planned run to push on the plan (its id), from a widget or accessory tap.
+    var openPlanID: String? = {
+        #if DEBUG
+        // `-plan <id>` pushes that planned run, for screenshots.
+        UserDefaults.standard.string(forKey: "plan")
+        #else
+        nil
+        #endif
+    }()
+
     var activeBlock: TrainingBlock? {
         blocks.first { $0.status == "active" } ?? blocks.first
     }
