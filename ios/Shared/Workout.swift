@@ -70,7 +70,7 @@ struct StructuredWorkout: Codable, Hashable {
         return total > 0 ? total : nil
     }
 
-    private static func durationText(_ d: WorkoutDuration?) -> String {
+    static func durationText(_ d: WorkoutDuration?) -> String {
         guard let d else { return "" }
         switch d.kind {
         case "distance":
@@ -87,18 +87,19 @@ struct StructuredWorkout: Codable, Hashable {
         }
     }
 
-    private static func targetText(_ s: WorkoutStep) -> String {
+    /// The step's pace or heart-rate target, e.g. "4:30–4:45/km", else nil.
+    static func targetText(_ s: WorkoutStep) -> String? {
         if let f = s.paceFastSec, let sl = s.paceSlowSec {
-            return " @ \(Fmt.pace(min(f, sl)))–\(Fmt.pace(max(f, sl)))/km"
+            return "\(Fmt.pace(min(f, sl)))–\(Fmt.pace(max(f, sl)))/km"
         }
-        if let p = s.paceTargetSec { return " @ \(Fmt.pace(p))/km" }
-        if let lo = s.hrLowBpm, let hi = s.hrHighBpm { return " @ \(lo)–\(hi) bpm" }
-        if let z = s.hrZone { return " @ Z\(z)" }
-        return ""
+        if let p = s.paceTargetSec { return "\(Fmt.pace(p))/km" }
+        if let lo = s.hrLowBpm, let hi = s.hrHighBpm { return "\(lo)–\(hi) bpm" }
+        if let z = s.hrZone { return "Z\(z)" }
+        return nil
     }
 
     private static func stepText(_ s: WorkoutStep) -> String {
-        let base = durationText(s.duration) + targetText(s)
+        let base = durationText(s.duration) + (targetText(s).map { " @ \($0)" } ?? "")
         switch s.kind {
         case "warmup": return "Aquec. \(base)"
         case "cooldown": return "Desaq. \(base)"

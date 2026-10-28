@@ -127,6 +127,18 @@ enum Labels {
         }
     }
 
+    static func pattern(_ p: String) -> String {
+        switch p {
+        case "consistent": "Ritmo constante"
+        case "positive_split": "Positive split"
+        case "negative_split": "Negative split"
+        case "fade": "Caiu no fim"
+        case "fast_start_stabilize": "Saída forte, depois estável"
+        case "irregular": "Ritmo irregular"
+        default: p
+        }
+    }
+
     static func status(_ s: String) -> String {
         switch s {
         case "done": "Feito"

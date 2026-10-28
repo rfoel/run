@@ -133,6 +133,7 @@ struct PlannedRun: Codable, Identifiable, Hashable {
     let type: String
     var distance: Double?
     var durationSec: Double?
+    var paceTargetSec: Double?
     var notes: String?
     var shortTitle: String?
     let status: String
@@ -144,6 +145,7 @@ struct PlannedRun: Codable, Identifiable, Hashable {
     var actualExternalId: String?
     var actualDistance: Double?
     var actualMovingTime: Double?
+    var actualAvgHr: Double?
 
     var day: Date { ISODate.day(date) }
     /// Planned distance, else what the structured workout adds up to.

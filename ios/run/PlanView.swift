@@ -10,6 +10,7 @@ struct PlanView: View {
                 content
             }
             .navigationTitle("Plano")
+            .navigationDestination(for: PlannedRun.self) { PlannedRunDetailView(run: $0) }
             .navigationDestination(for: Activity.self) { ActivityDetailView(activity: $0) }
         }
         .task {
@@ -114,7 +115,6 @@ private struct BlockHeader: View {
 }
 
 private struct WeekCard: View {
-    @Environment(Store.self) private var store
     let start: Date
     let runs: [PlannedRun]
     let info: BlockWeek?
@@ -151,12 +151,8 @@ private struct WeekCard: View {
                     .tint(doneKm >= plannedKm * 0.9 ? .green : .primary)
             }
             ForEach(runs) { run in
-                if let src = run.actualSource, let ext = run.actualExternalId, let a = store.activity(source: src, externalId: ext) {
-                    NavigationLink(value: a) { PlanRow(run: run, chevron: true) }
-                        .buttonStyle(.plain)
-                } else {
-                    PlanRow(run: run, chevron: false)
-                }
+                NavigationLink(value: run) { PlanRow(run: run) }
+                    .buttonStyle(.plain)
             }
         }
         .padding(16)
@@ -167,7 +163,6 @@ private struct WeekCard: View {
 
 private struct PlanRow: View {
     let run: PlannedRun
-    let chevron: Bool
 
     var body: some View {
         let today = Fmt.calendar.isDateInToday(run.day)
@@ -194,9 +189,7 @@ private struct PlanRow: View {
             }
             Spacer(minLength: 0)
             statusIcon
-            if chevron {
-                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-            }
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }
         .contentShape(.rect)
         .opacity(run.status == "skipped" ? 0.5 : 1)
