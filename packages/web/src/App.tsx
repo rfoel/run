@@ -28,6 +28,7 @@ import {
 import Activities from "./components/Activities.tsx";
 import Calendar from "./components/Calendar.tsx";
 import Plan from "./components/Plan.tsx";
+import PlanDetail from "./components/PlanDetail.tsx";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import {
@@ -250,6 +251,13 @@ export function WorkoutDetailRoute() {
       />
     </Suspense>
   );
+}
+
+export function PlanDetailRoute() {
+  const { date, id } = useParams();
+  const navigate = useNavigate();
+  if (!date || !id) return <Navigate to="/plano" replace />;
+  return <PlanDetail date={date} id={id} onBack={() => navigate(-1)} />;
 }
 
 function UnlockDialog({

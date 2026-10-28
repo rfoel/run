@@ -21,6 +21,16 @@ export const PLAN_STATUS_LABEL: Record<PlannedRun["status"], string> = {
 export const isRun = (p: Pick<PlannedRun, "status">) =>
   p.status === "done" || p.status === "partial";
 
+/** How the pace evolved over a run, from its analysis. */
+export const PATTERN_LABEL: Record<string, string> = {
+  consistent: "consistente",
+  positive_split: "positive split (desacelerando)",
+  negative_split: "negative split (acelerando)",
+  fade: "queda no fim",
+  fast_start_stabilize: "saída rápida, estabilizou",
+  irregular: "irregular",
+};
+
 /** "62%" from a 0.62 ratio. */
 export const pct = (ratio: number) => `${Math.round(ratio * 100)}%`;
 

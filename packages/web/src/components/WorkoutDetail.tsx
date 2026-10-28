@@ -53,6 +53,7 @@ import StravaLink from "./StravaLink.tsx";
 import { PLAN_TYPE_LABELS } from "./TypeBadge.tsx";
 import {
   ComplianceMeta,
+  PATTERN_LABEL,
   PLAN_STATUS_LABEL,
   PlanStatusTag,
   WorkoutSteps,
@@ -1276,15 +1277,6 @@ function RepTable({
     </div>
   );
 }
-
-const PATTERN_LABEL: Record<string, string> = {
-  consistent: "consistente",
-  positive_split: "positive split (desacelerando)",
-  negative_split: "negative split (acelerando)",
-  fade: "queda no fim",
-  fast_start_stabilize: "saída rápida, estabilizou",
-  irregular: "irregular",
-};
 
 function Coach({ analysis }: { analysis: WorkoutAnalysis }) {
   const an = analysis.analysis;

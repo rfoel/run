@@ -19,6 +19,7 @@ import {
   resyncActivity,
   syncGarmin,
   type ActivityDetail,
+  type PlannedRun,
   type WorkoutAnalysis,
 } from "./api.ts";
 import { importWorkoutDetail } from "./lazyDetail.ts";
@@ -44,6 +45,22 @@ export const qk = {
 
 export function usePlans(opts: PlanOpts = {}) {
   return useQuery({ queryKey: qk.plans(opts), queryFn: () => listPlans(opts) });
+}
+
+// One planned run, from the plans of its day. Opening it from the Plano page
+// shows the row already in cache straight away while the day refetches.
+export function usePlan(date: string, id: string) {
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: qk.plans({ from: date, to: date }),
+    queryFn: () => listPlans({ from: date, to: date }),
+    placeholderData: () =>
+      qc
+        .getQueriesData<PlannedRun[]>({ queryKey: ["plans"] })
+        .flatMap(([, plans]) => plans ?? [])
+        .filter((p) => p.date === date),
+  });
+  return { ...q, plan: q.data?.find((p) => p.id === id) };
 }
 
 // Training blocks are few and small, so the whole list is one cached (and

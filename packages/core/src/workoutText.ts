@@ -11,7 +11,8 @@ import type {
 const pace = (sec: number) =>
   `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
 
-function durationText(d: Duration): string {
+/** "1 km", "400 m", "12 min", "1min30". */
+export function durationText(d: Duration): string {
   switch (d.kind) {
     case "distance":
       return d.meters >= 1000 && d.meters % 100 === 0
@@ -28,13 +29,14 @@ function durationText(d: Duration): string {
   }
 }
 
-function targetText(s: StepSpec): string {
+/** The step's pace or heart-rate target, e.g. "4:30–4:45/km", else undefined. */
+export function targetText(s: StepSpec): string | undefined {
   if (s.paceFastSec && s.paceSlowSec)
-    return ` @ ${pace(Math.min(s.paceFastSec, s.paceSlowSec))}–${pace(Math.max(s.paceFastSec, s.paceSlowSec))}/km`;
-  if (s.paceTargetSec) return ` @ ${pace(s.paceTargetSec)}/km`;
-  if (s.hrLowBpm && s.hrHighBpm) return ` @ ${s.hrLowBpm}–${s.hrHighBpm} bpm`;
-  if (s.hrZone) return ` @ Z${s.hrZone}`;
-  return "";
+    return `${pace(Math.min(s.paceFastSec, s.paceSlowSec))}–${pace(Math.max(s.paceFastSec, s.paceSlowSec))}/km`;
+  if (s.paceTargetSec) return `${pace(s.paceTargetSec)}/km`;
+  if (s.hrLowBpm && s.hrHighBpm) return `${s.hrLowBpm}–${s.hrHighBpm} bpm`;
+  if (s.hrZone) return `Z${s.hrZone}`;
+  return undefined;
 }
 
 const KIND_LABEL: Record<StepSpec["kind"], string> = {
@@ -46,7 +48,8 @@ const KIND_LABEL: Record<StepSpec["kind"], string> = {
 };
 
 function stepText(s: StepSpec): string {
-  const base = `${durationText(s.duration)}${targetText(s)}`;
+  const target = targetText(s);
+  const base = `${durationText(s.duration)}${target ? ` @ ${target}` : ""}`;
   switch (s.kind) {
     case "warmup":
     case "cooldown":

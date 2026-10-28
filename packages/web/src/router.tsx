@@ -4,6 +4,7 @@ import App, {
   ActivitiesRoute,
   CalendarRoute,
   MapRoute,
+  PlanDetailRoute,
   PlanRoute,
   TrendRoute,
   WorkoutDetailRoute,
@@ -83,6 +84,16 @@ function planLoader() {
   return null;
 }
 
+function planDetailLoader({ params }: LoaderFunctionArgs) {
+  const { date } = params;
+  if (!date) return null;
+  void queryClient.prefetchQuery({
+    queryKey: qk.plans({ from: date, to: date }),
+    queryFn: () => listPlans({ from: date, to: date }),
+  });
+  return null;
+}
+
 function mapLoader() {
   // Both match their hooks' staleTime — the history only changes on a sync.
   void queryClient.prefetchQuery({
@@ -116,6 +127,11 @@ export const router = createBrowserRouter([
         loader: workoutDetailLoader,
       },
       { path: "plano", element: <PlanRoute />, loader: planLoader },
+      {
+        path: "plano/:date/:id",
+        element: <PlanDetailRoute />,
+        loader: planDetailLoader,
+      },
       { path: "mapa", element: <MapRoute />, loader: mapLoader },
       // Reuses the activities list the Corridas tab already loads, so there is
       // nothing extra to prefetch beyond that shared query.

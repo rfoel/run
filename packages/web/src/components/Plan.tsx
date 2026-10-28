@@ -11,6 +11,7 @@ import { addDays, daysBetween, mondayOf } from "@run/core/weeks";
 import { workoutDistance } from "@run/core/workoutText";
 import { cn } from "cn";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -491,19 +492,23 @@ function PlanRow({
   return (
     <li
       className={cn(
-        "flex gap-4 rounded-2xl bg-card p-4 md:gap-6 md:p-5",
+        "relative flex gap-4 rounded-2xl bg-card p-4 transition-colors hover:bg-[color-mix(in_oklch,var(--card),var(--foreground)_4%)] md:gap-6 md:p-5",
         skipped && "*:opacity-50",
       )}
     >
-      {/* Day */}
-      <div className="flex w-10 shrink-0 flex-col items-center gap-1 pt-0.5">
+      {/* Day; its link stretches over the whole card. */}
+      <Link
+        to={`/plano/${plan.date}/${encodeURIComponent(plan.id)}`}
+        aria-label={`Ver treino de ${formatDate(plan.date)}`}
+        className="flex w-10 shrink-0 flex-col items-center gap-1 pt-0.5 outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-3 focus-visible:after:ring-ring/50"
+      >
         <span className="text-xs font-semibold text-muted-foreground uppercase">
           {d
             .toLocaleDateString("pt-BR", { weekday: "short" })
             .replace(".", "")}
         </span>
         <span className="font-display text-3xl">{d.getDate()}</span>
-      </div>
+      </Link>
 
       <div className="min-w-0 flex-1">
         {/* Type + status */}
@@ -524,8 +529,7 @@ function PlanRow({
               href={`https://connect.garmin.com/app/workout/${plan.garminWorkoutId}?workoutType=running`}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="relative z-10 flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               title="Abrir este treino no Garmin Connect"
             >
               <WatchIcon className="size-4" />
@@ -598,7 +602,7 @@ function DeletePlanButton({ plan }: { plan: PlannedRun }) {
           <Button
             variant="ghost"
             size="icon-sm"
-            className="-mt-1 -mr-1 shrink-0 text-muted-foreground"
+            className="relative z-10 -mt-1 -mr-1 shrink-0 text-muted-foreground"
           />
         }
         aria-label="Excluir treino"
